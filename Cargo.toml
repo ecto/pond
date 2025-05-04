@@ -1,0 +1,16 @@
+[workspace]
+
+resolver = "2" # Use the modern resolver compatible with Edition 2021
+
+members = [
+    "crates/cad",
+    "crates/hello_pond",
+    # Crates will be added here, e.g.:
+    # "crates/pond_core",
+    # "crates/hw",
+    # "crates/sim",
+]
+
+[profile.release]
+lto = true
+codegen-units = 1

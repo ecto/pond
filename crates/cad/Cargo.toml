@@ -1,0 +1,28 @@
+[package]
+name = "cad"
+version = "0.1.0"
+edition = "2021"
+
+# This crate is primarily for holding CAD models and the generation logic.
+# It might not have a library target if only the binary is needed.
+# [[lib]]
+# name = "cad"
+# path = "src/lib.rs"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# Removed truck-* and winit
+clap = { version = "4", features = ["derive"] } # For CLI args
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Removed instant and pollster
+
+# Build script is minimal, does not run CAD generation
+# [build-dependencies]
+
+# Removed binary target
+
+[[bin]]
+name = "generate-cad"
+path = "src/bin/generate_cad.rs"
