@@ -31,11 +31,9 @@ Cargo.lock
 *.sql
 *.sqlite
 
-# Python virtual environments - REMOVED
-# **/.venv/
-
 # Python virtual environment (uv)
 .venv/
+__pycache__/
 
 # Nix development environment
 flake.lock

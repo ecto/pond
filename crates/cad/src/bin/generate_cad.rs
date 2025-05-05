@@ -78,10 +78,12 @@ fn main() -> std::io::Result<()> {
             println!("  Output STEP: {}", step_file_path.display());
             println!("  Output STL: {}", stl_file_path.display());
 
+            let models_dir_parent = model_path.parent().expect("Could not get parent of models dir"); // Get crates/cad
             let status = Command::new(&python_executable)
                 .arg(&script_path)
                 .env("STEP_OUTPUT_PATH", &step_file_path)
                 .env("STL_OUTPUT_PATH", &stl_file_path)
+                .env("PYTHONPATH", models_dir_parent)
                 .stdout(Stdio::inherit())
                 .stderr(Stdio::inherit())
                 .status()
