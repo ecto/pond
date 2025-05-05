@@ -1,0 +1,7 @@
+[build]
+output_name = "web"
+site_root = "target/site"
+site_pkg_dir = "pkg"
+
+[serve]
+address = "127.0.0.1:3000"

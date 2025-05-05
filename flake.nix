@@ -20,6 +20,7 @@
       rust_targets = [
         "thumbv6m-none-eabi" # RP2040
         "aarch64-unknown-linux-gnu" # Jetson
+        "wasm32-unknown-unknown" # WebAssembly
       ];
 
       # Build toolchain with targets
@@ -45,6 +46,8 @@
           pkgs.cargo
           pkgs.rustfmt
           pkgs.clippy
+          pkgs.cargo-leptos
+          pkgs.wasm-bindgen-cli
 
           # RP2040 flashing
           pkgs.probe-rs
