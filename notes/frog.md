@@ -6,110 +6,74 @@ Friendly Robotic Open Generalist
 
 ## 1. Purpose
 
-Prototype and prove out a novel humanoid robot software and hardware stack using readily available consumer electronics. Provide a foundational platform for future development towards general-purpose household tasks.
+Prototype and prove out a novel quadruped robot software and hardware stack using readily available consumer electronics. Provide a foundational platform for future development towards general-purpose household tasks.
 
 ---
 
 ## 2. Hardware
 
-High-level architecture: A v1 humanoid form factor with a wheeled base for locomotion. Designed for modularity and leveraging COTS components. Referencing `koi.md` for AI compute stack and `arm.md` for arm construction principles where applicable.
+High-level architecture: A v1 quadruped robot consisting of a torso, four identical servo-actuated limbs, and a head on a pan/tilt neck. The design prioritises modularity and COTS components. The compute stack follows `koi.md`; mechanical principles reference `arm.md` where applicable.
 
 ### 2.1 Compute
 
-- **Central Brain:** NVIDIA Jetson Orin NX 16GB. Housed within the torso.
-- **Limb/Module MCUs:** RP2040 microcontroller board per major module (Arms, Head, Legs/Base).
+- **Central Brain:** NVIDIA Jetson Orin NX 16GB on Seeed reComputer J4012 carrier (plastic housing removed). Located inside the head enclosure for shortest sensor paths and improved torso volume.
+- **Head Local Control:** Raspberry Pi Pico W (RP2040) dedicated to the pan/tilt drive (SPI encoder + step/dir generation) and local sensor timestamping.
+- **Limb/Module MCUs:** One RP2040 microcontroller board per limb (×4) handling local servo timing and sensing.
 
 ### 2.2 Actuation
 
-- **Primary Actuators:** Homogeneous use of closed-loop NEMA-17 stepper motors across all joints (specific model TBD, analogous to NEMA-23 in `arm.md` §2).
+- **Primary Actuators:** 12 V high-torque digital servos (ANNIMOS RDS51150SG 150 kg·cm class) across all joints; no external motor drivers required.
+- **Head Pan/Tilt:** Two matching 12 V servos configured for ±135 ° pan and tilt; driven directly from Jetson PWM outputs.
 
 ### 2.3 Structure
 
-- **Form Factor:** Humanoid upper body (torso, 2 arms, head) mounted on a wheeled mobile base.
-- **Modularity:** Arms, Head, and Legs/Base designed as distinct modules.
+- **Form Factor:** Quadruped torso with four limb modules and a head.
+- **Modularity:** Head and each limb are independent modules that connect to the torso.
 - **Component Layout:**
-  - **Torso:** Houses Jetson Orin NX, 24V Power Supply/Distribution, **USB Hub**, **E-Stop Controller**.
-  - **Wheeled Base (v1 specific):** Houses Ecoflow River 3 Power Station, base locomotion motors/drivers.
-  - **Modules (Arms, Head):** Contain respective actuators, RP2040 MCUs, and local wiring.
-- **Schematic Overview:**
-  `      +---------+
-        |  Head   |
-        | (RP2040)| -- USB --\
-        +----|----+
-             |
-    +--------|--------+
- L Arm|        |        | R Arm
-(RP2040|  Torso        |(RP2040 -- USB --\
--- USB-->|  (Jetson NX)  |---------- USB Hub ----> Jetson
-    |  (24V PSU)    |---------- E-Stop ---> Actuator Power Cutoff
-    |  (USB Hub)    |
-    |  (E-Stop)     |   /-- USB -- Base (RP2040)
-    +--------|--------+
-             |
-    +--------|--------+
-    | Wheeled Base    |
-    | (RP2040)        |
-    | (Ecoflow River) |
-    | (Motors)        |
-    +-----------------+`
-- **Module Schematics (Conceptual):**
+  - **Head:** Houses Jetson Orin NX, RealSense D455 (RGB-D + IMU), RPLIDAR C1, 10.1″ LCD, servo-based pan/tilt stack, and (optional) Pi Pico W helper MCU. Exposes one 12 V power input and a small signal harness to the rest of the robot.
+  - **Torso:** Houses Milwaukee M18 HD12 Li-ion battery pack, 18 V→12 V buck converter (main power rail), and **E-Stop Controller**.
+  - **Modules (Limbs & Head):** Each limb houses its own servos and RP2040; the head hosts servos for pan/tilt and optional helper MCU.
+- **Schematic Overview:** _Diagram to be updated for quadruped layout in a future revision._
 
   ```
   Head Module:
   +--------------------+
-  | [RGB-D Camera]     |
+  | [RealSense D455]   |
   |       /\           |
   |      /  \          |
   |     +----+         |
-  |     | RP |<-- USB  |
+  |     | Pi |<-- I2C  |
   |     +----+         |
   +--------------------+
 
-  Arm Module (Simplified - showing 3 joints):
+  Limb Module (Simplified – showing 3 joints of one leg):
   +--------------------+
-  | Shoulder Yaw (N17) |
+  | Shoulder Yaw (150 kg Servo) |
   |        |           |
   |        +-----------+--- Link 1
-  | Shoulder Pitch(N17)|
+  | Shoulder Pitch (150 kg Servo)|
   |        |           |
   |        +-----------+--- Link 2
-  | Elbow Pitch (N17)  |
+  | Elbow Pitch (150 kg Servo) |
   |        |           |
   | +----+ +-----------+--- Link 3 -> Tool
   | | RP |<-- USB      |
   | +----+             |
   +--------------------+
-
-  Wheeled Base Module (v1):
-  +--------------------------+
-  |  [RP2040] <-- USB        |
-  |         |                |
-  | +-------+-------+        |
-  | | Motor Driver L|        |
-  | +---------------+        |
-  | | Motor Driver R|        |
-  | +-------+-------+        |
-  |         |                |
-  | +-------------------+    |
-  | | Ecoflow River Bat |    |
-  | +-------------------+    |
-  |      |         |         |
-  | Wheel L     Wheel R      |
-  +--------------------------+
   ```
 
 ### 2.4 Connectivity
 
-- **Internal Bus:** USB 2.0 High-Speed connecting limb/base RP2040s to the central Jetson Orin NX **via a powered USB Hub located in the torso**.
+- **Internal Bus (v1):** Servos receive standard 50 Hz PWM signals directly from Jetson GPIO/PWM pins via short ribbon harnesses; no intermediate USB hub is used. Remaining Jetson USB ports are available for sensors or helper MCUs as needed.
 
 ### 2.5 Power
 
-- **Source:** Ecoflow River 3 Portable Power Station (housed in wheeled base for v1).
-- **Distribution:** Downstream 24V DC power supply located in the torso. Power is distributed to the Jetson, USB Hub, and **separately to actuators via the E-Stop circuit**.
+- **Source:** Milwaukee M18 HD12 Li-ion battery (12 Ah, 18 V nominal) mounted in the torso; a high-efficiency buck converter supplies a regulated 12 V system rail.
+- **Distribution:** The regulated 12 V rail feeds the Jetson and all servos through the **E-Stop** relay; local 5 V regulators power logic and sensors as required.
 
 ### 2.6 Safety
 
-- **Physical Emergency Stop (E-Stop):** A physical E-Stop button will cut power directly to all actuators (NEMA-17 motors, base motors) via a dedicated safety relay or controller. The Jetson Orin NX and RP2040 MCUs will remain powered to allow for diagnostics and controlled shutdown procedures.
+- **Physical Emergency Stop (E-Stop):** A physical E-Stop button will cut 12 V to all servos via a dedicated safety relay or controller. The Jetson Orin NX and RP2040 MCUs remain powered for diagnostics and orderly shutdown.
 - **Software E-Stop:** A mechanism triggered via the `comms` bus (e.g., from `cli` or `diag`) to command all motion (`control`, `firmware`) to halt gracefully while keeping compute powered.
 - **Watchdogs:**
   - **Firmware Watchdog:** Implemented on RP2040s (`firmware`) to reset or enter a safe state if the main loop hangs.
@@ -128,9 +92,22 @@ High-level architecture: A v1 humanoid form factor with a wheeled base for locom
 
 ### 2.7 Sensing
 
-- **Primary Perception:** RGB-D Camera (Head-mounted), LiDAR (Torso or Base mounted - TBD).
-- **Proprioception:** Closed-loop stepper feedback (position/velocity), potentially joint encoders if needed.
+- **Primary Perception:** Intel RealSense D455 (RGB-D + IMU) in head, RPLIDAR C1 mounted on head frame; torso/base LiDAR TBD.
+- **Proprioception:** Internal servo potentiometer feedback (position) with optional external encoders/IMUs for higher-resolution sensing if required.
 - **Other:** Microphone array (Head/Torso), IMU (Base or Torso).
+
+#### 2.3.1 Head Mass & Power footprint (analysis)
+
+|  Quantity | Item                              |    Mass (g) |          Peak W | Notes                           |
+| --------: | --------------------------------- | ----------: | --------------: | ------------------------------- |
+|         1 | Jetson Orin NX + J4012 (no shell) |         210 |              25 | Mounted to rear heat-sink block |
+|         1 | RealSense D455                    |          75 |             1.5 | RGB-D + IMU                     |
+|         1 | RPLIDAR C1                        |         110 |             2.0 | Mounted behind LCD              |
+|         1 | Raspberry Pi Pico W               |          25 |               1 | Controls pan/tilt               |
+|         2 | 150 kg servos                     |         400 |        up to 30 | \*Manufacturer stall spec       |
+|         1 | 10.1″ LCD assembly                |        1000 |             7.5 | Via 5 V buck                    |
+|      Misc | Frame, cabling, brackets          |         450 |               — |                                 |
+| **Total** |                                   | **≈ 2 372** | **≈ 40 W peak** | figure used in `head.md`        |
 
 ---
 
@@ -184,104 +161,4 @@ A potential structure for the Rust crates within the `crates/` directory, favori
 
 **Core Crates:**
 
-- `core`: Defines fundamental shared types (e.g., `JointState`, `Pose`, `Twist`, `Image`, `PointCloud`, `ImuData`), common error types/enums, coordinate frame conventions, and potentially shared constants (robot dimensions). Likely uses `nalgebra` for math types, `serde` for serialization.
-- `comms`: Implements the custom inter-process communication bus. Defines message schemas (likely using `serde`), handles serialization (e.g., CBOR/`ciborium`), provides publish/subscribe and request/response abstractions. Might use `tokio` for async operations and potentially shared memory or domain sockets for transport.
-- `flog`: Shared logging facade and configuration. Wraps `tracing` or `log`. Sets up structured logging, potentially with different sinks (stdout, file). Used by most other crates.
-
-**Hardware Interface Crates (Jetson):**
-
-- `bridge`: Manages USB communication (`rusb` or `serialport`) with the `firmware` on RP2040 modules. Defines and implements the command/status protocol (e.g., `SetJointTargets`, `ReportJointStates`), handles device discovery, serialization/deserialization. Publishes status to `comms`, receives commands.
-- `sensors`: Provides drivers and interfaces for sensors connected directly to the Jetson. Examples: RGB-D camera (`opencv` bindings, `v4l`), LiDAR (vendor SDK/FFI), Microphone array (`alsa`, `cpal`). Publishes sensor data structures (defined in `core`) onto the `comms` bus.
-
-**AI / Control Systems Crates (Jetson):**
-
-- `vla`: Wraps the reactive Visual Language Model (VLA) inference engine. Uses TensorRT bindings (`trt-rs` or similar) for accelerated inference. Subscribes to sensor data and goals via `comms`, publishes kinematic targets (e.g., end-effector commands, joint velocities) via `comms`.
-- `planner`: Wraps the deliberative LLM planning engine. Uses TensorRT bindings. Handles task decomposition, sub-goal generation based on high-level instructions (from `voice` or `tasks`). Interacts via `comms`.
-- `control`: Coordinates motion commands. Subscribes to outputs from `vla` and `planner` (via `comms`), implements blending/switching logic, performs safety checks, and sends final commands to the hardware via the `bridge` crate.
-
-**Supporting Services Crates (Jetson):**
-
-- `slam`: Implements the chosen SLAM algorithm. Subscribes to relevant sensor data (LiDAR, IMU from `sensors`, Wheel Odometry from `bridge`) via `comms`. Publishes robot pose estimates and map updates via `comms`.
-- `voice`: Handles the voice interaction pipeline. Includes Wake-Word detection, Speech-to-Text (STT engine, local/cloud), and Text-to-Speech (TTS engine). Interacts with `planner` for NLU/dialogue via `comms`.
-- `tasks`: Executes complex, multi-step tasks defined using Behavior Trees (`bonsai-bt` or similar) or State Machines. Interacts with `planner` for high-level steps and `control` for action execution via `comms`.
-
-**Firmware Crates (RP2040):**
-
-- `firmware`: Embedded code running on the RP2040s (`rp-pico` HAL, `cortex-m-rt`). Implements the USB device counterpart to `bridge`. Runs real-time control loops for motors (e.g., PID, step generation), reads local encoders/sensors. Uses `defmt` for logging.
-
-**Tooling Crates:**
-
-- `viz`: Connects to `comms` bus, subscribes to relevant data (pose, joint states, sensor data, plans), and sends it to Rerun (`rerun-rs`) for 3D visualization. May load URDF for robot model display.
-- `diag`: Diagnostics monitor. Subscribes to health/status messages via `comms`, potentially collects system metrics. Provides a TUI (`ratatui`) or web interface (`axum`) for display.
-- `cli`: Command-line tools (`clap`) for interacting with the live system via `comms` (sending commands, requesting status, debugging).
-
-**Main Orchestrator (Jetson):**
-
-- `robotd`: The main daemon running on the Jetson. Parses configuration, launches, monitors, and manages the lifecycle of the various service processes (`planner`, `vla`, `control`, etc.). Handles graceful shutdown.
-
----
-
-## 4. Capabilities
-
-The ultimate goal is autonomous laundry folding. This necessitates a range of intermediate capabilities:
-
-- **Mobility:** Navigation in indoor home environments and simple outdoor paths (sidewalks).
-- **Manipulation:** Dexterous grasping and manipulation suitable for clothing items.
-- **Perception:** Object recognition (clothing types, laundry basket, folding surface), environment mapping (SLAM), human interaction (voice, potentially gesture).
-- **Planning & Reasoning:** Decomposing the high-level goal ("fold laundry") into sequential and parallel sub-tasks (e.g., fetch basket, identify item, grasp, fold, place).
-- **Interaction:** Natural language conversations for task instruction and status updates.
-
----
-
-## 5. Operating Environment
-
-- **Primary:** Indoor residential environments (apartments, houses).
-- **Secondary:** Simple, controlled outdoor environments (e.g., paved sidewalks, parks) in favorable weather conditions. Assumed flat or mildly sloped terrain.
-
----
-
-## 6. Training Workflow (within Monorepo)
-
-This section outlines the approach for training the AI models (VLA, LLM) used by FROG, keeping all necessary code within the `pond` monorepo.
-
-### 6.1 Technology Choice: Python
-
-While the robot's runtime software is implemented in Rust for performance and safety, the **model training workflow will primarily utilize Python.**
-
-**Reasoning:**
-
-- **Ecosystem Maturity:** The Python ML ecosystem (PyTorch, TensorFlow, Hugging Face `transformers`, `datasets`, `trl`, `accelerate`, etc.) is vastly more mature and feature-rich than Rust alternatives for deep learning research and training.
-- **Tooling Availability:** Essential tools for training, evaluation, quantization (e.g., QLoRA, bitsandbytes), distillation, and exporting models (e.g., to ONNX or TensorRT) are predominantly available and optimized for Python.
-- **Pre-trained Models & Research:** State-of-the-art foundation models (like Gemma, Llama) and associated research codebases are released in Python, simplifying fine-tuning and adaptation.
-- **Developer Focus:** This allows the Rust development effort to focus on building a robust inference runtime, while leveraging the best tools available for the distinct task of offline model training.
-- **Consistency with `koi.md`:** Aligns with the likely Python-based tooling and methods referenced in `koi.md` if components of that pipeline are reused.
-
-### 6.2 Directory Structure
-
-A dedicated `training/` directory will exist at the root of the monorepo:
-
-```
-pond/
-├── crates/          # Rust runtime crates
-├── training/        # Python training code
-│   ├── datasets/    # Data or links to data
-│   ├── notebooks/   # Exploration
-│   ├── scripts/     # Main training/eval/export scripts
-│   └── src/         # Python source code (e.g., learn package)
-│       └── learn/
-├── notes/           # Documentation
-# ... other files ...
-└── requirements-train.txt # Python dependencies
-```
-
-### 6.3 Key Components within `training/`
-
-- **Python Packages (`src/learn`):** Reusable Python code for model definitions, data loading, training loops, etc.
-- **Training Scripts (`scripts/train.py`):** Main scripts to launch training jobs, potentially using libraries like `accelerate` or `pytorch-lightning`.
-- **Evaluation Scripts (`scripts/eval.py`):** Scripts to evaluate trained checkpoints.
-- **Export Scripts (`scripts/export_trt.py`):** Scripts to convert trained models (e.g., PyTorch) into optimized formats (e.g., ONNX, TensorRT `.plan` files) loadable by the Rust runtime crates (`vla`, `planner`).
-- **Dependency Management (`requirements-train.txt` or `pyproject.toml`):** Defines necessary Python libraries (PyTorch, Transformers, TensorRT Python bindings, etc.).
-- **Configuration Files:** Files defining training parameters, model configurations, dataset paths.
-- **(Optional) Experiment Tracking:** Integration with tools like MLflow or Weights & Biases.
-
----
+- `core`: Defines fundamental shared types (e.g., `JointState`, `Pose`, `Twist`, `Image`, `PointCloud`, `ImuData`), common error types/enums, coordinate frame conventions, and potentially shared constants (robot dimensions). Likely uses `nalgebra` for math types, `serde`
