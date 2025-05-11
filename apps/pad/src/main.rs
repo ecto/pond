@@ -32,6 +32,10 @@ const STATUS_MESSAGES: [&str; 5] = [
 #[derive(Resource, Deref)]
 struct StatusText(Entity);
 
+// --- Local plugin modules ---
+mod splash;
+mod scene;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -47,11 +51,9 @@ fn main() {
         .insert_resource(WireframeConfig { global: false, ..Default::default() })
         .add_plugins(UiOverlayPlugin)
         .init_state::<AppState>()
-        .add_systems(OnEnter(AppState::Splash), splash_setup)
-        .add_systems(Update, splash_timer.run_if(in_state(AppState::Splash)))
-        .add_systems(Update, splash_status_update.run_if(in_state(AppState::Splash)))
-        .add_systems(OnExit(AppState::Splash), splash_cleanup)
-        .add_systems(OnEnter(AppState::InGame), setup)
+        // Register feature groups via plugins instead of inline systems.
+        .add_plugins(splash::SplashPlugin)
+        .add_plugins(scene::ScenePlugin)
         .run();
 }
 
