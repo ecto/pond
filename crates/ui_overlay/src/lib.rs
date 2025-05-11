@@ -10,6 +10,8 @@ use bevy::prelude::Time;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::keyboard::KeyCode;
 use vision_common::CameraModel;
+use bevy::time::Timer;
+use bevy::time::TimerMode;
 
 /// UI overlay plugin powered by `bevy_egui`.
 pub struct UiOverlayPlugin;
@@ -25,8 +27,10 @@ impl Plugin for UiOverlayPlugin {
             .init_resource::<SystemMessages>()
             .init_resource::<ShowFps>()
             .init_resource::<SelectedCamera>()
+            .init_resource::<RobotLog>()
+            .init_resource::<ExampleLogTimer>()
             .add_systems(Startup, (setup_preview_texture, setup_fonts))
-            .add_systems(Update, (fps_toggle, egui_ui, update_preview_texture_size, gamepad_tab_cycle, orbit_camera));
+            .add_systems(Update, (generate_example_logs, fps_toggle, egui_ui, update_preview_texture_size, gamepad_tab_cycle, orbit_camera));
     }
 }
 
@@ -155,6 +159,16 @@ impl Default for SelectedCamera {
     }
 }
 
+/// New system: toggle FPS with 'F' key
+fn fps_toggle(
+    keys: Res<ButtonInput<KeyCode>>,
+    mut show_fps: ResMut<ShowFps>,
+) {
+    if keys.just_pressed(KeyCode::KeyF) {
+        show_fps.0 = !show_fps.0;
+    }
+}
+
 /// Creates a texture, a second camera that renders the current world into it, and
 /// registers the texture with `bevy_egui` so it can be displayed in the UI.
 fn setup_preview_texture(
@@ -264,6 +278,7 @@ fn egui_ui(
     names: Query<&Name>,
     children_query: Query<&Children>,
     root_entities: Query<Entity, Without<Parent>>,
+    robot_log: Res<RobotLog>,
 ) {
     let tex_id = preview
         .as_ref()
@@ -300,16 +315,30 @@ fn egui_ui(
         .show(ctx, |ui| {
             match **current_tab {
                 AppTab::Scene => {
+                    const LOG_HEIGHT: f32 = 150.0; // px height reserved for log view
                     let avail = ui.available_size();
-                    let desired_px = (avail * pixels_per_point).max(egui::vec2(1.0,1.0));
+                    let preview_size = egui::vec2(avail.x, (avail.y - LOG_HEIGHT).max(1.0));
+                    let desired_px = (preview_size * pixels_per_point).max(egui::vec2(1.0, 1.0));
                     desired_size.width = desired_px.x.round() as u32;
                     desired_size.height = desired_px.y.round() as u32;
 
+                    // 3-D preview
                     if let Some(id) = tex_id {
-                        ui.image(egui::load::SizedTexture::new(id, avail));
+                        ui.image(egui::load::SizedTexture::new(id, preview_size));
                     } else {
                         ui.label("No preview available");
                     }
+
+                    ui.separator();
+
+                    // Realtime log output
+                    egui::ScrollArea::vertical()
+                        .max_height(LOG_HEIGHT)
+                        .show(ui, |ui| {
+                            for line in robot_log.0.iter().rev() { // latest at top
+                                ui.label(line);
+                            }
+                        });
                 }
                 AppTab::Teleop => draw_teleop_tab(ui),
                 AppTab::Inspector => draw_inspector_tab(ui),
@@ -478,16 +507,6 @@ fn update_preview_texture_size(
     }
 }
 
-/// New system: toggle FPS with 'F' key
-fn fps_toggle(
-    keys: Res<ButtonInput<KeyCode>>,
-    mut show_fps: ResMut<ShowFps>,
-) {
-    if keys.just_pressed(KeyCode::KeyF) {
-        show_fps.0 = !show_fps.0;
-    }
-}
-
 // --- Helper UI for the scene hierarchy ---------------------------------------------------------
 
 fn draw_scene_hierarchy(
@@ -520,5 +539,37 @@ fn draw_entity_node(
         });
     } else {
         ui.label(label);
+    }
+}
+
+#[doc = "Realtime log lines streamed from the connected robot."]
+#[derive(Resource, Default, Debug)]
+pub struct RobotLog(pub Vec<String>);
+
+// Definition for ExampleLogTimer after ShowFps default impl
+#[derive(Resource, Deref, DerefMut)]
+struct ExampleLogTimer(Timer);
+
+impl Default for ExampleLogTimer {
+    fn default() -> Self {
+        ExampleLogTimer(Timer::from_seconds(1.0, TimerMode::Repeating))
+    }
+}
+
+// System to push demo log lines
+fn generate_example_logs(
+    mut timer: ResMut<ExampleLogTimer>,
+    time: Res<Time>,
+    mut log: ResMut<RobotLog>,
+) {
+    if timer.tick(time.delta()).just_finished() {
+        let ts = time.elapsed_seconds();
+        log.0.push(format!("[{:.1}s] Demo log entry", ts));
+        const MAX_LOGS: usize = 200;
+        let len = log.0.len();
+        if len > MAX_LOGS {
+            let excess = len - MAX_LOGS;
+            log.0.drain(0..excess);
+        }
     }
 }
