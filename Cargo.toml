@@ -7,6 +7,11 @@ members = [
     "crates/hello_pond", "crates/server", "crates/web",
     "apps/pad",
     "crates/ui_overlay",
+    "crates/vision_common",
+    "crates/vision_semseg",
+    "crates/vision_detection",
+    "crates/vision_tags",
+    "crates/vision_tracks",
     # Crates will be added here, e.g.:
     # "crates/pond_core",
     # "crates/hw",

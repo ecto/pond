@@ -1,0 +1,11 @@
+[package]
+name = "vision_detection"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+vision_common = { path = "../vision_common" }
+anyhow = "1.0"
+log = "0.4"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+futures = "0.3"

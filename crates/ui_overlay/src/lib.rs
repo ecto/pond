@@ -9,6 +9,7 @@ use std::f32::consts::PI;
 use bevy::prelude::Time;
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::input::keyboard::KeyCode;
+use vision_common::CameraModel;
 
 /// UI overlay plugin powered by `bevy_egui`.
 pub struct UiOverlayPlugin;
@@ -23,6 +24,7 @@ impl Plugin for UiOverlayPlugin {
             .init_resource::<ConnectionStatus>()
             .init_resource::<SystemMessages>()
             .init_resource::<ShowFps>()
+            .init_resource::<SelectedCamera>()
             .add_systems(Startup, (setup_preview_texture, setup_fonts))
             .add_systems(Update, (fps_toggle, egui_ui, update_preview_texture_size, gamepad_tab_cycle, orbit_camera));
     }
@@ -143,6 +145,16 @@ impl Default for ShowFps {
     }
 }
 
+/// Currently selected RGB-D camera model.
+#[derive(Resource, Deref, DerefMut)]
+struct SelectedCamera(CameraModel);
+
+impl Default for SelectedCamera {
+    fn default() -> Self {
+        SelectedCamera(CameraModel::OakDS2)
+    }
+}
+
 /// Creates a texture, a second camera that renders the current world into it, and
 /// registers the texture with `bevy_egui` so it can be displayed in the UI.
 fn setup_preview_texture(
@@ -247,6 +259,7 @@ fn egui_ui(
     connection_status: Res<ConnectionStatus>,
     system_messages: Res<SystemMessages>,
     show_fps: Res<ShowFps>,
+    mut selected_camera: ResMut<SelectedCamera>,
     diagnostics: Res<DiagnosticsStore>,
 ) {
     let tex_id = preview
@@ -312,6 +325,17 @@ fn egui_ui(
             for msg in &system_messages.0[start..] {
                 ui.label(msg);
             }
+
+            // Camera selection combobox.
+            egui::ComboBox::from_id_source("camera_select")
+                .selected_text(selected_camera.as_str())
+                .show_ui(ui, |ui| {
+                    for model in CameraModel::ALL {
+                        ui.selectable_value(&mut **selected_camera, model, model.as_str());
+                    }
+                });
+
+            ui.separator();
 
             if show_fps.0 {
                 if let Some(fps) = diagnostics

@@ -8,3 +8,4 @@ bevy = { version = "0.13" }
 bevy_egui = "0.27"
 # egui_tiles = "0.12"
 egui_dock = "0.7"
+vision_common = { path = "../vision_common" }
