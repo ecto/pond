@@ -1,0 +1,9 @@
+[package]
+name = "pad"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.13" }
+ui_overlay = { path = "../../crates/ui_overlay" }
+rand = "0.8"

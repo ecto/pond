@@ -5,6 +5,8 @@ resolver = "2" # Use the modern resolver compatible with Edition 2021
 members = [
     "crates/cad",
     "crates/hello_pond", "crates/server", "crates/web",
+    "apps/pad",
+    "crates/ui_overlay",
     # Crates will be added here, e.g.:
     # "crates/pond_core",
     # "crates/hw",

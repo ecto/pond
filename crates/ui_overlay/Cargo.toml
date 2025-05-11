@@ -1,0 +1,10 @@
+[package]
+name = "ui_overlay"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.13" }
+bevy_egui = "0.27"
+# egui_tiles = "0.12"
+egui_dock = "0.7"
