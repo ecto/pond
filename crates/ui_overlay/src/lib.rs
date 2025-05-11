@@ -30,7 +30,7 @@ impl Plugin for UiOverlayPlugin {
             .init_resource::<RobotLog>()
             .init_resource::<ExampleLogTimer>()
             .add_systems(Startup, (setup_preview_texture, setup_fonts))
-            .add_systems(Update, (generate_example_logs, fps_toggle, egui_ui, update_preview_texture_size, gamepad_tab_cycle, orbit_camera));
+            .add_systems(Update, (generate_example_logs, fps_toggle, egui_ui, update_preview_texture_size, gamepad_tab_cycle, orbit_camera, limit_preview_camera_far));
     }
 }
 
@@ -570,6 +570,16 @@ fn generate_example_logs(
         if len > MAX_LOGS {
             let excess = len - MAX_LOGS;
             log.0.drain(0..excess);
+        }
+    }
+}
+
+// Limit the far clip plane of the preview camera to reduce rendering load.
+fn limit_preview_camera_far(mut query: Query<&mut bevy::render::camera::Projection, With<PreviewCamera>>) {
+    const FAR_CLIP: f32 = 100.0; // Objects beyond this distance will be culled.
+    for mut proj in &mut query {
+        if let bevy::render::camera::Projection::Perspective(ref mut perspective) = *proj {
+            perspective.far = FAR_CLIP;
         }
     }
 }
