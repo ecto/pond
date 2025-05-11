@@ -4,10 +4,16 @@ use bevy::prelude::*;
 use bevy::math::EulerRot;
 use ui_overlay::UiOverlayPlugin;
 use rand::Rng;
+use bevy::pbr::wireframe::WireframePlugin;
+use bevy::pbr::wireframe::WireframeConfig;
+use bevy::render::mesh::{Mesh, PrimitiveTopology, Indices};
+use bevy::render::render_asset::RenderAssetUsages;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(WireframePlugin)
+        .insert_resource(WireframeConfig { global: false, ..Default::default() })
         .add_plugins(UiOverlayPlugin)
         .add_systems(Startup, setup)
         .run();
@@ -53,12 +59,44 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
         ..default()
     });
 
-    // Ground plane (X/Y).
+    // --- Ground grid composed of lines (no diagonals) ---
+    let grid_size: f32 = 50.0;
+    let divisions: u32 = 100;
+    let half = grid_size / 2.0;
+    let step = grid_size / divisions as f32;
+
+    let mut positions: Vec<[f32; 3]> = Vec::with_capacity(((divisions + 1) * 4) as usize);
+    let mut indices: Vec<u32> = Vec::with_capacity(((divisions + 1) * 4) as usize);
+
+    let mut push_line = |start: Vec3, end: Vec3| {
+        let idx = positions.len() as u32;
+        positions.push([start.x, start.y, start.z]);
+        positions.push([end.x, end.y, end.z]);
+        indices.push(idx);
+        indices.push(idx + 1);
+    };
+
+    for i in 0..=divisions {
+        let offset = -half + i as f32 * step;
+        // Lines parallel to X (varying in Z)
+        push_line(Vec3::new(-half, 0.0, offset), Vec3::new(half, 0.0, offset));
+        // Lines parallel to Z (varying in X)
+        push_line(Vec3::new(offset, 0.0, -half), Vec3::new(offset, 0.0, half));
+    }
+
+    let mut grid_mesh = Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default());
+    grid_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    grid_mesh.insert_indices(Indices::U32(indices));
+
+    let grid_handle = meshes.add(grid_mesh);
+
     commands.spawn(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 50.0 , subdivisions: 0})),
+        mesh: grid_handle,
         material: materials.add(StandardMaterial {
-            base_color: Color::rgb(0.2, 0.2, 0.2),
-            perceptual_roughness: 1.0,
+            base_color: Color::rgb(0.8, 0.8, 0.8),
+            emissive: Color::rgb(0.8, 0.8, 0.8),
+            unlit: true,
+            cull_mode: None, // visible from underside
             ..default()
         }),
         ..default()

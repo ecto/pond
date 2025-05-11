@@ -48,7 +48,7 @@ impl AppTab {
 
     fn title(self) -> &'static str {
         match self {
-            AppTab::Scene => "Scene",
+            AppTab::Scene => "World",
             AppTab::Teleop => "Tele-op",
             AppTab::Inspector => "Inspector",
             AppTab::Log => "Log",
@@ -102,7 +102,7 @@ impl Default for OrbitCamera {
     fn default() -> Self {
         OrbitCamera {
             yaw: -45.0_f32.to_radians(),
-            pitch: -30.0_f32.to_radians(),
+            pitch: 30.0_f32.to_radians(),
             radius: 7.0,
             target: Vec3::ZERO,
         }
@@ -261,6 +261,9 @@ fn egui_ui(
     show_fps: Res<ShowFps>,
     mut selected_camera: ResMut<SelectedCamera>,
     diagnostics: Res<DiagnosticsStore>,
+    names: Query<&Name>,
+    children_query: Query<&Children>,
+    root_entities: Query<Entity, Without<Parent>>,
 ) {
     let tex_id = preview
         .as_ref()
@@ -282,29 +285,39 @@ fn egui_ui(
 
     let pixels_per_point = ctx.pixels_per_point();
 
+    // Scene hierarchy sidebar (only when the Viewport tab is active)
+    if **current_tab == AppTab::Scene {
+        egui::SidePanel::left("scene_hierarchy")
+            .default_width(200.0)
+            .show(ctx, |ui| {
+                ui.heading("World");
+                draw_scene_hierarchy(ui, &root_entities, &names, &children_query);
+            });
+    }
+
     egui::CentralPanel::default()
         .frame(egui::Frame::none())
         .show(ctx, |ui| {
-        match **current_tab {
-            AppTab::Scene => {
-                let avail = ui.available_size();
-                let desired_px = (avail * pixels_per_point).max(egui::vec2(1.0,1.0));
-                desired_size.width = desired_px.x.round() as u32;
-                desired_size.height = desired_px.y.round() as u32;
+            match **current_tab {
+                AppTab::Scene => {
+                    let avail = ui.available_size();
+                    let desired_px = (avail * pixels_per_point).max(egui::vec2(1.0,1.0));
+                    desired_size.width = desired_px.x.round() as u32;
+                    desired_size.height = desired_px.y.round() as u32;
 
-                if let Some(id) = tex_id {
-                    ui.image(egui::load::SizedTexture::new(id, avail));
-                } else {
-                    ui.label("No preview available");
+                    if let Some(id) = tex_id {
+                        ui.image(egui::load::SizedTexture::new(id, avail));
+                    } else {
+                        ui.label("No preview available");
+                    }
                 }
+                AppTab::Teleop => draw_teleop_tab(ui),
+                AppTab::Inspector => draw_inspector_tab(ui),
+                AppTab::Log => draw_log_tab(ui),
             }
-            AppTab::Teleop => draw_teleop_tab(ui),
-            AppTab::Inspector => draw_inspector_tab(ui),
-            AppTab::Log => draw_log_tab(ui),
-        }
-    });
+        });
 
-    // --- Status bar at the bottom ---
+    // --- Status bar at the bottom (drawn last so it overlays panels) ---
     egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
             // Connection status indicator
@@ -472,5 +485,40 @@ fn fps_toggle(
 ) {
     if keys.just_pressed(KeyCode::KeyF) {
         show_fps.0 = !show_fps.0;
+    }
+}
+
+// --- Helper UI for the scene hierarchy ---------------------------------------------------------
+
+fn draw_scene_hierarchy(
+    ui: &mut egui::Ui,
+    roots: &Query<Entity, Without<Parent>>,
+    names: &Query<&Name>,
+    children_query: &Query<&Children>,
+) {
+    for root in roots.iter() {
+        draw_entity_node(ui, root, names, children_query);
+    }
+}
+
+fn draw_entity_node(
+    ui: &mut egui::Ui,
+    entity: Entity,
+    names: &Query<&Name>,
+    children_query: &Query<&Children>,
+) {
+    let label: String = names
+        .get(entity)
+        .map(|n| n.as_str().to_owned())
+        .unwrap_or_else(|_| format!("Entity {:?}", entity));
+
+    if let Ok(children) = children_query.get(entity) {
+        ui.collapsing(label, |ui| {
+            for &child in children.iter() {
+                draw_entity_node(ui, child, names, children_query);
+            }
+        });
+    } else {
+        ui.label(label);
     }
 }
