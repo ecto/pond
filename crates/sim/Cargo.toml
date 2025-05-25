@@ -1,0 +1,19 @@
+[package]
+name = "sim"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = { version = "0.13", default-features = false, features = ["bevy_winit", "x11"] }
+bevy_rapier3d = { version = "0.26", features = ["simd-stable"] }
+anyhow = "1"
+rerun = { version = "0.23", optional = true }
+quick-xml = "0.31"
+tokio = { version = "1", features = ["sync"] }
+tobj = "4"
+
+[features]
+# When enabled the sim exposes sensor/actuator updates via Pond bus Envelope.
+bus = []
+# Enable Rerun logging
+viz = ["rerun"]

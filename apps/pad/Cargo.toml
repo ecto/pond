@@ -7,3 +7,4 @@ edition = "2021"
 bevy = { version = "0.13" }
 ui_overlay = { path = "../../crates/ui_overlay" }
 rand = "0.8"
+rerun = "0.23"

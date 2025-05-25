@@ -2,7 +2,6 @@
 
 use bevy::prelude::*;
 use bevy::math::EulerRot;
-use ui_overlay::UiOverlayPlugin;
 use rand::Rng;
 use bevy::pbr::wireframe::WireframePlugin;
 use bevy::pbr::wireframe::WireframeConfig;
@@ -12,48 +11,20 @@ use bevy::window::{PrimaryWindow, WindowPlugin, WindowResolution, Window};
 use bevy::render::camera::RenderTarget;
 use bevy::window::WindowRef;
 use bevy::text::Text2dBounds;
-
-// Resource to keep track of the temporary splash window entity.
-#[derive(Resource, Deref)]
-struct SplashWindow(Entity);
-
-// Path to embedded monospace font for the splash.
-const SPLASH_FONT_BYTES: &[u8] = include_bytes!("../../../assets/fonts/SpaceMono-Regular.ttf");
-
-// Status messages shown under the title.
-const STATUS_MESSAGES: [&str; 5] = [
-    "Starting…",
-    "Loading resources…",
-    "Configuring scene…",
-    "Almost ready…",
-    "Done!",
-];
+use rerun::RecordingStreamBuilder;
 
 #[derive(Resource, Deref)]
 struct StatusText(Entity);
 
-// --- Local plugin modules ---
-mod splash;
-mod scene;
-
 fn main() {
+    // Launch a Rerun viewer process and connect to it.
+    let _rec = RecordingStreamBuilder::new("pond_blueprint")
+        .spawn()
+        .expect("failed to spawn rerun viewer");
+
+    // Run a minimal Bevy app just to keep the program alive. No windows/plugins.
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: WindowResolution::new(1280.0, 720.0),
-                title: "Pad".into(),
-                visible: false, // hide until splash completes
-                ..default()
-            }),
-            ..default()
-        }))
-        .add_plugins(WireframePlugin)
-        .insert_resource(WireframeConfig { global: false, ..Default::default() })
-        .add_plugins(UiOverlayPlugin)
-        .init_state::<AppState>()
-        // Register feature groups via plugins instead of inline systems.
-        .add_plugins(splash::SplashPlugin)
-        .add_plugins(scene::ScenePlugin)
+        .add_plugins(MinimalPlugins)
         .run();
 }
 
@@ -191,160 +162,5 @@ fn setup(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>, mut materials
 #[derive(States, Debug, Clone, Eq, PartialEq, Hash, Default)]
 enum AppState {
     #[default]
-    Splash,
     InGame,
-}
-
-// Marker component for splash entities so we can clean them up easily.
-#[derive(Component)]
-struct SplashScreen;
-
-// Simple countdown timer resource
-#[derive(Resource, Deref, DerefMut)]
-struct SplashTimer(Timer);
-
-// Spawns a very basic splash screen: a 2-D camera and some centered text.
-fn splash_setup(mut commands: Commands, mut fonts: ResMut<Assets<Font>>) {
-    // Create a dedicated, border-less splash window.
-    let splash_window = commands
-        .spawn(Window {
-            resolution: WindowResolution::new(600.0, 350.0),
-            title: "Pad Loading".into(),
-            decorations: false,
-            resizable: false,
-            ..default()
-        })
-        .id();
-
-    // Remember the window entity so we can close it later.
-    commands.insert_resource(SplashWindow(splash_window));
-
-    // Camera
-    commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                target: RenderTarget::Window(WindowRef::Entity(splash_window)),
-                ..default()
-            },
-            ..default()
-        },
-        SplashScreen,
-    ));
-
-    // Background panel so the splash stands out (dark slate colour).
-    commands.spawn((
-        SpriteBundle {
-            sprite: Sprite {
-                color: Color::hex("0000FF").unwrap(),
-                custom_size: Some(Vec2::new(1.0, 1.0)), // scaled by camera view
-                ..default()
-            },
-            transform: Transform::from_scale(Vec3::new(2000.0, 2000.0, -1.0)),
-            ..default()
-        },
-        SplashScreen,
-    ));
-
-    // Add the embedded monospace font to the asset system (instant, no IO).
-    let font_handle = fonts.add(Font::try_from_bytes(SPLASH_FONT_BYTES.to_vec()).unwrap());
-
-    // Main title text (pseudo-bold by drawing twice with slight offset)
-    let title_style = TextStyle {
-        font: font_handle.clone(),
-        font_size: 72.0,
-        color: Color::WHITE,
-        ..default()
-    };
-
-    // Base layer
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("POND", title_style.clone()),
-            text_2d_bounds: Text2dBounds { size: Vec2::new(800.0, 300.0) },
-            text_anchor: bevy::sprite::Anchor::Center,
-            transform: Transform::from_translation(Vec3::new(0.0, 0.0, 1.0)),
-            ..default()
-        },
-        SplashScreen,
-    ));
-    // Offset layer to mimic bold
-    commands.spawn((
-        Text2dBundle {
-            text: Text::from_section("POND", title_style),
-            text_2d_bounds: Text2dBounds { size: Vec2::new(800.0, 300.0) },
-            text_anchor: bevy::sprite::Anchor::Center,
-            transform: Transform::from_translation(Vec3::new(1.0, 0.0, 1.01)),
-            ..default()
-        },
-        SplashScreen,
-    ));
-
-    // Status text entity (initially first message)
-    let status_entity = commands
-        .spawn((
-            Text2dBundle {
-                text: Text::from_section(
-                    STATUS_MESSAGES[0],
-                    TextStyle {
-                        font: font_handle,
-                        font_size: 24.0,
-                        color: Color::WHITE,
-                        ..default()
-                    },
-                ),
-                text_anchor: bevy::sprite::Anchor::Center,
-                transform: Transform::from_translation(Vec3::new(0.0, -80.0, 1.0)),
-                ..default()
-            },
-            SplashScreen,
-        ))
-        .id();
-
-    commands.insert_resource(StatusText(status_entity));
-
-    // Insert countdown timer – splash stays at least 5 seconds
-    commands.insert_resource(SplashTimer(Timer::from_seconds(5.0, TimerMode::Once)));
-}
-
-// Progress the countdown; when finished switch to InGame state.
-fn splash_timer(mut timer: ResMut<SplashTimer>, time: Res<Time>, mut next_state: ResMut<NextState<AppState>>) {
-    if timer.tick(time.delta()).finished() {
-        next_state.set(AppState::InGame);
-    }
-}
-
-// Update status text based on elapsed time
-fn splash_status_update(
-    timer: Res<SplashTimer>,
-    status: Res<StatusText>,
-    mut query: Query<&mut Text>,
-) {
-    let elapsed = timer.elapsed().as_secs_f32();
-    let idx = (elapsed.floor() as usize).min(STATUS_MESSAGES.len() - 1);
-    if let Ok(mut text) = query.get_mut(**status) {
-        if text.sections[0].value != STATUS_MESSAGES[idx] {
-            text.sections[0].value = STATUS_MESSAGES[idx].to_string();
-        }
-    }
-}
-
-// Remove all entities tagged as part of the splash screen.
-fn splash_cleanup(
-    mut commands: Commands,
-    query: Query<Entity, With<SplashScreen>>,
-    mut window_q: Query<&mut Window, With<PrimaryWindow>>,
-    splash_win: Res<SplashWindow>,
-) {
-    // Remove splash entities.
-    for entity in &query {
-        commands.entity(entity).despawn_recursive();
-    }
-
-    // Restore window to a standard size with decorations.
-    if let Ok(mut primary) = window_q.get_single_mut() {
-        primary.visible = true;
-    }
-
-    // Close the temporary splash window.
-    commands.entity(**splash_win).despawn();
 }

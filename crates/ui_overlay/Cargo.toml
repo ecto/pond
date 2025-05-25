@@ -5,7 +5,11 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.13" }
+# Egui tiles v0.8 uses egui 0.27, matching bevy_egui
 bevy_egui = "0.27"
-# egui_tiles = "0.12"
-egui_dock = "0.7"
+egui_tiles = "0.8"
+# Rerun SDK & embedded viewer
+rerun = { version = "0.23", features = ["native_viewer"] }
+re_viewer = "0.23"
+# egui_dock = "0.7"
 vision_common = { path = "../vision_common" }

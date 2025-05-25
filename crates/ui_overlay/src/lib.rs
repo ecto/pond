@@ -12,6 +12,9 @@ use bevy::input::keyboard::KeyCode;
 use vision_common::CameraModel;
 use bevy::time::Timer;
 use bevy::time::TimerMode;
+use egui_tiles::{Tiles, Tree, TileId, ContainerKind};
+use rerun::{RecordingStream, RecordingStreamBuilder};
+use bevy::prelude::NonSendMut;
 
 /// UI overlay plugin powered by `bevy_egui`.
 pub struct UiOverlayPlugin;
@@ -29,7 +32,9 @@ impl Plugin for UiOverlayPlugin {
             .init_resource::<SelectedCamera>()
             .init_resource::<RobotLog>()
             .init_resource::<ExampleLogTimer>()
-            .add_systems(Startup, (setup_preview_texture, setup_fonts))
+            .init_resource::<Timeline>()
+            .insert_non_send_resource(RerunViewer::default())
+            .add_systems(Startup, (setup_preview_texture, setup_fonts, init_tiles))
             .add_systems(Update, (generate_example_logs, fps_toggle, egui_ui, update_preview_texture_size, gamepad_tab_cycle, orbit_camera, limit_preview_camera_far));
     }
 }
@@ -279,6 +284,9 @@ fn egui_ui(
     children_query: Query<&Children>,
     root_entities: Query<Entity, Without<Parent>>,
     robot_log: Res<RobotLog>,
+    mut timeline: ResMut<Timeline>,
+    tiles_state: Option<ResMut<TilesState>>,
+    mut _rerun_viewer: NonSendMut<RerunViewer>,
 ) {
     let tex_id = preview
         .as_ref()
@@ -300,6 +308,20 @@ fn egui_ui(
 
     let pixels_per_point = ctx.pixels_per_point();
 
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none())
+        .show(ctx, |ui| {
+            match **current_tab {
+                AppTab::Scene => {
+                    // TODO: integrate Rerun viewer here.
+                    draw_world(ui, tex_id, &mut *desired_size, pixels_per_point);
+                }
+                AppTab::Teleop => draw_teleop_tab(ui),
+                AppTab::Inspector => draw_inspector_tab(ui),
+                AppTab::Log => draw_log_tab(ui),
+            }
+        });
+
     // Scene hierarchy sidebar (only when the Viewport tab is active)
     if **current_tab == AppTab::Scene {
         egui::SidePanel::left("scene_hierarchy")
@@ -310,44 +332,10 @@ fn egui_ui(
             });
     }
 
-    egui::CentralPanel::default()
-        .frame(egui::Frame::none())
+    // --- Status bar (bottom-most, full width) -----------------------------------
+    egui::TopBottomPanel::bottom("status_bar")
+        .resizable(false)
         .show(ctx, |ui| {
-            match **current_tab {
-                AppTab::Scene => {
-                    const LOG_HEIGHT: f32 = 150.0; // px height reserved for log view
-                    let avail = ui.available_size();
-                    let preview_size = egui::vec2(avail.x, (avail.y - LOG_HEIGHT).max(1.0));
-                    let desired_px = (preview_size * pixels_per_point).max(egui::vec2(1.0, 1.0));
-                    desired_size.width = desired_px.x.round() as u32;
-                    desired_size.height = desired_px.y.round() as u32;
-
-                    // 3-D preview
-                    if let Some(id) = tex_id {
-                        ui.image(egui::load::SizedTexture::new(id, preview_size));
-                    } else {
-                        ui.label("No preview available");
-                    }
-
-                    ui.separator();
-
-                    // Realtime log output
-                    egui::ScrollArea::vertical()
-                        .max_height(LOG_HEIGHT)
-                        .show(ui, |ui| {
-                            for line in robot_log.0.iter().rev() { // latest at top
-                                ui.label(line);
-                            }
-                        });
-                }
-                AppTab::Teleop => draw_teleop_tab(ui),
-                AppTab::Inspector => draw_inspector_tab(ui),
-                AppTab::Log => draw_log_tab(ui),
-            }
-        });
-
-    // --- Status bar at the bottom (drawn last so it overlays panels) ---
-    egui::TopBottomPanel::bottom("status_bar").show(ctx, |ui| {
         ui.horizontal(|ui| {
             // Connection status indicator
             use ConnectionStatus::*;
@@ -390,6 +378,60 @@ fn egui_ui(
             }
         });
     });
+
+    // --- egui_tiles docked UI (World / Timeline / Log) ---
+    if **current_tab == AppTab::Scene {
+        if let Some(mut tiles_state) = tiles_state {
+            egui::CentralPanel::default()
+                .frame(egui::Frame::none())
+                .show(ctx, |ui| {
+                    // Create a custom behavior for the tiles
+                    struct TileBehavior<'a> {
+                        tex_id: Option<egui::TextureId>,
+                        desired_size: &'a mut DesiredPreviewSize,
+                        pixels_per_point: f32,
+                        timeline: &'a mut Timeline,
+                        log: &'a RobotLog,
+                    }
+
+                    impl<'a> egui_tiles::Behavior<TileKind> for TileBehavior<'a> {
+                        fn pane_ui(
+                            &mut self,
+                            ui: &mut egui::Ui,
+                            _tile_id: TileId,
+                            kind: &mut TileKind,
+                        ) -> egui_tiles::UiResponse {
+                            match kind {
+                                TileKind::World => draw_world(ui, self.tex_id, self.desired_size, self.pixels_per_point),
+                                TileKind::Timeline => draw_timeline(ui, self.timeline),
+                                TileKind::Log => draw_log(ui, self.log),
+                            }
+                            egui_tiles::UiResponse::None
+                        }
+
+                        // Required implementation of tab_title_for_pane
+                        fn tab_title_for_pane(&mut self, kind: &TileKind) -> egui::widget_text::WidgetText {
+                            match kind {
+                                TileKind::World => "World".into(),
+                                TileKind::Timeline => "Timeline".into(),
+                                TileKind::Log => "Log".into(),
+                            }
+                        }
+                    }
+
+                    let mut behavior = TileBehavior {
+                        tex_id,
+                        desired_size: &mut *desired_size,
+                        pixels_per_point,
+                        timeline: &mut *timeline,
+                        log: &*robot_log,
+                    };
+
+                    // Render the tiles inside this ui scope
+                    tiles_state.0.ui(&mut behavior, ui);
+                });
+        }
+    }
 }
 
 fn draw_teleop_tab(ui: &mut egui::Ui) {
@@ -581,5 +623,131 @@ fn limit_preview_camera_far(mut query: Query<&mut bevy::render::camera::Projecti
         if let bevy::render::camera::Projection::Perspective(ref mut perspective) = *proj {
             perspective.far = FAR_CLIP;
         }
+    }
+}
+
+// --- Timeline resource for play/pause/slider ---
+#[derive(Resource)]
+pub struct Timeline {
+    pub current_time: f32,
+    pub min_time: f32,
+    pub max_time: f32,
+    pub playing: bool,
+}
+
+impl Default for Timeline {
+    fn default() -> Self {
+        Timeline {
+            current_time: 0.0,
+            min_time: 0.0,
+            max_time: 10.0,
+            playing: false,
+        }
+    }
+}
+
+// --- egui_tiles docking -------------------------------------------------------
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TileKind {
+    World,
+    Timeline,
+    Log,
+}
+
+#[derive(Resource)]
+struct TilesState(Tree<TileKind>);
+
+fn init_tiles(mut commands: Commands) {
+    // Create tiles for each content type
+    let mut tiles = Tiles::default();
+
+    // Insert the tiles we need for our layout
+    let world_id = tiles.insert_pane(TileKind::World);
+    let timeline_id = tiles.insert_pane(TileKind::Timeline);
+    let log_id = tiles.insert_pane(TileKind::Log);
+
+    // Create a container with the tiles
+    let mut container = egui_tiles::Container::new(
+        ContainerKind::Vertical,
+        vec![world_id, timeline_id, log_id],
+    );
+
+    // For Linear containers (like Vertical), we can set weights differently
+    if let egui_tiles::Container::Linear(linear) = &mut container {
+        // Here we could adjust weights if needed via linear.children, but
+        // we'll just use the default uniform weights initially
+    }
+
+    let root = tiles.insert_container(container);
+
+    // Create the tree with the container as root
+    let tree = Tree::new("tiles_root", root, tiles);
+    commands.insert_resource(TilesState(tree));
+}
+
+// Add helper functions for tile rendering
+fn draw_world(ui: &mut egui::Ui, tex_id: Option<egui::TextureId>, desired_size: &mut DesiredPreviewSize, pixels_per_point: f32) {
+    let avail = ui.available_size();
+    let preview_size = egui::vec2(avail.x, avail.y.max(1.0));
+    let desired_px = (preview_size * pixels_per_point).max(egui::vec2(1.0, 1.0));
+    desired_size.width = desired_px.x.round() as u32;
+    desired_size.height = desired_px.y.round() as u32;
+
+    if let Some(id) = tex_id {
+        ui.image(egui::load::SizedTexture::new(id, preview_size));
+    } else {
+        ui.label("No preview available");
+    }
+}
+
+fn draw_timeline(ui: &mut egui::Ui, timeline: &mut Timeline) {
+    let mut current_time = timeline.current_time;
+    let min_time = timeline.min_time;
+    let max_time = timeline.max_time;
+    let mut playing = timeline.playing;
+
+    ui.horizontal_centered(|ui| {
+        if ui.button("⏮").clicked() {
+            current_time = (current_time - 10.0).max(min_time);
+        }
+        let play_pause_label = if playing { "⏸" } else { "▶" };
+        if ui.button(play_pause_label).clicked() {
+            playing = !playing;
+        }
+        if ui.button("⏭").clicked() {
+            current_time = (current_time + 10.0).min(max_time);
+        }
+        let slider = egui::Slider::new(&mut current_time, min_time..=max_time)
+            .show_value(false);
+        ui.add_sized([ui.available_width(), 0.0], slider);
+    });
+
+    timeline.current_time = current_time;
+    timeline.playing = playing;
+}
+
+fn draw_log(ui: &mut egui::Ui, log: &RobotLog) {
+    egui::ScrollArea::vertical()
+        .show(ui, |ui| {
+            for line in log.0.iter().rev() {
+                ui.label(line);
+            }
+        });
+}
+
+// --- Rerun viewer embedding ------------------------------------------------
+
+struct RerunViewer {
+    #[allow(dead_code)]
+    recording: RecordingStream,
+}
+
+impl Default for RerunViewer {
+    fn default() -> Self {
+        let (recording, _store) = RecordingStreamBuilder::new("pond_viewer")
+            .memory()
+            .expect("failed to create rerun memory recording");
+        Self { recording }
     }
 }

@@ -1,0 +1,52 @@
+syntax = "proto3";
+package bus;
+
+// Envelope carried across the message bus.
+message Envelope {
+  string topic = 1;
+  bytes data = 2; // raw binary payload (e.g. bincode/CBOR/JSON)
+}
+
+// Publish one message.
+message PublishRequest {
+  string topic = 1;
+  bytes data = 2;
+}
+
+message PublishReply {
+  bool ok = 1;
+}
+
+// Subscribe: optionally filter by prefix (empty = all)
+message SubscribeRequest {
+  string prefix = 1;
+}
+
+message DeviceDescriptor {
+  string id = 1;
+  enum Kind {
+    SENSOR = 0;
+    ACTUATOR = 1;
+  }
+  Kind kind = 2;
+  string data_type = 3;
+  repeated string tags = 4;
+}
+
+message DevicesReply {
+  repeated DeviceDescriptor devices = 1;
+}
+
+message Goal {
+  string text = 1;
+}
+
+message Empty {}
+
+service Bus {
+  rpc Publish(PublishRequest) returns (PublishReply);
+  rpc Subscribe(SubscribeRequest) returns (stream Envelope);
+  rpc GetDevices(Empty) returns (DevicesReply);
+  rpc SetGoal(Goal) returns (PublishReply);
+  rpc GetGoal(Empty) returns (Goal);
+}

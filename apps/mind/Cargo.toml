@@ -1,0 +1,33 @@
+[package]
+name = "mind"
+version = "0.1.0"
+edition = "2021"
+authors = ["Pond Developers <team@pond.local>"]
+build = "build.rs"
+
+[[bin]]
+name = "mind"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["full"] }
+clap = { version = "4", features = ["derive"] }
+rerun = { version = "0.23.2", features = ["web_viewer"] }
+
+tonic = { version = "0.10" }
+prost = "0.12"
+prost-types = "0.12"
+dashmap = "5"
+tokio-stream = "0.1"
+colored = "2"
+re_web_viewer_server = "0.23.2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.11", features = ["json", "rustls-tls"] }
+koi = { path = "../../crates/koi" }
+sim = { path = "../../crates/sim", features = ["viz", "bus"] }
+
+[build-dependencies]
+tonic-build = "0.10"
+protoc-bin-vendored = "3"

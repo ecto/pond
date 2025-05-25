@@ -198,3 +198,45 @@ Total < 6 GB, leaving > 10 GB head-room.
 References
 
 Gemma 3 release · Jetson NX datasheet · TensorRT-LLM early-exit · QLoRA Gemma guide · HF upload docs · LiDAR range-image format (KITTI) · KD temperature paper · SigLIP VL encoder · Reflexxes latency study · Jetson INT8 tuning guide · Model-card best practices
+
+## 0.2 2025-05-25 — unified-engine update for `koi0` 🇰🇴
+
+The `koi0` lineage now folds **planner** and **reflex** into _one_ distilled backbone to
+simplify training & deployment while still meeting drastically different
+latency budgets.
+
+• **Single checkpoint** (Gemma-3B trunk + SigLiP vision encoder) → two export
+targets using TensorRT-LLM early-exit:
+
+| Engine     | Layers | Head        | Precision | File              |
+| ---------- | ------ | ----------- | --------- | ----------------- |
+| koi0-act   | 0-7    | policy head | INT8      | `koi0-act.plan`   |
+| koi0-think | 0-31   | LM head     | INT4      | `koi0-think.plan` |
+
+Early-exit keeps System-1 at ≤ 1.5 ms while System-2 enjoys full-depth
+reasoning.
+
+Run-time glue lives in `crates/koi`:
+
+```rust
+trait ChatModel   { async fn chat(&self, hist:&[ChatMessage]) -> Result<String>; }
+trait PolicyModel { fn infer(&self, input:&[f32]) -> Result<Vec<f32>>; }
+```
+
+Back-ends (feature-gated):
+
+- `http-chat` → OpenAI-compatible REST (default during dev)
+- `trt-chat` → TensorRT runner over `koi*-think.plan`
+- `trt-policy` → TensorRT runner over `koi*-act.plan`
+
+System threads and CUDA streams (Jetson Orin NX):
+
+| Thread         | Rate   | Engine          | Stream | Priority |
+| -------------- | ------ | --------------- | ------ | -------- |
+| sensor_thread  | 120 Hz | —               | CPU    | —        |
+| reflex_thread  | 120 Hz | koi0-act INT8   | 0      | HIGH     |
+| planner_thread | event  | koi0-think INT4 | 1      | LOW      |
+
+No IPC: both engines are loaded in-process by `mind` via the `koi` crate.
+
+---
