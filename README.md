@@ -12,8 +12,7 @@
 _Open Source Humanoids for Your Home_
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen)](https://github.com/your-username/pond/actions) <!-- Replace with actual build status URL -->
-[![Discord](https://img.shields.io/discord/YOUR_DISCORD_ID?label=discord)](https://discord.gg/YOUR_INVITE_CODE) <!-- Replace with actual Discord info -->
+[![Build Status](https://img.shields.io/github/checks-status/ecto/pond/main)](https://github.com/ecto/pond/actions)
 
 ---
 
@@ -99,36 +98,3 @@ This repository is a Rust monorepo containing everything necessary for a clean-r
 
 1.  **FROG (Friendly Robotic Open Generalist):** The first draft humanoid. It will feature a dual-arm torso mounted on a wheeled base, utilizing consumer parts readily available from retailers like Amazon.
 2.  **TOAD (Tactile Open Autonomous Device):** A fully integrated humanoid requiring custom-milled aluminum and purpose-built batteries. Despite its advanced capabilities, TOAD is designed to be significantly more affordable than existing humanoids like the Unitree G1.
-
-## Licensing & Governance
-
-POND operates under a strict non-harm ethos.
-
-This project utilizes a **dual-licensing** model designed to foster open-source collaboration while enabling sustainable commercial use.
-
-### Option 1: Open Source License — AGPLv3
-
-Unless a separate commercial license is obtained, all content in this monorepo (hardware CAD, firmware, software, UI code, etc.) is licensed under the **GNU Affero General Public License v3.0 (AGPLv3)**.
-
-- **Strong Copyleft:** If you distribute modifications or products based on this project, or provide network access to modified versions, you must release the complete corresponding source code under AGPLv3.
-- **Goal:** Ensures that the core technology and improvements remain perpetually open and accessible to the community.
-- **SPDX Header:** Please use `SPDX-License-Identifier: AGPL-3.0-or-later` in every applicable file.
-
-### Option 2: Commercial License
-
-For entities wishing to incorporate POND technology into proprietary, closed-source products or services without being subject to the source-sharing requirements of AGPLv3, a separate **Commercial License** must be obtained from the Maintainers.
-
-- **Contact:** Please reach out to the project Maintainers to discuss commercial licensing terms.
-- **Goal:** Provides a path for commercial integration while supporting the ongoing development of the open-source project.
-
-### "Love" Non‑Harm Clause
-
-**Regardless of the license option chosen (AGPLv3 or Commercial), the following Non-Harm Clause applies universally and takes precedence.**
-
-Inspired by Asimov's First Law & the Hippocratic ethos.
-
-- **Supremacy:** This clause overrides all other license or rider provisions. Violation terminates all rights, and Maintainers reserve the right to pursue all available legal remedies.
-- **Absolute Non‑Harm:** The Project, its derivatives, and any robots embodying it **shall not** be used or configured to cause physical, psychological, or economic harm to any sentient being. Prohibited uses include (but are not limited to) autonomous weapons, oppressive surveillance, intimidation, and harmful manipulation.
-- **Inherent Protective Behaviour:** Robots must actively prioritize safety — yielding to humans/animals, limiting force, refusing harmful commands.
-- **Universal Safe‑Mode:** A hardware E‑stop and software "Safe‑Mode" must disable actuation and sever network connectivity within ≤ 200 ms upon invocation.
-- **Licence Termination & Enforcement:** Breaching this clause voids the applicable license (AGPLv3 or Commercial). Maintainers will seek injunctive relief, damages, and penalties to the fullest extent of the law.

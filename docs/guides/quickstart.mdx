@@ -1,0 +1,87 @@
+---
+title: "Quickstart"
+description: "Build your first Pond robot, from hardware to AI"
+icon: "rocket"
+---
+
+> **This guide is a living document.**  We'll expand it as the hardware kits, CAD
+> files, and firmware mature.  If you spot anything out-of-date, open a PR!
+
+## 1. Pick Your Adventure
+
+Pond is a modular playground; you can start small or dive straight into a full
+humanoid.  We currently maintain three reference builds:
+
+| Path | Skill Level | Cost (USD) | What you get |
+| ---- | ----------- | ---------- | ------------- |
+| **Cobot Arm** | 🛠️ Beginner/Intermediate | ~1 600 | A desk-top 6-DoF arm that lifts 1 kg and teaches the full Pond motion stack |
+| **FROG Quadruped** | 🔧 Intermediate | ~2 300 | A 12-servo quadruped that walks, trots, and carries a RealSense + LiDAR head |
+| **Full Humanoid (beta)** | 🏗️ Advanced | TBD | Under active design—follow the `rana` branch for progress |
+
+*Not sure?*  Build the arm first; the same KOI AI and Pad operator console work
+across all robots.
+
+<Steps>
+  <Step title="Install prerequisites">
+    <ul>
+      <li><strong>OS</strong> – Linux (Ubuntu 22.04) or macOS 14+. Windows works via WSL 2.</li>
+      <li><strong>Rust toolchain</strong> – install via <code>rustup</code>.</li>
+      <li><strong>Nix</strong> (optional) – guarantees matching compilers and Python versions.</li>
+      <li><strong>Git &amp; GitHub</strong> – to clone and contribute.</li>
+      <li><strong>Basic shop tools</strong> – drill press, deburrer, hex keys, soldering iron.</li>
+    </ul>
+  </Step>
+
+  <Step title="Clone &amp; bootstrap">
+
+```bash
+# one-liner
+git clone https://github.com/ecto/pond.git && cd pond
+nix develop   # or install Rust + Python manually
+```
+  </Step>
+
+  <Step title="Build the software">
+
+```bash
+cargo check
+cargo run -p pad -- --profile deck-eco
+```
+  If a Bevy window pops up, you're set.
+  </Step>
+
+  <Step title="Generate CAD">
+
+```bash
+cargo run --bin generate-cad
+```
+  STEP &amp; STL files appear under <code>target/cad/</code>.
+  </Step>
+
+  <Step title="Order parts">
+    Open the BOM in <code>notes/arm.md</code> (or <code>frog.md</code>) and load it into your favourite supplier. Prime shipping ≈ robot next week.
+  </Step>
+
+  <Step title="Flash firmware">
+
+```bash
+cd crates/firmware
+pio run -e pico
+```
+  Hold <code>BOOTSEL</code> then drag-and-drop the UF2 onto the RP2040.
+  </Step>
+
+  <Step title="First motion">
+    1. Power on with E-Stop out.<br/>
+    2. Launch <code>pad</code> and connect over USB/Wi-Fi.<br/>
+    3. Release E-Stop and jog joints in <strong>Teleop</strong> view.
+  </Step>
+
+  <Step title="Next steps">
+    • Tune the KOI planner (<code>crates/koi/examples/playground.rs</code>).<br/>
+    • Join the community on GitHub Discussions.<br/>
+    • Open a PR to improve these docs.
+  </Step>
+</Steps>
+
+Happy building! 🐸

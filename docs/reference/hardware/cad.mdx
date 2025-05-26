@@ -1,0 +1,31 @@
+---
+title: "CAD"
+description: "Parametric modeling pipeline using Build123d, Rust, and Nix"
+icon: "ruler"
+---
+
+Pond treats CAD like source code:
+
+1. **Parameters in Python** – tweak dimensions in `crates/cad/models/arm/common_params.py`.
+2. **Version control** – all `.py` scripts live in Git, reviewed via PR.
+3. **Reproducible builds** – `nix develop` pins Python, compilers, OCCT.
+4. **Single command** – `cargo run --bin generate-cad` regenerates every STEP/STL into `target/cad/`.
+
+### File Layout
+
+```
+crates/cad/
+  models/
+    arm/
+      base_column.py
+      upper_arm.py
+      ...
+    actuators/
+      nema23.py
+```
+
+Each script exports a `build_*()` function that returns a Build123d `Part` or `Compound`.
+
+### CI Considerations
+
+CI can cache the `.venv` directory and the generated STEP files to avoid  minutes of rebuild. Use hash of `models/` for cache key.

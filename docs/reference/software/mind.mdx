@@ -1,0 +1,18 @@
+---
+title: "mind"
+description: "Architecture, training pipeline, and deployment of the thinking & reflex engines"
+icon: "brain"
+---
+
+The Pond Mind has 3 main components:
+
+* **bus** – the message bus
+* **act** – reflexive sensor -> AI -> actuator
+* **plan** - LLM-based planning
+
+| Thread | Rate | Engine | CUDA stream |
+| ------ | ---- | ------ | ----------- |
+| reflex | 120 Hz | koi0-act | 0 (HIGH) |
+| planner| event | koi0-think | 1 (LOW) |
+
+System watchdog kills power if two reflex ticks are missed.

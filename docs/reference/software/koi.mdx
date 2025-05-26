@@ -1,0 +1,11 @@
+---
+title: "koi"
+description: "Architecture, training pipeline, and deployment of the thinking & reflex engines"
+icon: "fish"
+---
+
+KOI (Kinematic Onboard Inference) is the AI heart of Pond.
+
+* **koi0-act** – 40 M-param INT8 reflex VLA (< 1.5 ms latency).
+* **koi0-think** – 7 B Gemma-3 INT4 planner (≈ 90 ms).
+  Early-exit keeps both in one TensorRT engine.

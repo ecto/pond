@@ -1,0 +1,74 @@
+{
+  "name": "Pond",
+  "description": "Autonomous Robotics, today",
+  "colors": {
+    "primary": "#0000ff"
+  },
+  "icons": {
+    "library": "lucide"
+  },
+  "theme": "maple",
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/ecto/pond",
+        "icon": "circle"
+      }
+    ]
+  },
+  "navigation": {
+    "groups": [
+      {
+        "group": "Start",
+        "icon": "play",
+        "pages": [
+          "start/welcome",
+          "start/introduction",
+          "start/changelog",
+          "start/showcase",
+          "start/license"
+        ]
+      },
+      {
+        "group": "Guides",
+        "icon": "list",
+        "pages": [
+          "guides/quickstart"
+        ]
+      },
+      {
+        "group": "Reference",
+        "icon": "book",
+        "pages": [
+          "reference/architecture",
+          {
+            "group": "Hardware",
+            "icon": "bot",
+            "pages": [
+              "reference/hardware/cad",
+              "reference/hardware/arm",
+              "reference/hardware/head"
+            ]
+          },
+          {
+            "group": "Software",
+            "icon": "code",
+            "pages": [
+              "reference/software/mind",
+              "reference/software/koi",
+              "reference/software/sim"
+            ]
+          },
+          {
+            "group": "Firmware",
+            "icon": "microchip",
+            "pages": [
+              "reference/firmware/overview"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

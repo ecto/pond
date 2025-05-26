@@ -129,7 +129,7 @@ pub fn spawn_sim(rec: RecordingStream, mut bus_rx: tokio::sync::broadcast::Recei
                     if let Ok(urdf) = String::from_utf8(env.data) {
                         let infos = extract_links(&urdf);
                         for (link, mesh) in infos {
-                            let _ = tx.send(BusEnvelope{topic:"/log/sim".into(),data:format!("link {} mesh {:?}",link,mesh).into_bytes()});
+                            // let _ = tx.send(BusEnvelope{topic:"/log/sim".into(),data:format!("link {} mesh {:?}",link,mesh).into_bytes()});
                             if let Some(uri) = mesh.as_deref() {
                                 if logged_links.insert(link.clone()) {
                                     // Try to load mesh synchronously for immediate display.
@@ -137,7 +137,7 @@ pub fn spawn_sim(rec: RecordingStream, mut bus_rx: tokio::sync::broadcast::Recei
                                         let _ = rec.log(format!("sim/{}", link), &mesh_obj);
                                     }
                                 }
-                                mesh_store.ensure_logged(uri, &rec);
+                                // mesh_store.ensure_logged(uri, &rec);
                             } else {
                                 if logged_links.insert(link.clone()) {
                                     let geom = Boxes3D::from_half_sizes([(0.5, 0.5, 0.5)]);

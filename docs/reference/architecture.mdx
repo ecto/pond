@@ -1,0 +1,60 @@
+---
+title: "Architecture"
+description: "Authoritative specs, APIs, and data sheets for Pond hardware and software"
+icon: "map"
+mode: "wide"
+---
+
+This section will become the single source of truth for hard facts:
+
+* Mechanical and electrical specifications (e.g. [Arm v1 spec](/notes/arm)).
+* KOI model file formats and inference APIs.
+* Pond bus topic schemas.
+* Command-line flags for the **Pad** operator console.
+
+Expect lots of tables, type definitions, and versioned changelogs.
+
+## System overview
+
+```mermaid
+%% Simple overview of Pond architecture
+graph TD
+    subgraph Physical
+        Arm[Arm v1 Manipulator]
+        Mobility[Mobility Base]
+        Sensors[Sensor Suite]
+    end
+    subgraph Firmware & RTOS
+        Firmware[Firmware + RTOS]
+    end
+    subgraph Middleware
+        PondBus[Pond Bus]
+        KOI[KOI Models]
+    end
+    subgraph Control & Ops
+        Planner[AI Planner]
+        Pad[Pad Operator Console]
+    end
+    Arm --> Firmware
+    Mobility --> Firmware
+    Sensors --> Firmware
+    Firmware --> PondBus
+    Planner --> PondBus
+    Pad --> PondBus
+    KOI --> Planner
+    KOI --> Firmware
+```
+
+<Columns cols={3}>
+  <Card title="Hardware" icon="robot" href="/reference/hardware">
+    Power, buses, and safety loop.
+  </Card>
+
+  <Card title="Software" icon="code" href="/reference/software">
+    From firmware to AI planners.
+  </Card>
+
+  <Card title="Firmware" icon="microchip" href="/reference/firmware">
+    Embedded systems for modular components.
+  </Card>
+</Columns>
