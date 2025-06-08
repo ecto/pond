@@ -4,38 +4,46 @@ description: "Autonomous Robotics, today"
 icon: "hand"
 ---
 
-Fifteen years ago, building a humanoid robot meant boutique gearboxes, custom
-electronics, and a research lab budget. The parts were scarce, the software
-fragile, and the intelligence - well... mostly scripted illusion.
+Hey, I'm [Cam](https://github.com/ecto) and I'm building Pond in my free time, a platform for building autonomous robots.
 
-**Today the pieces have finally converged.**
+When I was a kid, humanoid robots were in movies and cartoons, but building one was an impossible dream.
+The parts barely existed, the software held together with digital duct tape,
+and I don't think my parents even had a credit card, let alone would have
+loaned me the tens of thousands of dollars it would have cost to build one.
 
-* Electric-vehicle supply chains give us dense batteries and silent, high-torque motors.
-* Drones taught the world how to mass-produce IMUs, brushless drivers, and carbon-fiber structures for pennies.
-* NVIDIA's Jetson and Apple-class neural chips ship tens of TOPS to anyone with a credit card, at ~15W.
-* Vision-Language Agents and fast, "thinking" LLMs can now plan and act at human timescales, not research-lab minutes.
+**Something magical happened while we weren't looking.**
 
-The cost curve has bent; the talent pool has exploded; the remaining barrier is
-**coherently stitching these miracles together.** That is why Pond exists.
+The world shifted around us, and the pieces we needed started falling into place:
 
-Pond is an **open-source blueprint for modular, _thinking_ machines**—from
-friendly household bipeds to agile quadrupeds and nimble arms.  We combine:
+- Electric cars, bikes, and scooters flooding the world with incredible batteries and power electronics
+- Drones making sensors, controllers, and manufacturing techniques accessible
+- NVIDIA basically handing out supercomputers the size of credit cards that sip power like a light bulb
+- Vision-Language Agents and fast, "thinking" LLMs that can plan and act at human timescales
+
+There are still some missing pieces and plumbing to do, and that's where Pond comes in.
+
+Pond is an **open-source blueprint for modular, _thinking_ machines** - from
+friendly household bipeds to agile quadrupeds and nimble arms. We combine:
+
 1.  Rust-based real-time software that treats safety and correctness as
     non-negotiable.
-2.  VLAs & distilled LLM planners (see the KOI stack) that can perceive, reason
+2.  VLAs & distilled LLM planners (see the [KOI stack](/reference/koi)) that can perceive, reason
     and adapt on-device.
-3.  DIYable hardware built from the same gearboxes, servos, and lithium cells
-    you can overnight from the EV and drone worlds.
+3.  DIYable hardware you can build in your garage.
 
-**Why open source?** Because robots that move among us must earn our trust.
-Transparency, reproducibility, and community review are the only scalable path
-to safety - and to progress that outlives any single company hype cycle. By
-pooling effort we turn isolated side-projects into a shared ecosystem: common
-schemas, interchangeable modules, collective QA.
+**Why give it all away for free?** Simple - household robotics are coming, and if they aren't open source,
+there will be an incredible centralizing force. If robots are going to live alongside
+us, we need to trust them completely. And trust comes from transparency. When
+everyone can peek under the hood, when the community is constantly improving things,
+when no single company controls the magic... that's when we get robots that truly
+serve humanity, not the other way around.
 
-**Our north star** is simple but audacious: _every person who can build a PC
-should be able to build a helpful robot_. A bot that cooks, tidies, or takes a
-wheelchair up a ramp - without proprietary black boxes or seven-figure budgets.
+Also, with hardware getting cheaper and cheaper, it's the software that's the
+last barrier to entry. And specifically the data used to train the models. Open sourcing
+the entire stack is the only way to make sure that the data is used for the benefit of all.
 
-If this sounds like your kind of project, clone the repo and start hacking - or
-just lurk and watch the machines get smarter.
+**Here's our wild dream**: We want every maker, every curious engineer, every
+person who's ever built a computer from parts to be able to build a robot that
+actually helps. One that can cook your dinner, tidy up the chaos, or give someone
+the independence to navigate the world - all without signing your data away to a
+corporation or emptying your bank account.

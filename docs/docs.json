@@ -11,9 +11,14 @@
   "navbar": {
     "links": [
       {
-        "label": "GitHub",
+        "label": "Code",
         "href": "https://github.com/ecto/pond",
         "icon": "circle"
+      },
+      {
+        "label": "Community",
+        "href": "https://github.com/ecto/pond/discussions",
+        "icon": "users"
       }
     ]
   },
