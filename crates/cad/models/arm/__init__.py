@@ -1,1 +1,0 @@
-"""Arm sub-assemblies package"""

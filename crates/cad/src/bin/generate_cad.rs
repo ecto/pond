@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::fs;
 use clap::Parser; // Use clap for potential future args
+use walkdir::WalkDir;
 
 // --- Configuration ---
 const VENV_DIR: &str = ".venv";
@@ -63,16 +64,34 @@ fn main() -> std::io::Result<()> {
 
     println!("Looking for Python models in: {}", model_path.display());
     let mut models_processed = 0;
-    for entry in fs::read_dir(&model_path)? {
-        let entry = entry?;
+    for entry in WalkDir::new(&model_path)
+        .into_iter()
+        .filter_entry(|e| !e.file_name().to_str().unwrap_or("").starts_with('.'))  // Skip hidden files/dirs
+        .filter_map(|e| e.ok())  // Handle errors gracefully
+    {
         let path = entry.path();
 
         if path.is_file() && path.extension().map_or(false, |ext| ext == "py") {
+            // Skip __init__.py files as they're not meant to be executed
+            if path.file_name().unwrap_or_default() == "__init__.py" {
+                continue;
+            }
+
+            // Skip base/utility files that aren't meant to be executed directly
+            let filename = path.file_name().unwrap_or_default().to_str().unwrap_or("");
+            if filename == "base.py" || filename.starts_with("common_") {
+                continue;
+            }
+
             models_processed += 1;
-            let file_stem = path.file_stem().unwrap().to_str().unwrap();
+
+            // Create a hierarchical output name based on relative path
+            let relative_path = path.strip_prefix(&model_path).unwrap();
+            let output_name = relative_path.with_extension("").to_string_lossy().replace('/', "_");
+
             let script_path = path.canonicalize()?; // Use canonicalize for absolute path
-            let step_file_path = step_out_dir.join(format!("{}.step", file_stem));
-            let stl_file_path = stl_out_dir.join(format!("{}.stl", file_stem));
+            let step_file_path = step_out_dir.join(format!("{}.step", output_name));
+            let stl_file_path = stl_out_dir.join(format!("{}.stl", output_name));
 
             println!("Executing Python script: {}", script_path.display());
             println!("  Output STEP: {}", step_file_path.display());
@@ -106,7 +125,7 @@ fn main() -> std::io::Result<()> {
                     println!("Warning: STL file not found after script execution: {}", stl_file_path.display());
                 }
             }
-            println!("Finished processing: {}", path.file_name().unwrap().to_str().unwrap());
+            println!("Finished processing: {}", relative_path.display());
             println!("-----");
         }
     }

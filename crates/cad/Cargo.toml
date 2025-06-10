@@ -13,7 +13,8 @@ edition = "2021"
 
 [dependencies]
 # Removed truck-* and winit
-clap = { version = "4", features = ["derive"] } # For CLI args
+clap = { version = "4.0", features = ["derive"] } # For CLI args
+walkdir = "2.3"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Removed instant and pollster

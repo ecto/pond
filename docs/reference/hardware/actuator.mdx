@@ -1,0 +1,130 @@
+---
+title: "Actuator"
+description: "3D-printed BLDC actuator with integrated strain wave gearing"
+icon: "cog"
+---
+
+The Pond actuator is a custom-designed BLDC motor with integrated strain wave (harmonic drive) gearing. It combines high torque density with precise positioning through a 100:1 reduction ratio.
+
+## Design Overview
+
+The actuator consists of three main components:
+
+1. **Rotor with Integrated Wave Generator**
+
+   - Cylindrical core with magnets on outer surface
+   - Elliptical cam profile for wave generator
+   - Magnets face outward toward stator teeth
+
+2. **Flexspline**
+
+   - Thin-walled cup with external gear teeth
+   - Deforms under wave generator to create gear reduction
+   - Printed in flexible material (TPU 95A)
+
+3. **Circular Spline**
+   - Fixed ring with internal teeth
+   - Integrated into housing
+   - Meshes with flexspline for power transmission
+
+## Component Specifications
+
+### Wave Generator to Flexspline Connection
+
+The rotor's wave generator (elliptical section) fits inside the flexspline's inner diameter:
+
+```python
+# Wave generator dimensions from ActuatorParams
+wave_gen_major_diameter = flexspline_pitch_diameter - 2 * flexspline_thickness - 1.0
+wave_gen_minor_diameter = wave_gen_major_diameter / wave_generator_ellipse_ratio
+flexspline_inner_radius = pitch_radius - flexspline_thickness
+```
+
+### Gear Meshing Parameters
+
+- Flexspline: 200 teeth
+- Circular spline: 202 teeth
+- Reduction ratio: 100:1
+- Gear module: 0.3mm (optimized for 3D printing)
+
+## Assembly Instructions
+
+<Steps>
+  <Step title="Prepare Components">
+    Ensure all components are clean and free of printing artifacts:
+    - Rotor wave generator should be smooth with no burrs
+    - Flexspline should have clean, well-formed teeth
+    - Circular spline teeth should be properly formed
+    - Check all bearing surfaces for smoothness
+  </Step>
+  <Step title="Install Wave Generator">
+    Insert the rotor's wave generator into the flexspline:
+    - The flexspline will naturally deform to match the elliptical shape
+    - Verify smooth rotation without binding
+    - Check for proper alignment of all features
+  </Step>
+  <Step title="Engage Gear Teeth">
+    Align and mesh the gear components:
+    - Position flexspline teeth with circular spline
+    - Gently press components together
+    - Verify proper meshing without excessive force
+    - Check for smooth rotation in both directions
+  </Step>
+  <Step title="Final Assembly">
+    Complete the actuator assembly:
+    - Secure housing components with proper fasteners
+    - Install bearings and seals
+    - Test rotation and check for backlash
+    - Verify proper electrical connections
+  </Step>
+</Steps>
+
+## Key Design Parameters
+
+| Parameter         | Value  | Description               |
+| ----------------- | ------ | ------------------------- |
+| Flexspline Wall   | 1.2mm  | Thickness of flexible cup |
+| Flexspline Length | 25.0mm | Total cup depth           |
+| Rim Width         | 8.0mm  | Width of toothed section  |
+| Wave Amplitude    | 0.5mm  | Deformation amount        |
+| Ellipse Ratio     | 1.02   | Major/minor axis ratio    |
+
+## Material Selection
+
+- **Flexspline**: TPU 95A or semi-flexible PETG
+
+  - Provides necessary flexibility for wave generation
+  - Maintains dimensional stability
+  - Good wear resistance
+
+- **Rotor & Housing**: PETG or ASA
+  - High strength and temperature resistance
+  - Good layer adhesion
+  - Suitable for bearing seats
+
+## Design Considerations
+
+- Self-aligning connection through wave generator geometry
+- Tolerances account for 3D printing accuracy (~0.2mm)
+- Optimized for FDM printing with minimal supports
+- Thermal management through housing design
+- Easy magnet insertion and winding process
+
+## CAD Generation
+
+The actuator components are defined in Python using build123d:
+
+```python
+# Location: crates/cad/models/actuators/
+rotor.py      # Rotor and wave generator
+gearbox.py    # Flexspline and circular spline
+base.py       # Common parameters and utilities
+```
+
+Generate the CAD files using:
+
+```bash
+cargo run --bin generate-cad
+```
+
+This will create both STEP and STL files in `target/cad/` for 3D printing.

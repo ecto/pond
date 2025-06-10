@@ -1,0 +1,6 @@
+# Project Rules for pond
+
+## CAD Generation
+- Use `cargo run --bin generate-cad` to compile 3D models
+- This generates both STEP and STL files in `target/cad/` for 3D printing
+- Models are defined in Python using build123d in `crates/cad/models/`
