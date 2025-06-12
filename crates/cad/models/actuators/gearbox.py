@@ -15,8 +15,9 @@ __all__ = [
 def build_cycloid_disc(lobes: int = 27,
                        pin_count: int = 29,
                        pin_circle_dia: float = 72.0,
+                       pin_diameter: float = 6.1,
                        thickness: float = 10.0,
-                       eccentricity: float | None = None,
+                       eccentricity: float | None = 1.5,
                        phase: float = 0.0,
                        bore_dia: float = 18.0) -> Part:
     """Return one cycloidal disc (flat) for a pin count / lobe count set.
@@ -24,13 +25,14 @@ def build_cycloid_disc(lobes: int = 27,
     Uses a sampled epicycloid approximation good enough for printing.
     phase shifts the disc by an angle (radians)."""
     if eccentricity is None:
-        # Classic formula e = (Dp - Dd)/ (2*Nlobes)
-        disc_od = pin_circle_dia - 6  # 3 mm clearance each side from plate ID
-        eccentricity = (pin_circle_dia - disc_od) / (2 * lobes)
-    else:
-        disc_od = pin_circle_dia - 6  # fallback
+        eccentricity = 1.5
+    disc_od = 58.0  # disc OD suited for 72 mm pin circle (currently unused)
 
-    base_radius = (pin_circle_dia - 6) / 2  # approximate mid-radius of lobes
+    # Disc needs to clear the pins while accounting for the eccentric offset.
+    # Required relation (see design notes):
+    #   base_radius  ≈  pin_circle_radius − pin_radius − 2 * eccentricity
+    # where pin_circle_radius = pin_circle_dia / 2.
+    base_radius = pin_circle_dia / 2 - pin_diameter / 2 - 2 * eccentricity
 
     # Build profile
     pts: list[tuple[float, float]] = []
@@ -138,8 +140,9 @@ def _trapezoid_tooth(root_r: float, tip_r: float, base_ang_width: float, tip_ang
 def build_eccentric_sleeve(
     eccentricity: float = 2.7,
     shaft_dia: float = 15.0,
-    boss_dia: float = 18.0,
-    length: float = 20.0,
+    boss_dia: float = 17.0,
+    boss_length: float = 15.0,
+    bearing_thickness: float = 12.0,
 ) -> Part:
     """Create an eccentric sleeve that converts concentric motor rotation to the disc wobble.
 
@@ -147,14 +150,30 @@ def build_eccentric_sleeve(
     The outer cylindrical boss (boss_dia) is offset +X by *eccentricity* so that
     its axis drives the cycloid disc centre hole."""
 
-    with BuildPart() as bp:
-        # Outer boss profile but bore subtracted at shaft centre
-        with BuildSketch(Plane.XY) as s:
-            Circle(boss_dia / 2)
-            Circle(shaft_dia / 2, mode=Mode.SUBTRACT)
-        extrude(amount=length)
+    journal_dia = 40.0  # inner race of 6908
+    journal_len = bearing_thickness
 
-    # Shift so that boss axis aligns with global axis, leaving the bore offset
+    total_len = journal_len * 2 + boss_length
+
+    with BuildPart() as bp:
+        # Build concentric core (journals) first
+        with BuildSketch(Plane.XY) as s:
+            Circle(journal_dia/2)
+            Circle(shaft_dia/2, mode=Mode.SUBTRACT)
+        extrude(amount=total_len)
+
+        # Remove centre section where eccentric boss will be (retain journals)
+        with BuildSketch(Plane.XY.offset(journal_len)) as s:
+            Circle(journal_dia/2 + 0.1)  # add tiny clearance for boolean
+        extrude(amount=boss_length, mode=Mode.SUBTRACT)
+
+        # Add eccentric boss
+        with BuildSketch(Plane.XY.offset(journal_len)) as s:
+            Circle(boss_dia/2)
+            Circle(shaft_dia/2, mode=Mode.SUBTRACT)
+        extrude(amount=boss_length)
+
+    # Translate boss so its axis is on global Z
     bp.part = bp.part.translate((eccentricity, 0, 0))
     bp.part.label = "EccentricSleeve"
     return bp.part
@@ -164,7 +183,7 @@ def build_output_flange(
     pin_count: int = 6,
     pin_diameter: float = 6.1,
     pin_circle_dia: float = 50.0,
-    thickness: float = 8.0,
+    thickness: float = 5.0,
     bore_dia: float = 25.0,
     mount_hole_count: int = 6,
     mount_hole_diameter: float = 3.4,  # clearance for M3 screws
@@ -183,8 +202,8 @@ def build_output_flange(
 
         # Add centre boss for bearing inner race (40 mm)
         boss_dia = 39.6  # slight clearance for 40 mm inner race
-        boss_down = thickness / 2  # 4 mm down
-        boss_up = 8.0  # 8 mm above plate for coupling
+        boss_down = thickness / 2  # 2.5 mm down
+        boss_up = 5.0  # 5 mm above plate for coupling
 
         # Downward boss (into bearing)
         with BuildSketch(Plane.XY.offset(-boss_down)) as s:
@@ -215,15 +234,28 @@ def build_output_flange(
                 extrude(amount=-(thickness + boss_up + boss_down), mode=Mode.SUBTRACT, both=False)
 
         # Pin holes
+        pin_length = 15.0  # extend through disc stack
+        slot_width = 6.4   # slight clearance to disc slots (6.5)
+        slot_length = 7.8  # slight clearance to disc slots (8.0)
+
         for i in range(pin_count):
             angle = i * 360 / pin_count
             r = pin_circle_dia / 2
             x = r * cos(radians(angle))
             y = r * sin(radians(angle))
+
+            # Cut matching rectangular clearance in flange plate first
             with BuildSketch(Plane.XY) as s:
                 with Locations((x, y)):
-                    Circle(pin_diameter / 2)
+                    Rectangle(slot_width, slot_length, rotation=angle)
             extrude(amount=thickness, mode=Mode.SUBTRACT)
+
+            # Add downward rectangular pin (slightly undersize)
+            pin_clear = 0.1
+            with BuildSketch(Plane.XY) as s:
+                with Locations((x, y)):
+                    Rectangle(slot_width - pin_clear, slot_length - pin_clear, rotation=angle)
+            extrude(amount=-pin_length, mode=Mode.ADD)
 
     bp.part.label = "OutputFlange"
     return bp.part

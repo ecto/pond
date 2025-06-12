@@ -35,7 +35,7 @@ def build_shell(p: ActuatorParams) -> Part:
             Circle((p.bearing_od + 10) / 2)
             # Inner clearance equal to bearing ID (matches through-hole)
             Circle(p.bearing_id / 2, mode=Mode.SUBTRACT)
-        extrude(amount=p.shaft_housing_height)
+        extrude(amount=5)  # reduced boss height
 
         # Mounting flanges around perimeter
         for i in range(8):
@@ -52,11 +52,35 @@ def build_shell(p: ActuatorParams) -> Part:
                     Circle(p.mount_hole_radius)
             extrude(amount=5, mode=Mode.SUBTRACT)  # Hole through the tab
 
-        # Wire exit port (side)
-        with BuildSketch(Plane.XZ) as s:
-            with Locations((p.outer_diameter / 2 - 5, p.housing_height / 2)):
-                Circle(4)  # 8 mm hole
-        extrude(amount=10, mode=Mode.SUBTRACT)
+        # Radial wire exit hole Ø8 mm
+        hole_radius = 4
+        hole_len = p.wall_thickness + 4  # ensure full cut
+        with BuildSketch(Plane.YZ.offset(p.outer_diameter/2 - hole_radius)) as s:
+            with Locations((0, p.housing_height/2)):
+                Circle(hole_radius)
+        extrude(amount=hole_len, mode=Mode.SUBTRACT, both=True)
+
+        # ------------------------------------------------------------------
+        # Integrated cycloidal pin ring – 29 downward pins
+        # ------------------------------------------------------------------
+        pin_count = 29
+        pin_diameter = 6.1
+        pin_circle_dia = 72.0
+        pin_length = 15.0  # downward into cavity to engage both cycloid discs
+
+        # Start pins at inner ceiling (underside of shell top wall)
+        pin_top_z = p.housing_height - p.wall_thickness  # interior top surface
+
+        for i in range(pin_count):
+            ang = i * 360 / pin_count
+            # Convert polar to XY
+            r = pin_circle_dia / 2
+            x, y = _polar_point(r, ang)
+
+            with BuildSketch(Plane.XY.offset(pin_top_z)) as s:
+                with Locations((x, y)):
+                    Circle((pin_diameter - 0.1) / 2)  # slight interference
+            extrude(amount=-pin_length, mode=Mode.ADD)
 
     bp.part.label = f"{p.name}_Shell"
     return bp.part

@@ -37,11 +37,44 @@ def build_back_plate(p: ActuatorParams) -> Part:
         extrude(amount=-plate_thickness, mode=Mode.SUBTRACT)
 
         # ------------------------------------------------------------------
+        # Hex clearance for stator winding stems (6 × ¼" hex)
+        # ------------------------------------------------------------------
+        coil_count = 6
+        across_flats_actual = 6.35 # 1/4" hex driver
+        across_flats = across_flats_actual + 0.3  # add 0.3 mm radial clearance
+        hex_in_radius = across_flats / 2
+        from math import cos, sin, pi, radians
+        hex_out_radius = hex_in_radius / cos(pi / 6)
+
+        # coil window radius mirrors stator.py calculation: outer_r - coil_od/2 - 3
+        # where outer_r = p.outer_diameter/2 and coil_od = 26
+        coil_radius = p.outer_diameter / 2 - 26 / 2 - 3 - 7 # 7 mm clearance for hex driver
+
+        for i in range(coil_count):
+            ang = i * 360 / coil_count
+            x, y = _polar_point(coil_radius, ang)
+
+            with BuildSketch(Plane.XY) as s:
+                with Locations((x, y)):
+                    pts = [
+                        (hex_out_radius * cos(radians(60 * k + 30)),
+                         hex_out_radius * sin(radians(60 * k + 30)))
+                        for k in range(6)
+                    ]
+                    Polygon(*pts)
+            extrude(amount=-plate_thickness, mode=Mode.SUBTRACT)
+
+        # ------------------------------------------------------------------
         # Mounting holes matching the eight shell tabs
         # ------------------------------------------------------------------
         for i in range(8):
             angle = i * 45  # 360/8
             x, y = _polar_point(p.outer_diameter / 2 + p.flange_offset, angle)
+            # Add small boss/tab on plate to mate with shell tab
+            with BuildSketch(Plane.XY) as s:
+                with Locations((x, y)):
+                    Circle(p.flange_radius)
+            extrude(amount=-plate_thickness, mode=Mode.ADD)
             with BuildSketch(Plane.XY) as s:
                 with Locations((x, y)):
                     # +0.2 mm clearance so screws slide freely

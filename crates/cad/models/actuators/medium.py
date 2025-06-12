@@ -20,21 +20,21 @@ from models.actuators.back_plate import build_back_plate
 params = ActuatorParams(
     name="medium",
     outer_diameter=105.0,
-    housing_height=70.0,  # Increased from 45mm to fit 40mm magnets
+    housing_height=30.0,  # axial stack only 28 mm + some margin
     wall_thickness=3.0,
     bearing_id=40.0,
     bearing_od=62.0,
     bearing_thickness=12.0,
     shaft_housing_height=15.0,
-    stator_teeth=12,
-    tooth_length=11.0,  # Reduced to accommodate 5mm thick magnets with 1mm air gap
-    tooth_width=7.0,
-    magnets_count=10,  # Changed from 8 to 10 for better 12-slot/10-pole configuration
-    magnet_length=40.0,
+    stator_teeth=0,  # not used in axial design
+    tooth_length=0.0,
+    tooth_width=0.0,
+    magnets_count=14,
+    magnet_length=20.0,
     magnet_width=10.0,
-    magnet_thickness=5.0,  # Back to actual magnet thickness
-    magnet_radius=30.0,  # Adjusted for 1mm air gap with 5mm magnets
-    tooth_tip_width=6.0,
+    magnet_thickness=5.0,
+    magnet_radius=0.0,  # not used
+    tooth_tip_width=0.0,
     # Gear parameters tuned for 3D printing
     flexspline_teeth=100,
     circular_spline_teeth=102,
@@ -44,43 +44,53 @@ params = ActuatorParams(
 # Build components
 shell_part = build_shell(params)
 stator_part = build_stator_core(params)
-rotor_part = build_rotor_hub(params)
+rotor_part = build_rotor_hub(params, single_sided=True)
 
 # Cycloidal reducer components
-pin_ring_part = build_pin_ring()
+eccentricity = 2.7  # must match build_eccentric_sleeve default
 
-# Two discs 180°/lobes apart (1-lobe phase shift = 2*pi/29 with 29 pins, but disc lobes=27 so 1 lobe = 2*pi/27)
-disc_a_part = build_cycloid_disc()
-disc_b_part = build_cycloid_disc(phase=pi/27)  # phase shift one lobe
+# Use thinner discs for lighter assembly
+disc_thickness = 6.0  # mm (reduced from 10)
+disc_gap = 1.0  # axial shim between discs
 
-# Position cycloidal components: place mid-plane at wave_gen_mid for now
+# Pin ring integrated into shell; no separate part needed
+
+# Two discs 180°/lobes apart
+disc_a_part = build_cycloid_disc(thickness=disc_thickness, bore_dia=17.4)
+disc_b_part = build_cycloid_disc(phase=pi/27, thickness=disc_thickness, bore_dia=17.4)  # phase shift one lobe
+
 rotor_magnetic_height = params.housing_height - 2 * (params.bearing_thickness + 1)
-transition_height = 5  # must match rotor.py
-wave_gen_height = 12   # must match rotor.py
+transition_height = 5  # must sync with rotor design
+wave_gen_height = 12
 wave_gen_mid = rotor_magnetic_height + transition_height + wave_gen_height / 2
 
-disc_thickness = 10.0
 ring_thickness = 8.0
-
-disc_z = wave_gen_mid - disc_thickness / 2
 ring_z = wave_gen_mid - ring_thickness / 2
 
-disc_a_part = disc_a_part.translate((0, 0, disc_z))
-disc_b_part = disc_b_part.translate((0, 0, disc_z + 1.0))  # 1 mm axial offset with shim
-pin_ring_part = pin_ring_part.translate((0, 0, ring_z))
+# Position discs above pin-ring with 0.5 mm clearance
+clearance = 0.5
+disc_a_z = ring_z + ring_thickness + clearance  # bottom of first disc
+disc_b_z = disc_a_z + disc_thickness + disc_gap
+
+disc_a_part = disc_a_part.translate((eccentricity, 0, disc_a_z))
+disc_b_part = disc_b_part.translate((eccentricity, 0, disc_b_z))
 
 # Add eccentric sleeve and output flange parts
-eccentric_part = build_eccentric_sleeve()
+eccentric_part = build_eccentric_sleeve(
+    eccentricity=eccentricity,
+    boss_length=15.0,
+    bearing_thickness=params.bearing_thickness,
+)
 output_flange_part = build_output_flange()
 
 # Position eccentric sleeve concentric with rotor shaft (global axis), boss into disc bore
 eccentric_length = 20.0
-eccentric_z = disc_z - 1.0  # start slightly below discs, passes through
+eccentric_z = ring_z - 1.0  # pass through pin ring and discs
 eccentric_part = eccentric_part.translate((0, 0, eccentric_z))
 
 # Position output flange above discs
 output_thickness = 8.0
-flange_z = disc_z + disc_thickness + 0.5  # 0.5 mm clearance
+flange_z = disc_b_z + disc_thickness + 0.5  # 0.5 mm above second disc
 output_flange_part = output_flange_part.translate((0, 0, flange_z))
 
 # Add back plate
@@ -101,12 +111,11 @@ combined = Compound(
         shell_part,
         stator_part,
         rotor_part,
-        pin_ring_part,
         disc_a_part,
         disc_b_part,
         eccentric_part,
         output_flange_part,
-        back_plate_part,
+        # back_plate_part,
     ],
 )
 
@@ -118,7 +127,6 @@ export_stl(combined, stl_out)
 export_stl(shell_part, stl_out.replace(".stl", "_shell.stl"))
 export_stl(stator_part, stl_out.replace(".stl", "_stator.stl"))
 export_stl(rotor_part, stl_out.replace(".stl", "_rotor.stl"))
-export_stl(pin_ring_part, stl_out.replace(".stl", "_pin_ring.stl"))
 export_stl(disc_a_part, stl_out.replace(".stl", "_disc_a.stl"))
 export_stl(disc_b_part, stl_out.replace(".stl", "_disc_b.stl"))
 export_stl(eccentric_part, stl_out.replace(".stl", "_eccentric.stl"))
@@ -129,9 +137,16 @@ print("Finished exporting Medium actuator components.")
 print("  - Shell (housing)")
 print("  - Stator core")
 print("  - Rotor with wave generator")
-print("  - Pin ring")
 print("  - Disc A")
 print("  - Disc B")
 print("  - Eccentric sleeve")
 print("  - Output flange")
 print("  - Back plate")
+
+exploded_children = []
+z_offset = 0
+for part in [back_plate_part, stator_part, rotor_part, disc_a_part, disc_b_part, eccentric_part, output_flange_part, shell_part]:
+    exploded_children.append(part.translate((0, 0, z_offset)))
+    z_offset += 20
+exploded = Compound(children=exploded_children, label="exploded")
+export_stl(exploded, stl_out.replace(".stl", "_exploded.stl"))

@@ -1,94 +1,92 @@
-from models.actuators.base import ActuatorParams, _polar_point
+from models.actuators.base import ActuatorParams
 from build123d import *
-from math import radians, cos, sin, tan, atan2, sqrt
+from math import radians, cos, sin, pi
 
 __all__ = ["build_stator_core"]
 
 
+COIL_COUNT = 6  # round coils, ABCABC sequence
+INSERT_COUNT = 3
+INSERT_RADIUS = 2.0  # pilot hole radius
+
+
 def build_stator_core(p: ActuatorParams) -> Part:
-    """Return separate printable stator core with teeth."""
-    inner_radius = p.bearing_od / 2 + 2  # clearance from bearing OD
-    outer_radius = p.outer_diameter / 2 - p.wall_thickness - 0.5  # 0.5mm clearance for press-fit
-    ring_height = p.housing_height - 2 * (p.bearing_thickness + 1)
+    """Return printable coreless stator former with six round coil windows.
+
+    The former is a 10-mm-thick disc (PLA) that holds six circular coils.
+    Each window is a 45-mm OD ring; inner diameter 30 mm, matching the
+    dimensions in notes/axial_flux_double_rotor.md.
+    """
+
+    disc_thickness = 8.0
+    outer_r = 90 / 2  # 90 mm OD as per BoM
+    inner_clear_r = 25  # 50 mm ID clearance for hub & gearbox
 
     with BuildPart() as bp:
-        # Create back-iron ring (yoke)
-        yoke_thickness = 4.5  # mm - as specified in magnetic analysis
-        yoke_inner_radius = outer_radius - yoke_thickness
-
+        # Base solid disc
         with BuildSketch(Plane.XY) as s:
-            Circle(outer_radius)
-            Circle(yoke_inner_radius, mode=Mode.SUBTRACT)
-        extrude(amount=ring_height)
+            Circle(outer_r)
+            Circle(inner_clear_r, mode=Mode.SUBTRACT)
+        extrude(amount=disc_thickness)
 
-        # Add individual teeth with proper slot openings
-        pitch_angle = 360 / p.stator_teeth
-        slot_opening = p.slot_opening  # Width of slot opening at inner radius
-
-        # Calculate tooth shoe arc to leave slot openings
-        tooth_tip_radius = yoke_inner_radius - p.tooth_length
-        slot_opening_angle = 2 * atan2(slot_opening / 2, tooth_tip_radius)  # radians
-
-        for i in range(p.stator_teeth):
-            tooth_angle = i * pitch_angle
-            angle_rad = radians(tooth_angle)
-
-            # Create tooth profile with proper shoe
-            # The tooth has parallel sides and a curved shoe at the tip
-            tooth_base_radius = yoke_inner_radius
-
-            # Calculate tooth angular width at base and tip
-            half_tooth_width_base = p.tooth_width / 2
-            base_angle_offset = half_tooth_width_base / tooth_base_radius
-
-            # Tooth sides are parallel (same angular width throughout)
-            # But the shoe extends beyond the tooth body
-            tooth_body_angle_offset = base_angle_offset
-
-            # Create points for the tooth profile
-            points = []
-
-            # Base left point
-            angle_left_base = angle_rad - base_angle_offset
-            points.append((tooth_base_radius * cos(angle_left_base),
-                          tooth_base_radius * sin(angle_left_base)))
-
-            # Base right point
-            angle_right_base = angle_rad + base_angle_offset
-            points.append((tooth_base_radius * cos(angle_right_base),
-                          tooth_base_radius * sin(angle_right_base)))
-
-            # Tooth body extends with parallel sides
-            body_end_radius = tooth_tip_radius + 2.0  # Leave 2mm for shoe
-
-            # Right side of tooth body
-            angle_right_body = angle_rad + tooth_body_angle_offset
-            points.append((body_end_radius * cos(angle_right_body),
-                          body_end_radius * sin(angle_right_body)))
-
-            # Now create the shoe arc
-            # The shoe spans from one slot opening to the next
-            available_angle = radians(pitch_angle) - slot_opening_angle
-            shoe_half_angle = available_angle / 2
-
-            # Add points along the shoe arc
-            num_arc_points = 5
-            for j in range(num_arc_points):
-                arc_angle = angle_rad + shoe_half_angle - (2 * shoe_half_angle * j / (num_arc_points - 1))
-                points.append((tooth_tip_radius * cos(arc_angle),
-                              tooth_tip_radius * sin(arc_angle)))
-
-            # Left side of tooth body
-            angle_left_body = angle_rad - tooth_body_angle_offset
-            points.append((body_end_radius * cos(angle_left_body),
-                          body_end_radius * sin(angle_left_body)))
-
-            # Create the tooth shape
+        # Cut six coil windows (26 mm OD / 8 mm ID) – fits without overlap
+        coil_id = 8
+        coil_od = 26
+        coil_radius = outer_r - coil_od / 2 - 3  # maintain 3-mm land to outer rim
+        for i in range(COIL_COUNT):
+            ang = i * 360 / COIL_COUNT
+            cx = coil_radius * cos(radians(ang))
+            cy = coil_radius * sin(radians(ang))
             with BuildSketch(Plane.XY) as s:
-                with BuildLine() as l:
-                    Polyline(*points, close=True)
-                make_face()
-            extrude(amount=ring_height, mode=Mode.ADD)
+                with Locations((cx, cy)):
+                    Circle(coil_od / 2)
+            extrude(amount=disc_thickness, mode=Mode.SUBTRACT)
 
-    bp.part.label = f"{p.name}_Stator"
+            # Keep central core for stem attachment
+
+        # Add optional V-groove wire channels (simple notches)
+        for i in range(COIL_COUNT):
+            ang = i * 360 / COIL_COUNT + 30  # between coils
+            x = (outer_r - 2) * cos(radians(ang))
+            y = (outer_r - 2) * sin(radians(ang))
+            with BuildSketch(Plane.XY) as s:
+                with Locations((x, y)):
+                    Rectangle(3, 2, rotation=ang)
+            extrude(amount=disc_thickness, mode=Mode.SUBTRACT)
+
+        # Pilot holes for M2.5 inserts to mount Hall-sensor PCB
+        for i in range(INSERT_COUNT):
+            ang = i * 360 / INSERT_COUNT
+            r = inner_clear_r + 4
+            x = r * cos(radians(ang))
+            y = r * sin(radians(ang))
+            with BuildSketch(Plane.XY) as s:
+                with Locations((x, y)):
+                    Circle(INSERT_RADIUS)
+            extrude(amount=disc_thickness, mode=Mode.SUBTRACT)
+
+        # ------------------------------------------------------------------
+        # Hex drive stems (ADD material) – ¼" hex profile for drill chuck
+        # ------------------------------------------------------------------
+        across_flats = 6.35  # ¼-inch hex driver
+        hex_in_radius = across_flats / 2
+        hex_out_radius = hex_in_radius / cos(pi / 6)  # vertex radius
+        plate_thickness = 3.0
+
+        for i in range(COIL_COUNT):
+            ang = i * 360 / COIL_COUNT
+            cx = coil_radius * cos(radians(ang))
+            cy = coil_radius * sin(radians(ang))
+
+            with BuildSketch(Plane.XY) as s:
+                with Locations((cx, cy)):
+                    pts = [
+                        (hex_out_radius * cos(radians(60 * k + 30)),
+                         hex_out_radius * sin(radians(60 * k + 30)))
+                        for k in range(6)
+                    ]
+                    Polygon(*pts)
+            extrude(amount=disc_thickness + plate_thickness, mode=Mode.ADD, both=True)
+
+    bp.part.label = f"{p.name}_StatorFormer"
     return bp.part
