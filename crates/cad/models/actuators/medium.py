@@ -114,10 +114,12 @@ combined = Compound(
         disc_a_part,
         disc_b_part,
         eccentric_part,
-        output_flange_part,
+        # output_flange_part,
         # back_plate_part,
     ],
 )
+
+print(rotor_part.children)
 
 # Export combined assembly (reference only)
 export_step(combined, step_out)

@@ -18,11 +18,15 @@ def build_shell(p: ActuatorParams) -> Part:
         extrude(amount=p.housing_height - p.wall_thickness, mode=Mode.SUBTRACT)
 
         # Bearing pockets (top & bottom)
-        pocket_depth = p.bearing_thickness + 1  # 1 mm extra
-        for z in (0, p.housing_height - pocket_depth):
-            with BuildSketch(Plane.XY.offset(z)) as s:
-                Circle(p.bearing_od / 2)
-            extrude(amount=pocket_depth, mode=Mode.SUBTRACT)
+        # Single top bearing pocket with a little extra depth and diameter clearance
+        pocket_depth = p.bearing_thickness + 2  # 2 mm extra to ease assembly
+        bearing_clearance = 0.3                # 0.3 mm diametral clearance (0.15 mm radial)
+
+        top_pocket_z = p.housing_height - pocket_depth  # start of pocket measured from XY plane
+
+        with BuildSketch(Plane.XY.offset(top_pocket_z)) as s:
+            Circle(p.bearing_od / 2 + bearing_clearance / 2)
+        extrude(amount=pocket_depth, mode=Mode.SUBTRACT)
 
         # Shaft through-hole
         with BuildSketch(Plane.XY) as s:
@@ -30,12 +34,21 @@ def build_shell(p: ActuatorParams) -> Part:
         extrude(amount=p.housing_height + p.shaft_housing_height, mode=Mode.SUBTRACT)
 
         # Shaft boss (top) – hollow ring so the 40 mm bore stays open for the output flange
+        # Previously there was an external ring boss on top of the housing to
+        # support the bearing inner race/output flange.  The new single-bearing
+        # layout uses mounting holes in the eccentric sleeve instead, so this
+        # external feature is now reinstated as a *flat* boss whose outer diameter
+        # matches the main shell.  This keeps the print simple (no overhangs)
+        # while providing a solid land that can be machined or tapped if needed.
+
+        boss_height = 5  # mm – same as original design but now full-width
+
         with BuildSketch(Plane.XY.offset(p.housing_height)) as s:
-            # Outer land that supports the bearing outer race
-            Circle((p.bearing_od + 10) / 2)
-            # Inner clearance equal to bearing ID (matches through-hole)
+            # Full shell diameter so the boss wall is co-linear with the shell wall.
+            Circle(p.outer_diameter / 2)
+            # Maintain the central Ø40 mm (bearing ID) clearance.
             Circle(p.bearing_id / 2, mode=Mode.SUBTRACT)
-        extrude(amount=5)  # reduced boss height
+        extrude(amount=boss_height)
 
         # Mounting flanges around perimeter
         for i in range(8):

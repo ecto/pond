@@ -19,7 +19,9 @@ def build_cycloid_disc(lobes: int = 27,
                        thickness: float = 10.0,
                        eccentricity: float | None = 1.5,
                        phase: float = 0.0,
-                       bore_dia: float = 18.0) -> Part:
+                       bore_dia: float = 18.0,
+                       slot_pin_count: int = 0,
+                       ) -> Part:
     """Return one cycloidal disc (flat) for a pin count / lobe count set.
 
     Uses a sampled epicycloid approximation good enough for printing.
@@ -58,19 +60,20 @@ def build_cycloid_disc(lobes: int = 27,
             Circle(bore_dia / 2)
         extrude(amount=thickness, mode=Mode.SUBTRACT)
 
-        # Add kidney slots for output pins (6 pins)
-        slot_pin_count = 6
-        slot_circle = (pin_circle_dia - 20) / 2  # inside lobes
-        slot_length = 8.0
-        slot_width = 6.5  # clearance for 6 mm pins
-        for i in range(slot_pin_count):
-            angle = i * 360 / slot_pin_count
-            x = slot_circle * cos(radians(angle))
-            y = slot_circle * sin(radians(angle))
-            with BuildSketch(Plane.XY.offset(thickness/2)) as s:
-                with Locations((x, y)):
-                    Rectangle(slot_width, slot_length, rotation=angle)
-            extrude(amount=thickness, mode=Mode.SUBTRACT)
+        # Optional kidney slots for output pins (legacy design).  These are not
+        # required when output torque is taken from the top bearing journal.
+        if slot_pin_count > 0:
+            slot_circle = (pin_circle_dia - 20) / 2  # inside lobes
+            slot_length = 8.0
+            slot_width = 6.5  # clearance for 6 mm pins
+            for i in range(slot_pin_count):
+                angle = i * 360 / slot_pin_count
+                x = slot_circle * cos(radians(angle))
+                y = slot_circle * sin(radians(angle))
+                with BuildSketch(Plane.XY.offset(thickness/2)) as s:
+                    with Locations((x, y)):
+                        Rectangle(slot_width, slot_length, rotation=angle)
+                extrude(amount=thickness, mode=Mode.SUBTRACT)
 
     bp.part.label = f"CycloidDisc_{lobes}lobes"
     return bp.part
@@ -143,6 +146,9 @@ def build_eccentric_sleeve(
     boss_dia: float = 17.0,
     boss_length: float = 15.0,
     bearing_thickness: float = 12.0,
+    mount_hole_count: int = 6,
+    mount_hole_diameter: float = 3.4,
+    mount_circle_dia: float | None = None,
 ) -> Part:
     """Create an eccentric sleeve that converts concentric motor rotation to the disc wobble.
 
@@ -151,30 +157,58 @@ def build_eccentric_sleeve(
     its axis drives the cycloid disc centre hole."""
 
     journal_dia = 40.0  # inner race of 6908
-    journal_len = bearing_thickness
 
-    total_len = journal_len * 2 + boss_length
+    # The shell now has a 5-mm-high boss above the bearing seat, so extend the
+    # journal by the same amount so its top face sits flush with the boss.
+    boss_height = 5.0  # must stay in sync with shell.py
+    journal_len = bearing_thickness + boss_height
+
+    total_len = boss_length + journal_len
 
     with BuildPart() as bp:
-        # Build concentric core (journals) first
+        # ------------------------------------------------------------------
+        # 1) Upper bearing journal (concentric with shaft axis)
+        # ------------------------------------------------------------------
+        with BuildSketch(Plane.XY.offset(boss_length)) as s:
+            Circle(journal_dia / 2)
+            Circle(shaft_dia / 2, mode=Mode.SUBTRACT)
+        extrude(amount=journal_len)
+
+        # ------------------------------------------------------------------
+        # 2) Eccentric boss that drives the cycloid discs
+        # ------------------------------------------------------------------
         with BuildSketch(Plane.XY) as s:
-            Circle(journal_dia/2)
-            Circle(shaft_dia/2, mode=Mode.SUBTRACT)
-        extrude(amount=total_len)
-
-        # Remove centre section where eccentric boss will be (retain journals)
-        with BuildSketch(Plane.XY.offset(journal_len)) as s:
-            Circle(journal_dia/2 + 0.1)  # add tiny clearance for boolean
-        extrude(amount=boss_length, mode=Mode.SUBTRACT)
-
-        # Add eccentric boss
-        with BuildSketch(Plane.XY.offset(journal_len)) as s:
-            Circle(boss_dia/2)
-            Circle(shaft_dia/2, mode=Mode.SUBTRACT)
+            # Place the boss *eccentricity* millimetres along +X so its axis
+            # ends up offset from the shaft axis.
+            with Locations((eccentricity, 0)):
+                Circle(boss_dia / 2)
         extrude(amount=boss_length)
 
-    # Translate boss so its axis is on global Z
-    bp.part = bp.part.translate((eccentricity, 0, 0))
+        # ------------------------------------------------------------------
+        # 3) Through-bore for the 15 mm shaft (passes through entire length)
+        # ------------------------------------------------------------------
+        with BuildSketch(Plane.XY) as s:
+            Circle(shaft_dia / 2)
+        extrude(amount=total_len, mode=Mode.SUBTRACT)
+
+        # ------------------------------------------------------------------
+        # 4) Mounting holes in the upper journal for coupling to the output
+        # ------------------------------------------------------------------
+        if mount_hole_count > 0 and mount_hole_diameter > 0:
+            effective_circle_dia = (
+                mount_circle_dia if mount_circle_dia is not None else journal_dia - 6.0
+            )
+            for i in range(mount_hole_count):
+                ang = i * 360 / mount_hole_count
+                r = effective_circle_dia / 2
+                x = r * cos(radians(ang))
+                y = r * sin(radians(ang))
+                with BuildSketch(Plane.XY.offset(boss_length + journal_len)) as s:
+                    with Locations((x, y)):
+                        Circle(mount_hole_diameter / 2)
+                # Cut down through journal and into boss to give full thread length
+                extrude(amount=-(journal_len + 5), mode=Mode.SUBTRACT, both=False)
+
     bp.part.label = "EccentricSleeve"
     return bp.part
 
