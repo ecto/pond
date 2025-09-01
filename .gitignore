@@ -39,3 +39,15 @@ __pycache__/
 flake.lock
 result*
 .direnv/
+
+# Nested Rust target directories (e.g., crate-local builds)
+**/target/
+
+# Node build artifacts
+**/node_modules/
+docs/node_modules/
+
+# Environment files
+.env
+**/.env
+*.env
