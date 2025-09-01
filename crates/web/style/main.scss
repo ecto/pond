@@ -1,0 +1,239 @@
+/* Pond Brand CSS - McMaster-Carr Inspired */
+@import url('https://fonts.googleapis.com/css2?family=Berkeley+Mono:wght@400;500;700&display=swap');
+
+/* CSS Custom Properties from Brand Guide */
+:root {
+  --font-mono: "Berkeley Mono", "SF Mono", Consolas, Monaco, monospace;
+  --font-serif: "Times New Roman", Georgia, serif;
+  --color-black: #000000;
+  --color-white: #ffffff;
+  --color-pond-blue: #0000ff;
+  --color-tech-gray: #6b7280;
+  --color-annotation: #9ca3af;
+  --color-border: #e5e7eb;
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+  --spacing-2xl: 4rem;
+}
+
+/* Base styles */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-serif);
+  line-height: 1.6;
+  color: var(--color-black);
+  background-color: var(--color-white);
+  margin: 0;
+  padding: 0;
+}
+
+/* Typography - Brand Scale */
+.font-mono {
+  font-family: var(--font-mono);
+  line-height: 1.4;
+}
+
+.font-serif {
+  font-family: var(--font-serif);
+  line-height: 1.6;
+}
+
+/* Grid System - 8px base */
+.grid-8 {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+/* McMaster-Carr inspired information density */
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+.catalog-item {
+  border: 1px solid var(--color-border);
+  padding: var(--spacing-md);
+  background: var(--color-white);
+
+  &:hover {
+    border-color: var(--color-tech-gray);
+    transition: border-color 150ms ease-out;
+  }
+}
+
+/* Technical specifications layout */
+.spec-table {
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  width: 100%;
+  border-collapse: collapse;
+  margin: var(--spacing-md) 0;
+
+  th, td {
+    text-align: left;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  th {
+    font-weight: 500;
+    background-color: #f9fafb;
+  }
+}
+
+/* Markdown content styling */
+.markdown-content {
+  max-width: 65ch;
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--color-black);
+    margin-top: var(--spacing-xl);
+    margin-bottom: var(--spacing-sm);
+    letter-spacing: -0.01em;
+  }
+
+  h1 { font-size: 2.5rem; }
+  h2 { font-size: 2rem; }
+  h3 { font-size: 1.5rem; }
+  h4 { font-size: 1.25rem; }
+
+  p {
+    font-family: var(--font-serif);
+    margin-bottom: var(--spacing-md);
+    color: var(--color-black);
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.875rem;
+    background-color: #f3f4f6;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+  }
+
+  pre {
+    font-family: var(--font-mono);
+    background-color: #f9fafb;
+    padding: var(--spacing-md);
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    border: 1px solid var(--color-border);
+  }
+
+  blockquote {
+    border-left: 4px solid var(--color-pond-blue);
+    padding-left: var(--spacing-md);
+    margin: var(--spacing-md) 0;
+    color: var(--color-tech-gray);
+    font-style: italic;
+  }
+
+  ul, ol {
+    padding-left: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+  }
+
+  li {
+    margin-bottom: var(--spacing-xs);
+  }
+}
+
+/* Links */
+a {
+  color: var(--color-pond-blue);
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+    transition: text-decoration 150ms ease-out;
+  }
+
+  &:visited {
+    color: var(--color-pond-blue);
+  }
+}
+
+/* Navigation */
+nav a {
+  color: var(--color-tech-gray);
+  transition: color 150ms ease-out;
+
+  &:hover {
+    color: var(--color-black);
+  }
+
+  &.active {
+    color: var(--color-black);
+    font-weight: 500;
+  }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .catalog-grid {
+    grid-template-columns: 1fr;
+    padding: var(--spacing-sm);
+  }
+
+  .markdown-content {
+    max-width: 100%;
+  }
+
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.75rem; }
+  h3 { font-size: 1.25rem; }
+}
+
+/* Whimsy and personality */
+.easter-egg {
+  opacity: 0;
+  transition: opacity 300ms ease-out;
+}
+
+.easter-egg:hover {
+  opacity: 1;
+}
+
+/* Loading states */
+.loading {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.5), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Focus states for accessibility */
+*:focus {
+  outline: 2px solid var(--color-pond-blue);
+  outline-offset: 2px;
+}
+
+
+
+
+
+
+
