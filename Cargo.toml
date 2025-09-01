@@ -4,7 +4,7 @@ resolver = "2" # Use the modern resolver compatible with Edition 2021
 
 members = [
     "crates/cad",
-    "crates/web",
+    # "crates/web", # Temporarily removed for Leptos standalone setup
     "apps/pad",
     "apps/mind",
     "crates/ui_overlay",
@@ -28,71 +28,4 @@ codegen-units = 1
 opt-level = 'z'
 panic = "abort"
 
-# Leptos configuration section
-[[workspace.metadata.leptos]]
-# The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name
-output-name = "web"
-# The name of the package
-name = "web"
-
-# The package that contains the server binary
-bin-package = "server"
-
-# The specific binary target to run
-bin-target = "start_server"
-
-# The package that contains the library (for WASM)
-lib-package = "web"
-
-# The site root folder is where cargo-leptos generate all output. WARNING: all content of this folder will be erased on a rebuild. Use it in your server setup.
-site-root = "target/site"
-
-# The site-pkg directory is where final packaged JS/WASM files are located.
-# Relative to site root. Defaults to "pkg".
-site-pkg-dir = "pkg"
-
-# Optional. Commands to run after successful builds.
-# Useful for running Tailwindcss for example.
-# A target=wasm32-unknown-unknown argument is passed for wasm builds.
-# A target=server argument is passed for server builds.
-# post-build = ["echo", "done"]
-
-# The assets directory contains static files to be copied into the site root folder.
-# Relative to the workspace root. Defaults to "assets".
-assets-dir = "public"
-
-# The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "127.0.0.1:3000"
-
-# The port to use for automatic reload monitoring
-reload-port = 3001
-
-# The browserlist query used for optimizing the CSS.
-browserquery = "defaults"
-
-# Set by cargo-leptos watch when building with that tool. Controls whether autoreload JS will be included in the head
-watch = false
-
-# The environment Leptos will run in, usually either "DEV" or "PROD"
-env = "DEV"
-
-# The features to use when building the bin target
-#
-# Optional. These are less relevant now the bin is separate.
-# bin-features = []
-# bin-default-features = false
-
-# The features to use when building the lib target
-#
-# Optional. Can be over-ridden with the command line parameter --lib-features
-lib-features = ["hydrate"]
-
-# If the --no-default-features flag should be used when building the lib target
-#
-# Optional. Defaults to false.
-lib-default-features = false
-
-# The profile to use for the lib target when building for release
-#
-# Optional. Defaults to "release".
-lib-profile-release = "release"
+# Leptos configuration moved to crates/web/Leptos.toml for standalone setup
