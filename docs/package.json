@@ -1,0 +1,13 @@
+{
+  "name": "pond-docs",
+  "version": "1.0.0",
+  "description": "Documentation for Pond - Autonomous Robotics",
+  "scripts": {
+    "dev": "mintlify dev",
+    "build": "mintlify build",
+    "start": "mintlify start"
+  },
+  "dependencies": {
+    "mintlify": "latest"
+  }
+}
