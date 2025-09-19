@@ -11,7 +11,8 @@ async fn main() {
     simple_logger::init_with_level(log::Level::Debug).expect("couldn't initialize logging");
 
     // Build our application with a route
-    let conf = get_configuration(None).await.unwrap();
+    // Use local Cargo.toml to load Leptos options without cargo-leptos
+    let conf = get_configuration(Some("Cargo.toml")).await.unwrap();
     let leptos_options = conf.leptos_options;
     let addr = leptos_options.site_addr;
     let routes = generate_route_list(App);
@@ -23,8 +24,15 @@ async fn main() {
         .nest_service("/assets", ServeDir::new("target/site"))
         .with_state(leptos_options);
 
-    let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    logging::log!("listening on http://{}", &addr);
+    let listener = match tokio::net::TcpListener::bind(&addr).await {
+        Ok(l) => l,
+        Err(e) => {
+            log::warn!("{} is in use ({}); falling back to 127.0.0.1:3030", addr, e);
+            tokio::net::TcpListener::bind("127.0.0.1:3030").await.unwrap()
+        }
+    };
+    let local_addr = listener.local_addr().ok().map(|a| a.to_string()).unwrap_or_else(|| addr.to_string());
+    log::info!("listening on http://{}", local_addr);
     axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
@@ -36,4 +44,3 @@ pub fn main() {
     // unless we want this to work with e.g., Trunk for a purely client-side app
     // see lib.rs for hydration function instead
 }
-
