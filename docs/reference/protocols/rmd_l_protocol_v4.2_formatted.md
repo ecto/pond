@@ -558,25 +558,12 @@ the same as the received command.
 
 #### 2.5.4. Function Index Description
 
-```
-
-Index value Command name Function description
-
-0x00 position planning Acceleration value from initial velocity to
-acceleration maximum velocity in position planning
-
-0x01 Position planning Deceleration value from maximum speed to
-deceleration stop in position planning
-
-0x02 Speed planning The acceleration value from the current speed
-acceleration to the target speed,including the acceleration in
-
-```
-
-                                                the forward and reverse directions
-
-0x03 Speed planning In the same direction,the deceleration value
-deceleration from the current speed to the target speed
+| Index value | Command name                   | Function description                                                                                                                |
+| ----------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| 0x00        | position planning acceleration | Acceleration value from initial velocity to maximum velocity in position planning                                                   |
+| 0x01        | Position planning deceleration | Deceleration value from maximum speed to stop in position planning                                                                  |
+| 0x02        | Speed planning acceleration    | The acceleration value from the current speed to the target speed, including the acceleration in the forward and reverse directions |
+| 0x03        | Speed planning deceleration    | In the same direction, the deceleration value from the current speed to the target speed                                            |
 
 #### 2.5.5. Communication Example
 
@@ -868,20 +855,16 @@ multi-turn encoder value without the zero offset (home position).
 
 #### 2.7.2. Send Data Field Definition
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x61
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] NULL 0x00
-DATA[5] NULL 0x00
-DATA[6] NULL 0x00
-DATA[7] NULL 0x00
-
-```
+| Data field | Description  | Data |
+| ---------- | ------------ | ---- |
+| DATA[0]    | Command byte | 0x61 |
+| DATA[1]    | NULL         | 0x00 |
+| DATA[2]    | NULL         | 0x00 |
+| DATA[3]    | NULL         | 0x00 |
+| DATA[4]    | NULL         | 0x00 |
+| DATA[5]    | NULL         | 0x00 |
+| DATA[6]    | NULL         | 0x00 |
+| DATA[7]    | NULL         | 0x00 |
 
 #### 2.7.3. Reply Data Field Definition
 
@@ -889,20 +872,16 @@ The motor replies to the host after receiving the command,and the frame data con
 the following parameters. Encoder multi-turn raw position encoderRaw (int32_t
 type,value range,valid data 4 bytes).
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x61
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] Encoder original position byte 1 DATA[4] = (uint8_t)(encoderRaw)
-DATA[5] Encoder original position byte 2 DATA[5] = (uint8_t)(encoderRaw>>8)
-DATA[6] Encoder original position byte 3 DATA[6] = (uint8_t)(encoderRaw>>16)
-DATA[7] Encoder original position byte 4 DATA[7] = (uint8_t)(encoderRaw>>24)
-
-```
+| Data field | Description                      | Data                                |
+| ---------- | -------------------------------- | ----------------------------------- |
+| DATA[0]    | Command byte                     | 0x61                                |
+| DATA[1]    | NULL                             | 0x00                                |
+| DATA[2]    | NULL                             | 0x00                                |
+| DATA[3]    | NULL                             | 0x00                                |
+| DATA[4]    | Encoder original position byte 1 | DATA[4] = (uint8_t)(encoderRaw)     |
+| DATA[5]    | Encoder original position byte 2 | DATA[5] = (uint8_t)(encoderRaw>>8)  |
+| DATA[6]    | Encoder original position byte 3 | DATA[6] = (uint8_t)(encoderRaw>>16) |
+| DATA[7]    | Encoder original position byte 4 | DATA[7] = (uint8_t)(encoderRaw>>24) |
 
 #### 2.7.4. Communication Example
 
@@ -910,25 +889,19 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
 
-0x141 0x61 0x00 0x00 0x00 0x00 0x00 0x00 0x00
-
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x61    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x61 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x61 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -969,20 +942,16 @@ the encoder.
 
 #### 2.8.2. Send Data Field Definition
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x62
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] NULL 0x00
-DATA[5] NULL 0x00
-DATA[6] NULL 0x00
-DATA[7] NULL 0x00
-
-```
+| Data field | Description  | Data |
+| ---------- | ------------ | ---- |
+| DATA[0]    | Command byte | 0x62 |
+| DATA[1]    | NULL         | 0x00 |
+| DATA[2]    | NULL         | 0x00 |
+| DATA[3]    | NULL         | 0x00 |
+| DATA[4]    | NULL         | 0x00 |
+| DATA[5]    | NULL         | 0x00 |
+| DATA[6]    | NULL         | 0x00 |
+| DATA[7]    | NULL         | 0x00 |
 
 #### 2.8.3. Reply Data Field Definition
 
@@ -990,20 +959,16 @@ The motor replies to the host after receiving the command,and the frame data con
 the following parameters. Encoder multi-turn zero offset encoderOffset (int32_t
 type,value range,valid data 4 bytes).
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x62
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] Encoder offset byte 1 DATA[4] = (uint8_t)(encoderOffset)
-DATA[5] Encoder offset byte 2 DATA[5] = (uint8_t)(encoderOffset>>8)
-DATA[6] Encoder offset byte 3 DATA[6] = (uint8_t)(encoderOffset>>16)
-DATA[7] Encoder offset byte 4 DATA[7] = (uint8_t)(encoderOffset>>24)
-
-```
+| Data field | Description           | Data                                   |
+| ---------- | --------------------- | -------------------------------------- |
+| DATA[0]    | Command byte          | 0x62                                   |
+| DATA[1]    | NULL                  | 0x00                                   |
+| DATA[2]    | NULL                  | 0x00                                   |
+| DATA[3]    | NULL                  | 0x00                                   |
+| DATA[4]    | Encoder offset byte 1 | DATA[4] = (uint8_t)(encoderOffset)     |
+| DATA[5]    | Encoder offset byte 2 | DATA[5] = (uint8_t)(encoderOffset>>8)  |
+| DATA[6]    | Encoder offset byte 3 | DATA[6] = (uint8_t)(encoderOffset>>16) |
+| DATA[7]    | Encoder offset byte 4 | DATA[7] = (uint8_t)(encoderOffset>>24) |
 
 #### 2.8.4. Communication Example
 
@@ -1011,48 +976,38 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x62 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x62    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x62 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x62 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
 The host sends this command to read the multi-turn zero offset value of the encoder.
 Reply command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x62 0x00 0x00 0x00 0x10 0x27 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x62    | 0x00    | 0x00    | 0x00    | 0x10    | 0x27    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x62 0x00 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x62 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -1099,24 +1054,19 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x63 0x00 0x00 0x00 0x10 0x27 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x63    | 0x00    | 0x00    | 0x00    | 0x10    | 0x27    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x63 0x00 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x63 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -1125,25 +1075,19 @@ is the highest bit),which means 10000 in decimal. It means to write 10000 pulses
 multi-turn encoder zero offset.
 Reply command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x63 0x00 0x00 0x00 0x10 0x27 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x63    | 0x00    | 0x00    | 0x00    | 0x10    | 0x27    | 0x00    | 0x00    |
 
 RS485：
-
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x63 0x00 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x63 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -1166,40 +1110,32 @@ the target position.
 
 #### 2.10.2. Send Data Field Definition
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x64
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] NULL 0x00
-DATA[5] NULL 0x00
-DATA[6] NULL 0x00
-DATA[7] NULL 0x00
-
-```
+| Data field | Description  | Data |
+| ---------- | ------------ | ---- |
+| DATA[0]    | Command byte | 0x64 |
+| DATA[1]    | NULL         | 0x00 |
+| DATA[2]    | NULL         | 0x00 |
+| DATA[3]    | NULL         | 0x00 |
+| DATA[4]    | NULL         | 0x00 |
+| DATA[5]    | NULL         | 0x00 |
+| DATA[6]    | NULL         | 0x00 |
+| DATA[7]    | NULL         | 0x00 |
 
 #### 2.10.3. Reply Data Field Definition
 
 The motor replies to the host after receiving the command,and the encoderOffset in the
 data is the set zero offset value.
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x64
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] Encoder zero bias low byte 1 DATA[4] = (uint8_t)(encoderOffset)
-DATA[5] Encoder zero bias byte 2 DATA[5] = (uint8_t)(encoderOffset>>8)
-DATA[6] Encoder zero bias byte 3 DATA[6] = (uint8_t)(encoderOffset>>16)
-DATA[7] Encoder zero bias byte 4 DATA[7] = (uint8_t)(encoderOffset>>24)
-
-```
+| Data field | Description                  | Data                                   |
+| ---------- | ---------------------------- | -------------------------------------- |
+| DATA[0]    | Command byte                 | 0x64                                   |
+| DATA[1]    | NULL                         | 0x00                                   |
+| DATA[2]    | NULL                         | 0x00                                   |
+| DATA[3]    | NULL                         | 0x00                                   |
+| DATA[4]    | Encoder zero bias low byte 1 | DATA[4] = (uint8_t)(encoderOffset)     |
+| DATA[5]    | Encoder zero bias byte 2     | DATA[5] = (uint8_t)(encoderOffset>>8)  |
+| DATA[6]    | Encoder zero bias byte 3     | DATA[6] = (uint8_t)(encoderOffset>>16) |
+| DATA[7]    | Encoder zero bias byte 4     | DATA[7] = (uint8_t)(encoderOffset>>24) |
 
 #### 2.10.4. Communication Example
 
@@ -1207,24 +1143,19 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x64 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x64    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x64 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x64 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -1232,24 +1163,19 @@ After sending the 0x64 command,the motor will write the current multi-turn encod
 value as the zero offset (initial position) into the ROM.
 Reply command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x64 0x00 0x00 0x00 0x10 0x27 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x64    | 0x00    | 0x00    | 0x00    | 0x10    | 0x27    | 0x00    | 0x00    |
 
 RS485：
-Frame ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
-
+Frame
 header
 
-0x3E 0x01 0x08 0x64 0x00 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x64 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -1296,20 +1222,16 @@ the original position of the encoder;
 
 angle.
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x90
-DATA[1] NULL 0x00
-DATA[2] Encoder position low byte DATA[1] = (uint8_t)(encoder)
-DATA[3] Encoder position high byte DATA[2] = (uint8_t)(encoder>>8)
-DATA[4] Encoder original position low byte DATA[3] = (uint8_t)(encoderRaw)
-DATA[5] Encoder original position high byte DATA[4]= (uint8_t)(encoderRaw>>8)
-DATA[6] Encoder zero bias low byte DATA[5] = (uint8_t)(encoderOffset)
-DATA[7] Encoder zero bias high byte DATA[6]= (uint8_t)(encoderOffset>>8)
-
-```
+| Data field | Description                         | Data                                  |
+| ---------- | ----------------------------------- | ------------------------------------- |
+| DATA[0]    | Command byte                        | 0x90                                  |
+| DATA[1]    | NULL                                | 0x00                                  |
+| DATA[2]    | Encoder position low byte           | DATA[2] = (uint8_t)(encoder)          |
+| DATA[3]    | Encoder position high byte          | DATA[3] = (uint8_t)(encoder>>8)       |
+| DATA[4]    | Encoder original position low byte  | DATA[4] = (uint8_t)(encoderRaw)       |
+| DATA[5]    | Encoder original position high byte | DATA[5] = (uint8_t)(encoderRaw>>8)    |
+| DATA[6]    | Encoder zero bias low byte          | DATA[6] = (uint8_t)(encoderOffset)    |
+| DATA[7]    | Encoder zero bias high byte         | DATA[7] = (uint8_t)(encoderOffset>>8) |
 
 #### 2.11.4. Communication Example
 
@@ -1317,48 +1239,38 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x90 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x90    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x90 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x90 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
 After sending the 0x90 command,it will return the motor single-turn encoder value.
 Reply command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x90 0x00 0x33 0x08 0xBE 0x2C 0x8B 0x24
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x90    | 0x00    | 0x33    | 0x08    | 0xBE    | 0x2C    | 0x8B    | 0x24    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x90 0x00 0x33 0x08 0xBE 0x2C 0x8B 0x24 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x90 | 0x00 | 0x33 | 0x08 | 0xBE | 0x2C | 0x8B | 0x24   | CRC16H |
 
 Description：
 
@@ -1404,20 +1316,16 @@ the following parameters.
 
 0.01°/LSB.
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x92
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] Angle low byte 1 DATA[4] = (uint8_t)(motorAngle)
-DATA[5] Angle byte 2 DATA[5] = (uint8_t)(motorAngle>>8)
-DATA[6] Angle byte 3 DATA[6] = (uint8_t)(motorAngle>>16)
-DATA[7] Angle byte 4 DATA[7] = (uint8_t)(motorAngle>>24)
-
-```
+| Data field | Description      | Data                                |
+| ---------- | ---------------- | ----------------------------------- |
+| DATA[0]    | Command byte     | 0x92                                |
+| DATA[1]    | NULL             | 0x00                                |
+| DATA[2]    | NULL             | 0x00                                |
+| DATA[3]    | NULL             | 0x00                                |
+| DATA[4]    | Angle low byte 1 | DATA[4] = (uint8_t)(motorAngle)     |
+| DATA[5]    | Angle byte 2     | DATA[5] = (uint8_t)(motorAngle>>8)  |
+| DATA[6]    | Angle byte 3     | DATA[6] = (uint8_t)(motorAngle>>16) |
+| DATA[7]    | Angle byte 4     | DATA[7] = (uint8_t)(motorAngle>>24) |
 
 #### 2.12.4. Communication Example
 
@@ -1425,24 +1333,19 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x92 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x92    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x92 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x92 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -1450,25 +1353,19 @@ After sending the 0x92 command,it will return the absolute angle of the motor ou
 shaft.
 Reply command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x92 0x00 0x00 0x00 0xA0 0x8C 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x92    | 0x00    | 0x00    | 0x00    | 0xA0    | 0x8C    | 0x00    | 0x00    |
 
 RS485：
-
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x92 0x00 0x00 0x00 0xA0 0x8C 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x92 | 0x00 | 0x00 | 0x00 | 0xA0 | 0x8C | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -4260,93 +4157,32 @@ IqRef is the output current of the last given motor.
 
 ### 5.2. Send Data Field Definition
 
-                 Data           Data
-
-```
-
-Data field Data definition Data range
-partition combination
-
-```
-
-              0-3bit
-
-DATA[0] p_des[8-15] p_des Upper 8-bit data
-4-7bit
-16-bit range
-0-3bit
-DATA[1] p_des[0-7] p_des Lower 8-bit data
-4-7bit
-0-3bit
-DATA[2] v_des[4-11] v_des Upper 8-bit data
-4-7bit 12-bit range
-
-              0-3bit       v_des[0-3]             v_des Lower 8-bit data
-
-DATA[3]
-4-7bit kp[8-11] kp Upper 4-bit data
-
-              0-3bit                                                         12-bit range
-
-DATA[4] kp[0-7] kp Lower 8-bit data
-4-7bit
-0-3bit
-DATA[5] kd[4-11] kd Upper 8-bit data
-4-7bit 12-bit range
-
-              0-3bit       kd[0-3]                   kd Lower 4-bit data
-
-DATA[6]
-4-7bit t_ff[8-11] t_ff Upper 4-bit data
-
-              0-3bit                                                         12-bit range
-
-DATA[7] t_ff[0-7] t_ff Lower 8-bit data
-4-7bit
+| Data field | partition | combination | Data definition                       |
+| ---------- | --------- | ----------- | ------------------------------------- |
+| DATA[0]    | 0-3bit    | p_des[8-15] | p_des Upper 8-bit data (16-bit range) |
+| DATA[1]    | 0-3bit    | p_des[0-7]  | p_des Lower 8-bit data                |
+| DATA[2]    | 0-3bit    | v_des[4-11] | v_des Upper 8-bit data (12-bit range) |
+| DATA[3]    | 0-3bit    | v_des[0-3]  | v_des Lower 4-bit data                |
+| DATA[3]    | 4-7bit    | kp[8-11]    | kp Upper 4-bit data                   |
+| DATA[4]    | 0-3bit    | kp[0-7]     | kp Lower 8-bit data                   |
+| DATA[5]    | 0-3bit    | kd[4-11]    | kd Upper 8-bit data (12-bit range)    |
+| DATA[6]    | 0-3bit    | kd[0-3]     | kd Lower 4-bit data                   |
+| DATA[6]    | 4-7bit    | t_ff[8-11]  | t_ff Upper 4-bit data (12-bit range)  |
+| DATA[7]    | 0-3bit    | t_ff[0-7]   | t_ff Lower 8-bit data                 |
 
 ### 5.3. Reply Data Field Definition
 
-                 Data           Data
-
-```
-
-Data field Data definition Data range
-partition combination
-
-DATA[0] 0-7bit CANID[0-7] Device CAN address number 8-bit range
-
-```
-
-              0-3bit
-
-DATA[1] p_des[8-15] p_des Upper 8-bit data
-4-7bit 16-bit range
-
-DATA[2] 0-3bit p_des[0-7] p_des Lower 8-bit data
-
-           4-7bit
-           0-3bit
-
-DATA[3] v_des[4-11] v_des Upper 8-bit data
-4-7bit 12-bit range
-
-           0-3bit            v_des[0-3]                v_des Lower 4-bit data
-
-DATA[4]
-4-7bit t_ff[8-11] t_ff Upper 4-bit data
-
-           0-3bit                                                                           12-bit range
-
-DATA[5] t_ff[0-7] t_ff Lower 8-bit data
-4-7bit
-0-3bit
-DATA[6] NULL NULL
-4-7bit NULL
-
-           0-3bit            NULL                                  NULL
-
-DATA[7]
-4-7bit NULL NULL NULL
+| Data field | partition | combination | Data definition                         |
+| ---------- | --------- | ----------- | --------------------------------------- |
+| DATA[0]    | 0-7bit    | CANID[0-7]  | Device CAN address number (8-bit range) |
+| DATA[1]    | 0-3bit    | p_des[8-15] | p_des Upper 8-bit data (16-bit range)   |
+| DATA[2]    | 0-3bit    | p_des[0-7]  | p_des Lower 8-bit data                  |
+| DATA[3]    | 0-3bit    | v_des[4-11] | v_des Upper 8-bit data (12-bit range)   |
+| DATA[4]    | 0-3bit    | v_des[0-3]  | v_des Lower 4-bit data                  |
+| DATA[4]    | 4-7bit    | t_ff[8-11]  | t_ff Upper 4-bit data (12-bit range)    |
+| DATA[5]    | 0-3bit    | t_ff[0-7]   | t_ff Lower 8-bit data                   |
+| DATA[6]    | 0-7bit    | NULL        | NULL                                    |
+| DATA[7]    | 0-7bit    | NULL        | NULL                                    |
 
 ### 5.4. Communication Example
 
