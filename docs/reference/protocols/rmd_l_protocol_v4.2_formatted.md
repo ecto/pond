@@ -36,201 +36,45 @@ disclaimer belongs to MYACTUATOR.
     - 1.2.2. Message Format
 - 2.  Single Motor Command Description
   - 2.1. Read PID Parameter Command (0x30)
-    - 2.1.1. Instruction Description
-    - 2.1.2. Send Data Field Definition
-    - 2.1.3. Reply Data Field Definition
-    - 2.1.4. Function Index Description
-    - 2.1.5. Communication Example
   - 2.2. Write PID Parameters to RAM Command (0x31)
-    - 2.2.1. Instruction Description
-    - 2.2.2. Send Data Field Definition
-    - 2.2.3. Reply Data Field Definition
-    - 2.2.4. Function Index Description
-    - 2.2.5. Communication Example
   - 2.3. Write PID Parameters to ROM Command (0x32)
-    - 2.3.1. Instruction Description
-    - 2.3.2. Send Data Field Definition
-    - 2.3.3. Reply Data Field Definition
-    - 2.3.4. Function Index Description
-    - 2.3.5. Communication Example
   - 2.4. Read Acceleration Command (0x42)
-    - 2.4.1. Instruction Description
-    - 2.4.2. Send Data Field Definition
-    - 2.4.3. Reply Data Field Definition
-    - 2.4.4. Function Index Description
-    - 2.4.5. Communication Example
   - 2.5. Write Acceleration to RAM and ROM Command (0x43)
-    - 2.5.1. Instruction Description
-    - 2.5.2. Send Data Field Definition
-    - 2.5.3. Reply Data Field Definition
-    - 2.5.4. Function Index Description
-    - 2.5.5. Communication Example
   - 2.6. Read Multi-Turn Encoder Position Data Command (0x60)
-    - 2.6.1. Instruction Description
-    - 2.6.2. Send Data Field Definition
-    - 2.6.3. Reply Data Field Definition
-    - 2.6.4. Communication Example
   - 2.7. Read Multi-Turn Encoder Original Position Data Command (0x61)
-    - 2.7.1. Instruction Description
-    - 2.7.2. Send Data Field Definition
-    - 2.7.3. Reply Data Field Definition
-    - 2.7.4. Communication Example
   - 2.8. Read Multi-Turn Encoder Zero Offset Data Command (0x62)
-    - 2.8.1. Instruction Description
-    - 2.8.2. Send Data Field Definition
-    - 2.8.3. Reply Data Field Definition
-    - 2.8.4. Communication Example
   - 2.9. Write Encoder Multi-Turn Value to ROM as Motor Zero Command (0x63)
-    - 2.9.1. Instruction Description
-    - 2.9.2. Send Data Field Definition
-    - 2.9.3. Reply Data Field Definition
-    - 2.9.4. Communication Example
   - 2.10. Write the Current Multi-Turn Position of the Encoder to the ROM as the Motor Zero Command (0x64)
-    - 2.10.1. Instruction Description
-    - 2.10.2. Send Data Field Definition
-    - 2.10.3. Reply Data Field Definition
-    - 2.10.4. Communication Example
   - 2.11. Read Single-Turn Encoder Command (0x90)
-    - 2.11.1. Instruction Description
-    - 2.11.2. Send Data Field Definition
-    - 2.11.3. Reply Data Field Definition
-    - 2.11.4. Communication Example
   - 2.12. Read Multi-Turn Angle Command (0x92)
-    - 2.12.1. Instruction Description
-    - 2.12.2. Send Data Field Definition
-    - 2.12.3. Reply Data Field Definition
-    - 2.12.4. Communication Example
   - 2.13. Read Single-Turn Angle Command (0x94)
-    - 2.13.1. Instruction Description
-    - 2.13.2. Send Data Field Definition
-    - 2.13.3. Reply Data Field Definition
-    - 2.13.4. Communication Example
   - 2.14. Read Motor Status 1 and Error Flag Command (0x9A)
-    - 2.14.1. Instruction Description
-    - 2.14.2. Send Data Field Definition
-    - 2.14.3. Reply Data Field Definition
-    - 2.14.4. Communication Example
   - 2.15. Read Motor Status 2 Command (0x9C)
-    - 2.15.1. Instruction Description
-    - 2.15.2. Send Data Field Definition
-    - 2.15.3. Reply Data Field Definition
-    - 2.15.4. Communication Example
   - 2.16. Read Motor Status 3 Command (0x9D)
-    - 2.16.1. Instruction Description
-    - 2.16.2. Send Data Field Definition
-    - 2.16.3. Reply Data Field Definition
-    - 2.16.4. Communication Example
   - 2.17. Motor Shutdown Command (0x80)
-    - 2.17.1. Instruction Description
-    - 2.17.2. Send Data Field Definition
-    - 2.17.3. Reply Data Field Definition
   - 2.18. Motor Stop Command (0x81)
-    - 2.18.1. Instruction Description
-    - 2.18.2. Send Data Field Definition
-    - 2.18.3. Reply Data Field Definition
   - 2.19. Torque Closed-Loop Control Command (0xA1)
-    - 2.19.1. Instruction Description
-    - 2.19.2. Send Data Field Definition
-    - 2.19.3. Reply Data Field Definition
-    - 2.19.4. Communication Example
   - 2.20. Speed Closed-Loop Control Command (0xA2)
-    - 2.20.1. Instruction Description
-    - 2.20.2. Send Data Field Definition
-    - 2.20.3. Reply Data Field Definition
-    - 2.20.4. Communication Example
   - 2.21. Absolute Position Closed-Loop Control Command (0xA4)
-    - 2.21.1. Instruction Description
-    - 2.21.2. Send Data Field Definition
-    - 2.21.3. Reply Data Field Definition
-    - 2.21.4. Communication Example
   - 2.22. Single-Turn Position Control Command (0xA6)
-    - 2.22.1. Instruction Description
-    - 2.22.2. Send Data Field Definition
-    - 2.22.3. Reply Data Field Definition
-    - 2.22.4. Communication Example
   - 2.23. Incremental Position Closed-Loop Control Command (0xA8)
-    - 2.23.1. Instruction Description
-    - 2.23.2. Send Data Field Definition
-    - 2.23.3. Reply Data Field Definition
-    - 2.23.4. Communication Example
   - 2.24. System Operating Mode Acquisition (0x70)
-    - 2.24.1. Instruction Description
-    - 2.24.2. Send Data Field Definition
-    - 2.24.3. Reply Data Field Definition
-    - 2.24.4. Communication Example
   - 2.25. System Reset Command (0x76)
-    - 2.25.1. Instruction Description
-    - 2.25.2. Send Data Field Definition
-    - 2.25.3. Reply Data Field Definition
-    - 2.25.4. Communication Example
   - 2.26. System Brake Release Command (0x77)
-    - 2.26.1. Instruction Description
-    - 2.26.2. Send Data Field Definition
-    - 2.26.3. Reply Data Field Definition
   - 2.27. System Brake Lock Command (0x78)
-    - 2.27.1. Instruction Description
-    - 2.27.2. Send Data Field Definition
-    - 2.27.3. Reply Data Field Definition
   - 2.28. System Runtime Read Command (0xB1)
-    - 2.28.1. Instruction Description
-    - 2.28.2. Send Data Field Definition
-    - 2.28.3. Reply Data Field Definition
-    - 2.28.4. Communication Example
   - 2.29. System Software Version Date Read Command (0xB2)
-    - 2.29.1. Instruction Description
-    - 2.29.2. Send Data Field Definition
-    - 2.29.3. Reply Data Field Definition
-    - 2.29.4. Communication Example
   - 2.30. Communication Interruption Protection Time Setting Command (0xB3)
-    - 2.30.1. Instruction Description
-    - 2.30.2. Send Data Field Definition
-    - 2.30.3. Reply Data Field Definition
-    - 2.30.4. Communication Example
   - 2.31. Communication Baud Rate Setting Command (0xB4)
-    - 2.31.1. Instruction Description
-    - 2.31.2. Send Data Field Definition
-    - 2.31.3. Reply Data Field Definition
-    - 2.31.4. Communication Example
   - 2.32. Motor Model Reading Command (0xB5)
-    - 2.32.1. Instruction Description
-    - 2.32.2. Send Data Field Definition
-    - 2.32.3. Reply Data Field Definition
-    - 2.32.4. Communication Example
   - 2.33. Active Reply Function Command (0xB6)
-    - 2.33.1. Instruction Description
-    - 2.33.2. Send Data Field Definition
-    - 2.33.3. Reply Data Field Definition
-    - 2.33.4. Example of Communication
   - 2.34. Function Control Command (0x20)
-    - 2.34.1. Instruction Description
-    - 2.34.2. Send Data Field Definition
-    - 2.34.3. Reply Data Field Definition
-    - 2.34.4. Function Index Description
-    - 2.34.5. Communication Example
 - 3.  CAN Multi-Motor Command (0x280 + Command)
-  - 3.1. Instruction Description
-  - 3.2. Communication Example
 - 4.  CANID Setting Command (0x79)
-  - 4.1. Instruction Description
-  - 4.2. Send Data Field Definition
-  - 4.3. Reply Data Field Definition
-  - 4.4. Communication Example
 - 5.  Motion Mode Control Command_CAN (0x400 + ID)
-  - 5.1. Instruction Description
-  - 5.2. Send Data Field Definition
-  - 5.3. Reply Data Field Definition
-  - 5.4. Communication Example
 - 6.  RS485 Multi-Motor Command (0xCD + Command)
-  - 6.1. Instruction Description
-  - 6.2. Communication Example
 - 7.  RS485-ID Setting Command (0x79)
-  - 7.1. Instruction Description
-  - 7.2. Send Data Field Definition
-  - 7.3. Reply Data Field Definition
-  - 7.4. Communication Example
 - 8.  Indicator Light Description
-  - 8.1. Status Description
-  - 8.2. Failure Description Form
 - 9.  Version Revision Information
 
 ## 1. Communication Bus Parameters and Message Format
@@ -411,21 +255,19 @@ Example 1:
 
 Send command:
 
-```
 CAN:
-ID        Data[0]        Data[1]   Data[2]     Data[3]    Data[4]     Data[5]     Data[6]    Data[7]
-0x141     0x31           0x01      0x00        0x00       0x00        0x00        0xC0       0x3F
-```
 
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x31    | 0x01    | 0x00    | 0x00    | 0x00    | 0x00    | 0xC0    | 0x3F    |
+
 RS485:
 Frame
-         ID      Length     D0     D1     D2       D3      D4       D5       D6    D7       CRC16L   CRC16H
 header
 
-0x3E     0x01     0x08     0x31    0x01   0x00    0x00    0x00      0x00   0xC0    0x3F     CRC16L   CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x31 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | 0xC0 | 0x3F   | CRC16H |
 
 Description:
 
@@ -438,22 +280,19 @@ The online conversion website can be used: http://www.speedfly.cn/tools/hexconve
 
 Reply command:
 
-```
 CAN：
-ID        Data[0]       Data[1]   Data[2]     Data[3]      Data[4]     Data[5]     Data[6]    Data[7]
-0x241     0x31          0x01      0x00        0x00         0x00        0x00        0xC0       0x3F
-```
 
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x31    | 0x01    | 0x00    | 0x00    | 0x00    | 0x00    | 0xC0    | 0x3F    |
+
 RS485:
 Frame
-         ID      Length    D0     D1     D2         D3      D4       D5       D6    D7       CRC16L   CRC16H
 header
 
-0x3E     0x01    0x08     0x31    0x01   0x00      0x00     0x00     0x00   0xC0    0x3F     CRC16L   CRC16H
-
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x31 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | 0xC0 | 0x3F   | CRC16H |
 
 ### 2.3. Write PID Parameters to ROM Command (0x32)
 
@@ -476,8 +315,6 @@ avoid writing parameters when the motor has just started and is in motion.
 | DATA[5]    | Parameter byte 2     | DATA[5] = (uint8_t) (Value>>8) |
 | DATA[6]    | Parameter byte 3     | DATA[6] = (uint8_t)(Value>>16) |
 | DATA[7]    | Parameter byte 4     | DATA[7] = (uint8_t)(Value>>24) |
-
-```
 
 #### 2.3.3. Reply Data Field Definition
 
@@ -504,25 +341,19 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x32 0x01 0x00 0x00 0x00 0x00 0xC0 0x3F
-
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x32    | 0x01    | 0x00    | 0x00    | 0x00    | 0x00    | 0xC0    | 0x3F    |
 
 RS485:
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x32 0x01 0x00 0x00 0x00 0x00 0xC0 0x3F CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x32 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | 0xC0 | 0x3F   | CRC16H |
 
 Description:
 
@@ -535,25 +366,19 @@ The online conversion website can be used: http://www.speedfly.cn/tools/hexconve
 
 Reply command:
 
-```
-
 CAN：
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x32 0x01 0x00 0x00 0x00 0x00 0xC0 0x3F
-
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x32    | 0x01    | 0x00    | 0x00    | 0x00    | 0x00    | 0xC0    | 0x3F    |
 
 RS485:
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x32 0x01 0x00 0x00 0x00 0x00 0xC0 0x3F CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x32 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | 0xC0 | 0x3F   | CRC16H |
 
 ### 2.4. Read Acceleration Command (0x42)
 
@@ -579,16 +404,16 @@ The host sends this command to read the acceleration parameters of the current m
 The acceleration parameter is included in the drive response data. Acceleration data
 Accel is int32_t type,the unit is 1dps/s,and the parameter range is 100-60000.
 
-| Data field | Description               | Data                         |
-| ---------- | ------------------------- | ---------------------------- |
-| DATA[0]    | Command byte              | 0x42                         |
-| DATA[1]    | Function index            | DATA[1] = (uint8_t)index     |
-| DATA[2]    | NULL                      | 0x00                         |
-| DATA[3]    | NULL                      | 0x00                         |
-| DATA[4]    | Acceleration low byte 1   | DATA[4] = (uint8_t)(Accel)   |
-| DATA[5]    | Acceleration byte 2       | DATA[5] = (uint8_t)(Accel>>8) |
-| DATA[6]    | Acceleration byte 3       | DATA[6] = (uint8_t)(Accel>>16) |
-| DATA[7]    | Acceleration byte 4       | DATA[7] = (uint8_t)(Accel>>24) |
+| Data field | Description             | Data                           |
+| ---------- | ----------------------- | ------------------------------ |
+| DATA[0]    | Command byte            | 0x42                           |
+| DATA[1]    | Function index          | DATA[1] = (uint8_t)index       |
+| DATA[2]    | NULL                    | 0x00                           |
+| DATA[3]    | NULL                    | 0x00                           |
+| DATA[4]    | Acceleration low byte 1 | DATA[4] = (uint8_t)(Accel)     |
+| DATA[5]    | Acceleration byte 2     | DATA[5] = (uint8_t)(Accel>>8)  |
+| DATA[6]    | Acceleration byte 3     | DATA[6] = (uint8_t)(Accel>>16) |
+| DATA[7]    | Acceleration byte 4     | DATA[7] = (uint8_t)(Accel>>24) |
 
 #### 2.4.4. Function Index Description
 
@@ -619,48 +444,37 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x42 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x42    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x42 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x42 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description: Send a command to read the position planning acceleration.
 
 Reply command:
 
-```
-
 CAN:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x42 0x00 0x00 0x00 0x10 0x27 0x00 0x00
-
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x42    | 0x00    | 0x00    | 0x00    | 0x10    | 0x27    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x42 0x00 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x42 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -673,47 +487,37 @@ Example 2:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x42 0x01 0x00 0x00 0x00 0x00 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x42    | 0x01    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x42 0x01 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x42 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description: Send a command to read the position planning deceleration.
 
 Reply command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x42 0x01 0x00 0x00 0x10 0x27 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x42    | 0x01    | 0x00    | 0x00    | 0x10    | 0x27    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x42 0x01 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x42 | 0x01 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -736,16 +540,16 @@ writing parameters when the motor has just started and is in motion.
 
 #### 2.5.2. Send Data Field Definition
 
-| Data field | Description               | Data                     |
-| ---------- | ------------------------- | ------------------------ |
-| DATA[0]    | Command byte              | 0x43                     |
-| DATA[1]    | Function index            | DATA[1] = (uint8_t)index |
-| DATA[2]    | NULL                      | 0x00                     |
-| DATA[3]    | NULL                      | 0x00                     |
-| DATA[4]    | Acceleration low byte 1   | DATA[4] = (uint8_t)(Accel) |
-| DATA[5]    | Acceleration byte 2       | DATA[5] = (uint8_t)(Accel>>8) |
-| DATA[6]    | Acceleration byte 3       | DATA[6] = (uint8_t)(Accel>>16) |
-| DATA[7]    | Acceleration byte 4       | DATA[7] = (uint8_t)(Accel>>24) |
+| Data field | Description             | Data                           |
+| ---------- | ----------------------- | ------------------------------ |
+| DATA[0]    | Command byte            | 0x43                           |
+| DATA[1]    | Function index          | DATA[1] = (uint8_t)index       |
+| DATA[2]    | NULL                    | 0x00                           |
+| DATA[3]    | NULL                    | 0x00                           |
+| DATA[4]    | Acceleration low byte 1 | DATA[4] = (uint8_t)(Accel)     |
+| DATA[5]    | Acceleration byte 2     | DATA[5] = (uint8_t)(Accel>>8)  |
+| DATA[6]    | Acceleration byte 3     | DATA[6] = (uint8_t)(Accel>>16) |
+| DATA[7]    | Acceleration byte 4     | DATA[7] = (uint8_t)(Accel>>24) |
 
 #### 2.5.3. Reply Data Field Definition
 
@@ -997,20 +801,16 @@ of multi-turn encoder,4 bytes of valid data),which is the value after subtractin
 encoder's multi-turn zero offset (initial position) from the original position of the
 encoder.
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x60
-DATA[1] NULL 0x00
-DATA[2] NULL 0x00
-DATA[3] NULL 0x00
-DATA[4] Encoder position low byte 1 DATA[4] = (uint8_t)(encoder)
-DATA[5] Encoder position byte 2 DATA[5] = (uint8_t)(encoder>>8)
-DATA[6] Encoder position byte 3 DATA[6] = (uint8_t)(encoder>>16)
-DATA[7] Encoder position byte 4 DATA[7] = (uint8_t)(encoder>>24)
-
-```
+| Data field | Description                 | Data                             |
+| ---------- | --------------------------- | -------------------------------- |
+| DATA[0]    | Command byte                | 0x60                             |
+| DATA[1]    | NULL                        | 0x00                             |
+| DATA[2]    | NULL                        | 0x00                             |
+| DATA[3]    | NULL                        | 0x00                             |
+| DATA[4]    | Encoder position low byte 1 | DATA[4] = (uint8_t)(encoder)     |
+| DATA[5]    | Encoder position byte 2     | DATA[5] = (uint8_t)(encoder>>8)  |
+| DATA[6]    | Encoder position byte 3     | DATA[6] = (uint8_t)(encoder>>16) |
+| DATA[7]    | Encoder position byte 4     | DATA[7] = (uint8_t)(encoder>>24) |
 
 #### 2.6.4. Communication Example
 
@@ -1018,48 +818,38 @@ Example 1:
 
 Send command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x141 0x60 0x00 0x00 0x00 0x00 0x00 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x141 | 0x60    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x60 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x60 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
 The host sends this command to read the multi-turn position of the encoder.
 Reply command:
 
-```
-
 CAN:
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x60 0x00 0x00 0x00 0x10 0x27 0x00 0x00
 
-```
-
-```
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x60    | 0x00    | 0x00    | 0x00    | 0x10    | 0x27    | 0x00    | 0x00    |
 
 RS485：
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x60 0x00 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
-
-```
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x60 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description: Data[4] to data[7] form one 32-bit data,0x00002710,(Data[4] is the lowest
 
@@ -1799,16 +1589,16 @@ This command reads the current motor temperature,voltage and error status flags.
 
 #### 2.14.2. Send Data Field Definition
 
-| Data field | Description   | Data |
-| ---------- | ------------- | ---- |
-| DATA[0]    | Command byte  | 0x9A |
-| DATA[1]    | NULL          | 0x00 |
-| DATA[2]    | NULL          | 0x00 |
-| DATA[3]    | NULL          | 0x00 |
-| DATA[4]    | NULL          | 0x00 |
-| DATA[5]    | NULL          | 0x00 |
-| DATA[6]    | NULL          | 0x00 |
-| DATA[7]    | NULL          | 0x00 |
+| Data field | Description  | Data |
+| ---------- | ------------ | ---- |
+| DATA[0]    | Command byte | 0x9A |
+| DATA[1]    | NULL         | 0x00 |
+| DATA[2]    | NULL         | 0x00 |
+| DATA[3]    | NULL         | 0x00 |
+| DATA[4]    | NULL         | 0x00 |
+| DATA[5]    | NULL         | 0x00 |
+| DATA[6]    | NULL         | 0x00 |
+| DATA[7]    | NULL         | 0x00 |
 
 #### 2.14.3. Reply Data Field Definition
 
@@ -2609,7 +2399,7 @@ motor output shaft moves in the opposite direction by -45 degrees relative to th
 position. The position of the motor output shaft is related to the number of motor
 encoder lines and the reduction ratio. For example,if the number of motor encoder lines
 is 16384 and the reduction ratio is 6,then 360 degrees of the motor output shaft
-corresponds to 16384*6 = 98304 pulses.
+corresponds to 16384\*6 = 98304 pulses.
 
 ### 2.21. Absolute Position Closed-Loop Control Command (0xA4)
 
@@ -4250,44 +4040,48 @@ those of the single-motor instruction.
 
 ### 3.2. Communication Example
 
-Suppose there are 4 motors on the CAN bus,and the ID numbers are 141,142,143,and
-
-## 144. respectively.
+Suppose there are 4 motors on the CAN bus,and the ID numbers are 141,142,143,and 144. respectively.
 
 Example 1:
 
 Send command:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x280 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x280 | 0x80    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
+
 Description:
 
-## 4. motors receive the 0x80 motor shutdown command at the same time (see 2.30 for
+4 motors receive the 0x80 motor shutdown command at the same time (see 2.30 for
 
 details),and then all 4 motors immediately execute the motor shutdown command.
 Reply command:
 
-## 4. motors reply at the same time,and the reply ID is their own ID number respectively.
+4 motors reply at the same time,and the reply ID is their own ID number respectively.
 
 The reply sequence depends on the respective delays on the bus.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 |
 
 Description:
 
 The motor whose ID number is 0x241 returns the corresponding command.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x242 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x242 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 |
 Description:
 
 The motor whose ID number is 0x242 returns the corresponding command.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x243 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x243 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 |
 Description:
 
 The motor whose ID number is 0x243 returns the corresponding command.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x244 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x244 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 |
 Description:
 
 The motor whose ID number is 0x244 returns the corresponding command.
@@ -4295,51 +4089,56 @@ Example 2:
 
 Send command:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x280 0x60 0x00 0x00 0x00 0x00 0x00 0x00 0x00
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x280 | 0x60    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
 
 Description:
 
-## 4. motors receive the 0x60 read multi-turn encoder position data command at the same
+4 motors receive the 0x60 read multi-turn encoder position data command at the same
 
 time (see 2.21 for details),and then the 4 motors reply to their respective multi-turn
 encoder position data.
 Reply command:
 
-## 4. motors reply at the same time,and the reply ID is their own ID number respectively.
+4 motors reply at the same time,and the reply ID is their own ID number respectively.
 
 The reply sequence depends on the respective delays on the bus.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x241 0x60 0x00 0x00 0x00 0x10 0x27 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x241 | 0x60 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00 |
 Description:
 
 The motor reply data with ID number 0x241 consists of Data[4] to data[7] (Data[4] is the
 lowest bit,Data[7] is the highest bit). The 32-bit data is 0x00002710,which means the
 decimal is 10000. The multi-turn encoder value representing the current relative
 multi-turn zero offset (initial position) of the motor is 10000 pulses.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x242 0x60 0x00 0x00 0x00 0x20 0x4E 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x242 | 0x60 | 0x00 | 0x00 | 0x00 | 0x20 | 0x4E | 0x00 | 0x00 |
 Description:
 
 The motor reply data with ID number 0x242 consists of Data[4] to data[7] (Data[4] is
 the lowest bit,Data[7] is the highest bit). The 32-bit data is 0x00004E20,which means
 
-## 20000. in decimal. The multi-turn encoder value representing the current relative
+20000 in decimal. The multi-turn encoder value representing the current relative
 
 multi-turn zero offset (initial position) of the motor is 20000 pulses.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x243 0x60 0x00 0x00 0x00 0x30 0x75 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x243 | 0x60 | 0x00 | 0x00 | 0x00 | 0x30 | 0x75 | 0x00 | 0x00 |
 Description:
 
 The motor reply data with ID number 0x243 consists of Data[4] to data[7] (Data[4] is
 
 the lowest bit,Data[7] is the highest bit). The 32-bit data is 0x00007530,which means
 
-## 30000. in decimal. The multi-turn encoder value representing the current relative
+30000 in decimal. The multi-turn encoder value representing the current relative
 
 multi-turn zero offset (initial position) of the motor is 30000 pulses.
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x244 0x60 0x00 0x00 0x00 0x40 0x9C 0x00 0x00
+| ID | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ---- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x244 | 0x60 | 0x00 | 0x00 | 0x00 | 0x40 | 0x9C | 0x00 | 0x00 |
 Description:
 
 The motor reply data with ID number 0x243 consists of Data[4] to data[7] (Data[4] is
@@ -4364,20 +4163,16 @@ function),device identifier 0x140 + ID (1~32).
 
 ### 4.2. Send Data Field Definition
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x79
-DATA[1] NULL 0x00
-DATA[2] Read and write flags DATA[2] = wReadWriteFlag
-DATA[3] NULL 0x00
-DATA[4] NULL 0x00
-DATA[5] NULL 0x00
-DATA[6] NULL 0x00
-DATA[7] CANID DATA[7] = CANID(1~32)
-
-```
+| Data field | Description          | Data                     |
+| ---------- | -------------------- | ------------------------ |
+| DATA[0]    | Command byte         | 0x79                     |
+| DATA[1]    | NULL                 | 0x00                     |
+| DATA[2]    | Read and write flags | DATA[2] = wReadWriteFlag |
+| DATA[3]    | NULL                 | 0x00                     |
+| DATA[4]    | NULL                 | 0x00                     |
+| DATA[5]    | NULL                 | 0x00                     |
+| DATA[6]    | NULL                 | 0x00                     |
+| DATA[7]    | CANID                | DATA[7] = CANID(1~32)    |
 
 ### 4.3. Reply Data Field Definition
 
@@ -4388,20 +4183,16 @@ following two situations:
 
 ## 2. Read CANID,the return parameters are as follows.
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x79
-DATA[0] NULL 0x00
-DATA[0] Read and write flags DATA[2] = wReadWriteFlag
-DATA[0] NULL 0x00
-DATA[4] NULL 0x00
-DATA[5] NULL 0x00
-DATA[6] CANID low byte 1 DATA[6] = (uint8_t \*)(CANID)
-DATA[7] CANID byte 2 DATA[7] = (uint8_t)(CANID>>8)
-
-```
+| Data field | Description          | Data                          |
+| ---------- | -------------------- | ----------------------------- |
+| DATA[0]    | Command byte         | 0x79                          |
+| DATA[0]    | NULL                 | 0x00                          |
+| DATA[0]    | Read and write flags | DATA[2] = wReadWriteFlag      |
+| DATA[0]    | NULL                 | 0x00                          |
+| DATA[4]    | NULL                 | 0x00                          |
+| DATA[5]    | NULL                 | 0x00                          |
+| DATA[6]    | CANID low byte 1     | DATA[6] = (uint8_t \*)(CANID) |
+| DATA[7]    | CANID byte 2         | DATA[7] = (uint8_t)(CANID>>8) |
 
 ### 4.4. Communication Example
 
@@ -4409,16 +4200,20 @@ Example 1:
 
 Send command:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x300 0x79 0x00 0x00 0x00 0x00 0x00 0x00 0x02
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x300 | 0x79    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x02    |
+
 Description:
 
 Data[2] = 0 means write CANID. Data[7] = 1 means that the motor CANID is set to
 2,that is,the send ID is 0x142,and the reply ID is 0x242.
 Reply command:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x300 0x79 0x00 0x00 0x00 0x00 0x00 0x00 0x02
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x300 | 0x79    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    | 0x02    |
+
 Description:
 
 Same as sending command.
@@ -4426,15 +4221,19 @@ Example 2:
 
 Send command:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x300 0x79 0x00 0x01 0x00 0x00 0x00 0x00 0x00
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x300 | 0x79    | 0x00    | 0x01    | 0x00    | 0x00    | 0x00    | 0x00    | 0x00    |
+
 Description:
 
 Data[2] = 1 means reading CANID.
 Reply command:
 
-ID Data[0] Data[1] Data[2] Data[3] Data[4] Data[5] Data[6] Data[7]
-0x300 0x79 0x00 0x01 0x00 0x00 0x00 0x42 0x02
+| ID    | Data[0] | Data[1] | Data[2] | Data[3] | Data[4] | Data[5] | Data[6] | Data[7] |
+| ----- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| 0x300 | 0x79    | 0x00    | 0x01    | 0x00    | 0x00    | 0x00    | 0x42    | 0x02    |
+
 Description:
 
 Data[6] and Data[7] form 0x242,which means that the motor send ID is 0x142,and the
@@ -4666,50 +4465,55 @@ Example 1:
 Send command:
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0xCD 0x08 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0xCD   | 0x08 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
-## 4. motors receive the 0x80 motor shutdown command at the same time (see 2.30 for
+4 motors receive the 0x80 motor shutdown command at the same time (see 2.30 for
 
 details),and then all 4 motors immediately execute the motor shutdown command.
 Reply command:
 
-## 4. motors reply at the same time,and the reply ID is their own ID number respectively.
+4 motors reply at the same time,and the reply ID is their own ID number respectively.
 
 The reply sequence depends on the respective delays on the bus.
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description: The motor whose ID number is 0x01 returns the corresponding command.
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x02 0x08 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x02   | 0x08 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description: The motor whose ID number is 0x02 returns the corresponding command.
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x03 0x08 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x03   | 0x08 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description: The motor whose ID number is 0x03 returns the corresponding command.
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x04 0x08 0x80 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x04   | 0x08 | 0x80 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description: The motor whose ID number is 0x04 returns the corresponding command.
 
@@ -4718,27 +4522,29 @@ Example 2:
 Send command:
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0xCD 0x08 0x60 0x00 0x00 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0xCD   | 0x08 | 0x60 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
-## 4. motors receive the 0x60 read multi-turn encoder position data command at the same
+4 motors receive the 0x60 read multi-turn encoder position data command at the same
 
 time (see 2.21 for details),and then the 4 motors reply to their respective multi-turn
 encoder position data.
 Reply command:
 
-## 4. motors reply at the same time,and the reply ID is their own ID number respectively.
+4 motors reply at the same time,and the reply ID is their own ID number respectively.
 
 The reply sequence depends on the respective delays on the bus.
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x01 0x08 0x60 0x00 0x00 0x00 0x10 0x27 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x01   | 0x08 | 0x60 | 0x00 | 0x00 | 0x00 | 0x10 | 0x27 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -4747,24 +4553,26 @@ lowest bit,Data[7] is the highest bit). The 32-bit data is 0x00002710,which mean
 decimal is 10000. The multi-turn encoder value representing the current relative
 multi-turn zero offset (initial position) of the motor is 10000 pulses.
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x02 0x08 0x60 0x00 0x00 0x00 0x20 0x4E 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x02   | 0x08 | 0x60 | 0x00 | 0x00 | 0x00 | 0x20 | 0x4E | 0x00 | 0x00   | CRC16H |
 
 Description:
 
 The motor reply data with ID number 0x02 consists of Data[4] to data[7] (Data[4] is the
 lowest bit,Data[7] is the highest bit). The 32-bit data is 0x00004E20,which means
 
-## 20000. in decimal. The multi-turn encoder value representing the current relative
+20000 in decimal. The multi-turn encoder value representing the current relative
 
 multi-turn zero offset (initial position) of the motor is 20000 pulses.
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x03 0x08 0x60 0x00 0x00 0x00 0x30 0x75 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x03   | 0x08 | 0x60 | 0x00 | 0x00 | 0x00 | 0x30 | 0x75 | 0x00 | 0x00   | CRC16H |
 
 Description:
 
@@ -4773,17 +4581,18 @@ lowest bit,Data[7] is the highest bit). The 32-bit data is 0x00007530,which mean
 in decimal. The multi-turn encoder value representing the current relative multi-turn
 zero offset (initial position) of the motor is 30000 pulses.
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0x04 0x08 0x60 0x00 0x00 0x00 0x40 0x9C 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0x04   | 0x08 | 0x60 | 0x00 | 0x00 | 0x00 | 0x40 | 0x9C | 0x00 | 0x00   | CRC16H |
 
 Description:
 
 The motor reply data with ID number 0x04 consists of Data[4] to data[7] (Data[4] is the
 lowest bit,Data[7] is the highest bit). The 32-bit data is 0x00009C40,which means
 
-## 40000. in decimal. The multi-turn encoder value representing the current relative
+40000 in decimal. The multi-turn encoder value representing the current relative
 
 multi-turn zero offset (initial position) of the motor is 40000 pulses.
 
@@ -4806,20 +4615,16 @@ function),device identifier ID (1~32).
 
 ### 7.2. Send Data Field Definition
 
-```
-
-Data field Description Data
-
-DATA[0] Command byte 0x79
-DATA[1] NULL 0x00
-DATA[2] Read and write flags DATA[2] = wReadWriteFlag
-DATA[3] NULL 0x00
-DATA[4] NULL 0x00
-DATA[5] NULL 0x00
-DATA[6] NULL 0x00
-DATA[7] RS485ID DATA[7] = RS485ID(1~32)
-
-```
+| Data field | Description          | Data                     |
+| ---------- | -------------------- | ------------------------ |
+| DATA[0]    | Command byte         | 0x79                     |
+| DATA[1]    | NULL                 | 0x00                     |
+| DATA[2]    | Read and write flags | DATA[2] = wReadWriteFlag |
+| DATA[3]    | NULL                 | 0x00                     |
+| DATA[4]    | NULL                 | 0x00                     |
+| DATA[5]    | NULL                 | 0x00                     |
+| DATA[6]    | NULL                 | 0x00                     |
+| DATA[7]    | RS485ID              | DATA[7] = RS485ID(1~32)  |
 
 ### 7.3. Reply Data Field Definition
 
@@ -4830,19 +4635,16 @@ following two situations:
 
 ## 2. Read RS485ID,the return parameters are as follows.
 
-```
-
-Data field Description Data
-DATA[0] Command byte 0x79
-DATA[0] NULL 0x00
-DATA[0] Read and write flags DATA[2] = wReadWriteFlag
-DATA[0] NULL 0x00
-DATA[4] NULL 0x00
-DATA[5] NULL 0x00
-DATA[6] RS485ID low byte 1 DATA[6] = (uint8_t \*)(RS485ID)
-DATA[7] RS485ID byte 2 DATA[7] = (uint8_t)(RS485ID>>8)
-
-```
+| Data field | Description          | Data                            |
+| ---------- | -------------------- | ------------------------------- |
+| DATA[0]    | Command byte         | 0x79                            |
+| DATA[0]    | NULL                 | 0x00                            |
+| DATA[0]    | Read and write flags | DATA[2] = wReadWriteFlag        |
+| DATA[0]    | NULL                 | 0x00                            |
+| DATA[4]    | NULL                 | 0x00                            |
+| DATA[5]    | NULL                 | 0x00                            |
+| DATA[6]    | RS485ID low byte 1   | DATA[6] = (uint8_t \*)(RS485ID) |
+| DATA[7]    | RS485ID byte 2       | DATA[7] = (uint8_t)(RS485ID>>8) |
 
 ### 7.4. Communication Example
 
@@ -4851,10 +4653,11 @@ Example 1:
 Send command:
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0xCD 0x08 0x79 0x00 0x00 0x00 0x00 0x00 0x00 0x02 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0xCD   | 0x08 | 0x79 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x02   | CRC16H |
 
 Description: Data[2] = 0 means write RS485ID. Data[7] = 1 means to set the motor
 
@@ -4862,10 +4665,11 @@ RS485ID to 2.
 Reply command:
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0xCD 0x08 0x79 0x00 0x00 0x00 0x00 0x00 0x00 0x02 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0xCD   | 0x08 | 0x79 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00 | 0x02   | CRC16H |
 
 Description: Same as sending command.
 
@@ -4874,20 +4678,22 @@ Example 2:
 Send command:
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0xCD 0x08 0x79 0x00 0x01 0x00 0x00 0x00 0x00 0x00 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0xCD   | 0x08 | 0x79 | 0x00 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | 0x00   | CRC16H |
 
 Description: Data[2] = 1 means to read RS485ID.
 
 Reply command:
 
 Frame
-ID Length D0 D1 D2 D3 D4 D5 D6 D7 CRC16L CRC16H
 header
 
-0x3E 0xCD 0x08 0x79 0x00 0x01 0x00 0x00 0x00 0x00 0x02 CRC16L CRC16H
+| ID   | Length | D0   | D1   | D2   | D3   | D4   | D5   | D6   | D7   | CRC16L | CRC16H |
+| ---- | ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ---- | ------ | ------ |
+| 0x3E | 0xCD   | 0x08 | 0x79 | 0x00 | 0x01 | 0x00 | 0x00 | 0x00 | 0x00 | 0x02   | CRC16H |
 
 Description: Data[7] = 0x2 means that the sending ID of the motor is 0x2 and the reply
 
@@ -5014,4 +4820,3 @@ Version V4.2:
    c.Modify the Write PID Parameters to ROM command (0x32),use the index to write the
    PID parameters of the current loop,speed loop and position loop to ROM.
    2)Version revision date: 2024.5.28
-```
