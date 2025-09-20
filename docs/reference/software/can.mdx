@@ -1,0 +1,71 @@
+## CAN on macOS (RH-02 / CANable)
+
+This guide shows how to use the `can` TUI with an RH‑02 (CANable‑derived) USB‑CAN adapter on macOS.
+
+### 1) Identify firmware state
+
+If the adapter shows up as “canable gs_usb” and you don’t see a `/dev/tty.*` port, it’s running Candlelight (gs_usb). On macOS you’ll want SLCAN (serial) firmware instead.
+
+Check USB and serial devices:
+
+```bash
+system_profiler SPUSBDataType | grep -A5 -Ei 'CAN|canable|gs_usb|STM32'
+ls /dev/tty.* | grep -Ei 'usb|SLAB|wch|modem' || true
+```
+
+### 2) Install DFU tools
+
+```bash
+brew install dfu-util
+```
+
+### 3) Enter DFU mode
+
+- Unplug the adapter.
+- Hold the BOOT button, plug it in, then release BOOT.
+- Verify DFU is detected:
+
+```bash
+dfu-util -l
+```
+
+You should see entries like `0483:df11` with `@Internal Flash  /0x08000000/064*0002Kg`.
+
+### 4) Download SLCAN firmware (CANable)
+
+Use the CANable SLCAN builds. For 128 KB devices (e.g. CANable 2), use the `canable2` variant. For 32 KB devices, use `canable`.
+
+```bash
+# Open builds listing to confirm latest filenames:
+# https://canable.io/builds/slcan-firmware/
+
+# Example (128 KB devices):
+curl -L -o ~/Downloads/slcan_canable2.bin \
+  https://canable.io/builds/slcan-firmware/slcan_canable2.bin
+```
+
+References: [CANable SLCAN firmware builds](https://canable.io/builds/slcan-firmware/), [CANable Getting Started](https://canable.io/getting-started.html)
+
+### 5) Flash firmware
+
+```bash
+dfu-util -a 0 -s 0x08000000:leave -D ~/Downloads/slcan_canable2.bin
+```
+
+Unplug and replug the adapter.
+
+### 6) Verify serial device and run TUI
+
+```bash
+ls /dev/tty.* | grep -Ei 'usb|SLAB|wch|modem' || true
+# expect something like /dev/tty.usbmodemXXXX
+
+cargo run -p can -- /dev/tty.usbmodemXXXX 500000
+```
+
+Notes:
+- Match bitrate to your CAN bus (e.g., 500000).
+- Ensure CAN bus termination (120 Ω at both ends).
+- If no `/dev/tty.*` appears, re-check firmware variant (canable vs canable2), cable/port, and DFU flash output.
+
+

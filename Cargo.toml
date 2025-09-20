@@ -15,6 +15,7 @@ members = [
     "crates/vision_tracks",
     "crates/koi",
     "crates/sim",
+    "crates/can",
     # Crates will be added here, e.g.:
     # "crates/pond_core",
     # "crates/hw",
