@@ -43,12 +43,20 @@
 use anyhow::Result;
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
+
+#[cfg(feature = "viz")]
 use bevy::prelude::Mesh;
+#[cfg(feature = "viz")]
 use bevy::scene::SceneSpawner;
+#[cfg(feature = "viz")]
 use quick_xml::events::Event;
+#[cfg(feature = "viz")]
 use quick_xml::Reader;
+#[cfg(feature = "viz")]
 use std::collections::HashSet;
+#[cfg(feature = "viz")]
 use crate::bus_types::Envelope as BusEnvelope;
+#[cfg(feature = "viz")]
 use std::collections::HashMap;
 
 #[cfg(feature = "viz")]
@@ -56,6 +64,7 @@ use rerun::{RecordingStream, archetypes::Boxes3D};
 
 #[cfg(feature = "viz")]
 #[derive(Resource)]
+#[allow(dead_code)]
 struct RecRes(RecordingStream);
 
 pub struct SimHandle {
@@ -78,8 +87,13 @@ pub mod bus_types {
     }
 }
 
+#[cfg(feature = "viz")]
 mod mesh_store;
+#[cfg(feature = "viz")]
 use mesh_store::MeshStore;
+
+#[cfg(feature = "server")]
+pub mod server;
 
 pub fn init_headless() -> Result<SimHandle> {
     App::new()
@@ -132,12 +146,9 @@ pub fn spawn_sim(rec: RecordingStream, mut bus_rx: tokio::sync::broadcast::Recei
                             // let _ = tx.send(BusEnvelope{topic:"/log/sim".into(),data:format!("link {} mesh {:?}",link,mesh).into_bytes()});
                             if let Some(uri) = mesh.as_deref() {
                                 if logged_links.insert(link.clone()) {
-                                    // Try to load mesh synchronously for immediate display.
-                                    if let Ok(mesh_obj) = mesh_store::load_mesh(&mesh_store::resolve(uri)) {
-                                        let _ = rec.log(format!("sim/{}", link), &mesh_obj);
-                                    }
+                                    // Load mesh asynchronously and log when ready.
+                                    mesh_store.ensure_logged(uri, &rec);
                                 }
-                                // mesh_store.ensure_logged(uri, &rec);
                             } else {
                                 if logged_links.insert(link.clone()) {
                                     let geom = Boxes3D::from_half_sizes([(0.5, 0.5, 0.5)]);
@@ -164,6 +175,7 @@ pub fn spawn_sim(rec: RecordingStream, mut bus_rx: tokio::sync::broadcast::Recei
 }
 
 /// Very simple XML parsing to extract all `link` names.
+#[cfg(feature = "viz")]
 fn extract_links(xml: &str) -> HashMap<String, Option<String>> {
     let mut reader = Reader::from_str(xml);
     reader.trim_text(true);

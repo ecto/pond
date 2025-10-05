@@ -1,145 +1,137 @@
-# Pad Operator Console – Engineering Specification (v1.0)
+# PAD - Pond Application Dashboard
 
-_Updated 2025‑05‑05_
+## Overview
 
----
+PAD is the teleop and monitoring system for Pond robots. It provides a unified interface for:
 
-## 1 Objective
+- Real-time 3D simulation visualization
+- Manual teleoperation controls
+- Sensor monitoring
+- System diagnostics
 
-Deliver **Pad**: a cross‑platform operator console that connects to any **Pond** robot for real‑time teleoperation, 3‑D visualisation, diagnostics, and data capture. Initial robots: **Frog v1**, **Newt v0.3**.
+## Backronyms
 
-### Success Criteria
+Choose your favorite interpretation of PAD:
 
-| #   | Criterion                                                                         | Metric                                       |
-| --- | --------------------------------------------------------------------------------- | -------------------------------------------- |
-| 1   | 60 FPS on Steam Deck in _Teleop_ and _World 3‑D_ views                            | Render thread ≤ 16 ms/frame on Deck 40 W TDP |
-| 2   | ≤ 50 ms round‑trip teleop latency (Deck ↔ robot over Wi‑Fi 6)                     | Median RTT measured by Pad network overlay   |
-| 3   | Hot‑reload shader & asset pipeline                                                | Edit WGSL → live update < 2 s                |
-| 4   | CI emits notarised `.dmg`, signed `.AppImage`, and `.visionos` bundles            | Artifacts downloadable from GitHub Release   |
-| 5   | Codebase fully covered by `cargo clippy --all-targets -- -D warnings` & `rustfmt` | CI gate                                      |
+1. **Pond Application Dashboard** - straightforward and functional
+2. **Pond Actuator Display** - emphasizes the control aspect
+3. **Pilot's Amphibious Deck** - playful maritime/frog theme 🐸
+4. **Perception And Drive** - highlights the two main functions
+5. **Proximal Adaptive Device** - technical/robotics focused
+6. **Platform for Autonomous Deployment** - enterprise-y
+7. **Personal Amphibian Director** - whimsical
+8. **Pilot Assist Device** - simple and clear
+9. **Pond Admin Dashboard** - emphasizes system monitoring
 
----
+## Architecture
 
-## 2 Platform Targets & Build Triples
+PAD is built with:
 
-| Platform                 | Triple                                        | Graphics API | Notes                      |
-| ------------------------ | --------------------------------------------- | ------------ | -------------------------- |
-| Steam Deck (SteamOS 3)   | `x86_64-unknown-linux-gnu`                    | Vulkan       | Bundled AppImage & Flatpak |
-| macOS (Intel & M‑series) | `x86_64-apple-darwin`, `aarch64-apple-darwin` | Metal        | Notarised `.dmg`           |
-| visionOS (Vision Pro)    | `aarch64-apple-visionos`                      | Metal        | Immersive & window scenes  |
-| (Optional) Web demo      | `wasm32-unknown-unknown`                      | WebGPU       | Limited—no video decode    |
+- **Bevy**: Game engine for 3D rendering
+- **bevy_egui**: Immediate mode UI for tabs and controls
+- **bevy_rapier3d**: Physics simulation
+- **sim-view**: Integrated 3D viewer component
 
----
-
-## 3 Crate Topology
+### Components
 
 ```
-pond/                   # Rust monorepo
-├─ crates/
-│   ├─ pad_core/        # math, time, error, logging, serde (no graphics)
-│   ├─ pad_net/         # tonic gRPC + UDP low‑latency channel helper
-│   ├─ pad_render/      # Bevy plugin group (PBR, loaders, shaders)
-│   ├─ teleop/          # gamepad ↔ cmd mapping; dead‑zones, profiles
-│   ├─ env/             # SLAM map, point‑cloud, voxel, octree utils
-│   ├─ ui_overlay/      # bevy_egui panels & app‑state
-│   └─ vision/          # UIKit/winit bridge, foveated ext (visionOS only)
-└─ apps/
-    ├─ pad/             # Desktop & Deck binary (winit main)
-    ├─ pad_deck/        # Thin wrapper with Deck‑specific launch flags
-    └─ pad_vr/          # visionOS bundle (UIKit main)
+┌─────────────────────────────────────────┐
+│        PAD Application Window           │
+├─────────────────────────────────────────┤
+│ 🐸 PAD │ 🎬 Sim View │ 🎮 Teleop │...  │ ← Tab Bar
+├─────────────────────────────────────────┤
+│                                         │
+│         Active Tab Content              │
+│    (3D view, controls, sensors, etc)    │
+│                                         │
+└─────────────────────────────────────────┘
 ```
 
-Guidelines:
+### Tabs
 
-- **No platform‑specific code outside `vision/` and minimal `#[cfg]` blocks elsewhere**.
-- Public APIs documented with `rustdoc` examples.
+1. **🎬 Sim View** - Real-time 3D visualization
 
----
+   - Third-person camera following robot
+   - Grid and coordinate axes
+   - Physics visualization
 
-## 4 UI Views & ASCII Wire‑frames
+2. **🎮 Teleop** - Manual control interface
 
-| ID  | View                         | F‑key     | Steam Deck RB cycle index |
-| --- | ---------------------------- | --------- | ------------------------- |
-| V1  | Teleop (default)             | F5        | 1                         |
-| V2  | World 3‑D                    | F6        | 2                         |
-| V3  | Diagnostics                  | F7        | 3                         |
-| V4  | Param Tuning                 | F8        | 4                         |
-| V5  | Replay                       | F9        | 5                         |
-| V6  | Settings (modal)             | F10       | –                         |
-| V7  | Network / System overlay     | always‑on | –                         |
-| V8  | Spatial HUD (visionOS)       | N/A       | –                         |
-| V9  | Immersive Cockpit (visionOS) | N/A       | –                         |
+   - Direction controls
+   - Speed adjustment
+   - Emergency stop
 
-ASCII mockups are embedded for V1–V5 and overlays; use them as reference for initial Bevy UI layout.
+3. **🔌 CAN** - CAN bus motor control (NEW!)
 
----
+   - Sub-tabs: Telemetry, Frames, Controls
+   - Connect to RMD-L motors via serial
+   - Real-time angle/speed monitoring
+   - Frame inspection and logging
+   - Motor commands (brake, speed, position)
+   - See [pad_can.md](pad_can.md) for details
 
-## 5 Input Mapping (default profile)
+4. **📊 Sensors** - Real-time sensor data
 
-| Action           | Gamepad (Deck) | KB/Mouse   | Vision Pro            |
-| ---------------- | -------------- | ---------- | --------------------- |
-| Drive            | Left stick     | WASD       | N/A                   |
-| Camera pan/tilt  | Right stick    | Mouse drag | Eye‑gaze + pinch‑drag |
-| Gripper toggle   | A              | G          | Pinch‑tap button      |
-| Headlight toggle | B              | H          | Double‑pinch          |
-| E‑stop           | Start+East     | Esc Esc    | Long‑pinch            |
-| Cycle view       | RB             | F6         | Two‑finger swipe      |
-| Mark event       | X              | M          | Double‑tap HUD        |
+   - IMU readings
+   - Position/orientation
+   - Battery status
 
-Dead‑zones, sensitivity and bindings are editable at runtime via _Settings → Input_.
+5. **🔧 Diagnostics** - System health monitoring
 
----
+   - Connection status
+   - Motor health
+   - Error logs
 
-## 6 Performance Profiles
+6. **⚙️ Settings** - Configuration
+   - Server address
+   - Display options
+   - Control preferences
 
-- deck‑eco – 40 FPS target, MSAA 2×, HDR off, point‑cloud 50 % LOD
-- deck‑hq – 60 FPS, MSAA 2×, HDR off, point‑cloud 75 %
-- mac‑mbp – 60/120 FPS, MSAA 4×, HDR on, LOD 100 %
-- sim‑headless – Renderer disabled; deterministic ECS step
-  Runtime flag `--profile <id>` or GUI selector.
+## Usage
 
----
+### Run PAD
 
-## 7 Deployment Pipeline (CI/CD)
+```bash
+# Default (connects to localhost:8080)
+cargo run -p pad
 
-GitHub Actions workflow `ci.yml` must:
+# Specify server
+cargo run -p pad -- --server ws://192.168.1.100:8080
 
-1. Check `clippy` + `fmt` + tests.
-2. Build release binaries for each triple.
-3. Codesign & notarise macOS `.dmg` (Apple ID in CI secrets).
-4. Build `.AppImage` + Flatpak (`org.pond.pad`) with `flatpak-builder`.
-5. Build `.visionos` via `cargo‑apple –target aarch64-apple-visionos –bundle`.
-6. Upload artefacts to GitHub Release under tag.
-7. Regenerate SHA256 manifest `pad.json` for OTA updater.
+# Fullscreen mode
+cargo run -p pad -- --fullscreen
+```
 
----
+### Keyboard Shortcuts
 
-## 8 Asset Pipeline
+- `1-6`: Quick switch between tabs
+  - `1` - Sim View
+  - `2` - Teleop
+  - `3` - CAN
+  - `4` - Sensors
+  - `5` - Diagnostics
+  - `6` - Settings
+- Arrow keys: Camera/robot control (depending on tab)
+- `Esc`: Exit
 
-1. **Robot meshes**: URDF → `urdf‑rs` → glTF (pre‑commit hook).
-2. **Shaders**: WGSL compiled at build to SPIR‑V (Vulkan) & Metal lib (mac/visionOS) – embed in binary.
-3. **Point‑cloud stream**: binary PCD protobuf chunks (max 2 M pts/s) → GPU storage buffer.
-4. **CDN**: Release assets & large mesh pack hosted on `cdn.pond‑robots.com` (S3 + CloudFront). CI syncs.
+## Development
 
----
+### Adding a New Tab
 
-## 9 Roadmap / Milestones
+1. Add enum variant to `PadTab` in `main.rs`
+2. Implement `show_your_tab(ui)` function
+3. Add to the tab bar and match statement
 
-| Sprint | Deliverable                             | Exit Criteria                                                             |
-| ------ | --------------------------------------- | ------------------------------------------------------------------------- |
-|  0     | DevEnv bootstrap                        | `cargo run` spawns empty Bevy window on Deck & macOS                      |
-|  1     | Teleop MVP (V1)                         | Live H.264 feed + drive commands reach robot; HUD shows latency           |
-|  2     | World 3‑D MVP (V2)                      | Robot skeleton + SLAM point‑cloud render at ≥ 45 FPS on Deck              |
-|  3     | Diagnostics (V3) & Network overlay (V7) | Logs, CPU/GPU graphs, node graph; overlay alerts                          |
-|  4     | Param Tuning (V4) & Replay (V5)         | Real‑time param patch, 20 s ring‑buffer; export clip                      |
-|  5     | Packaging + CI sign‑off                 | All artefacts downloadable; smoke‑tested on Deck, MBP, Vision Pro dev kit |
+### Connecting to Real Hardware
 
----
+PAD communicates with the simulation server over WebSocket. To connect to a real robot:
 
-## 10 Risk Register & Mitigations
+1. Ensure the robot is running the sim server (or equivalent bridge)
+2. Use `--server` flag with the robot's IP address
+3. The protocol is the same whether sim or real hardware
 
-| Risk                            | Impact      | Mitigation                                             |
-| ------------------------------- | ----------- | ------------------------------------------------------ |
-| gRPC overhead too high on Wi‑Fi | Control lag | Fallback to UDP raw mode in pad_net                    |
-| Bevy update breaking APIs       | Build break | Pin to Bevy 0.13; update via weekly PR with CI tests   |
-| visionOS SDK changes            | Launch slip | Isolate code in `vision/`; maintain separate CI target |
+## Related Crates
+
+- `sim` - Simulation physics and server
+- `sim-view` - Standalone 3D viewer (can be used independently)
+- `can` - CAN bus communication for real hardware

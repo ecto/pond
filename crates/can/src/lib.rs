@@ -23,7 +23,7 @@ pub enum SlcanError {
     Parse(String),
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bitrate {
     B10k,
     B20k,

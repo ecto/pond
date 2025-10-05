@@ -1,0 +1,258 @@
+---
+title: 'System Overview'
+description: 'Understanding the Pond robotics architecture'
+---
+
+# System Overview
+
+Pond is a modular robotics platform with three main components for teleoperation and monitoring.
+
+## Architecture
+
+```
+┌─────────────────┐
+│   PAD (UI)      │  ← Teleoperation & Monitoring Dashboard
+│   - Sim View    │
+│   - Teleop      │
+│   - Sensors     │
+│   - Diagnostics │
+└────────┬────────┘
+         │ WebSocket (ws://...)
+         ↓
+┌─────────────────┐
+│  Sim Server     │  ← Physics simulation + State broadcaster
+│  - Bevy+Rapier  │
+│  - WebSocket    │
+└────────┬────────┘
+         │ (optionally)
+         ↓
+┌─────────────────┐
+│  Real Hardware  │  ← Physical robot via CAN bus
+│  - Actuators    │
+│  - Sensors      │
+└─────────────────┘
+```
+
+## Components
+
+### 1. Sim Server (`sim` crate)
+
+**Purpose:** Headless physics simulation that broadcasts robot state over WebSocket.
+
+**Features:**
+- Bevy + Rapier3D physics engine
+- WebSocket server (Axum)
+- 60 FPS state updates
+- Embeddable or standalone
+
+**Usage:**
+```bash
+cargo run --bin server --features server -p sim
+```
+
+**WebSocket Protocol:**
+- Endpoint: `ws://localhost:8080/ws`
+- Messages: JSON-serialized `SimState`
+  ```json
+  {
+    "robot_position": [0.0, 1.5, 0.0],
+    "robot_rotation": [1.0, 0.0, 0.0, 0.0],
+    "joint_positions": [],
+    "timestamp": 1.234
+  }
+  ```
+
+### 2. Sim View (`sim-view` crate)
+
+**Purpose:** Standalone 3D visualization of robot state.
+
+**Features:**
+- Third-person follow camera
+- Ground grid and coordinate axes
+- Real-time state rendering
+- Can be embedded or standalone
+
+**Usage:**
+```bash
+# Standalone
+cargo run -p sim-view
+
+# Connect to remote server
+cargo run -p sim-view -- --server ws://192.168.1.100:8080
+
+# Minimal view (no grid/axes)
+cargo run -p sim-view -- --no-grid --no-axes
+```
+
+### 3. PAD (`pad` app)
+
+**Purpose:** Full-featured teleop and monitoring dashboard.
+
+**Features:**
+- 🎬 **Sim View** - Real-time 3D visualization
+- 🎮 **Teleop** - Manual control interface
+- 📊 **Sensors** - Live sensor readings
+- 🔧 **Diagnostics** - System health monitoring
+- ⚙️ **Settings** - Configuration management
+
+**Usage:**
+```bash
+cargo run -p pad
+
+# Connect to remote server
+cargo run -p pad -- --server ws://192.168.1.100:8080
+
+# Fullscreen mode
+cargo run -p pad -- --fullscreen
+```
+
+## On-robot Orchestration (mind)
+
+`mind` runs the on-robot services in-process:
+
+- sim server (WS state/control)
+- map server (HTTP tiles/tags)
+- (future) mind
+
+Start:
+```bash
+cargo run -p mind
+# sim: ws://<robot>:8080  |  map: http://<robot>:8081
+```
+
+External apps (`pad`, `sim-view`) connect over the LAN.
+
+**Keyboard Shortcuts:**
+- `1-5` - Switch tabs
+- `Esc` - Exit
+
+## Common Workflows
+
+### Development & Testing
+
+1. **Start the sim server:**
+   ```bash
+   cargo run --bin server --features server -p sim
+   ```
+
+2. **Launch PAD in another terminal:**
+   ```bash
+   cargo run -p pad
+   ```
+
+3. You should see a green cube bouncing in the 3D view!
+
+### Monitoring Only
+
+If you just want to visualize the simulation without controls:
+
+```bash
+# Terminal 1: Server
+cargo run --bin server --features server -p sim
+
+# Terminal 2: Viewer
+cargo run -p sim-view
+```
+
+### Multiple Viewers
+
+You can run multiple sim-view instances to watch from different angles:
+
+```bash
+# Terminal 1: Server
+cargo run --bin server --features server -p sim
+
+# Terminal 2-4: Multiple viewers
+cargo run -p sim-view &
+cargo run -p sim-view &
+cargo run -p sim-view &
+```
+
+### Remote Operation
+
+Connect to a robot running on the network:
+
+```bash
+cargo run -p pad -- --server ws://192.168.1.100:8080
+```
+
+The protocol is identical whether connecting to:
+- Local simulation
+- Remote simulation
+- Real hardware (with compatible bridge)
+
+## Communication Protocol
+
+### WebSocket Connection
+
+1. Client connects to `ws://<host>:8080/ws`
+2. Server immediately sends current state
+3. Server broadcasts state updates ~60 FPS
+4. Client can send control commands (future feature)
+
+### State Message Format
+
+```rust
+struct SimState {
+    robot_position: [f32; 3],      // XYZ coordinates
+    robot_rotation: [f32; 4],      // Quaternion (w, x, y, z)
+    joint_positions: Vec<f32>,     // Joint angles in radians
+    timestamp: f64,                // Seconds since start
+}
+```
+
+## Integration with Hardware
+
+To connect PAD to real hardware:
+
+1. Implement a bridge that:
+   - Reads sensor data from hardware (via CAN bus)
+   - Publishes `SimState` messages over WebSocket
+   - Receives control commands from PAD
+   - Sends actuator commands to hardware
+
+2. Run the bridge on the robot's computer
+3. Connect PAD: `cargo run -p pad -- --server ws://<robot-ip>:8080`
+
+The visualization and control interface remain unchanged!
+
+## Building for Production
+
+```bash
+# Build optimized binaries
+cargo build --release -p pad
+cargo build --release --bin server --features server -p sim
+cargo build --release -p sim-view
+
+# Binaries will be in target/release/
+./target/release/pad
+./target/release/server
+./target/release/sim-view
+```
+
+## Troubleshooting
+
+### Connection Refused
+
+- Verify server is running: `cargo run --bin server --features server -p sim`
+- Check firewall settings for port 8080
+- Try explicit localhost: `--server ws://127.0.0.1:8080`
+
+### Black Screen in Viewer
+
+- Press `1` to switch to Sim View tab
+- Check server terminal for errors
+- Verify server is broadcasting state updates
+
+### High Latency
+
+- Run server and client on same machine for testing
+- Check network bandwidth if running remotely
+- Consider reducing update rate in server (change sleep duration)
+
+## Next Steps
+
+- [PAD Quick Start](/guides/pad-quickstart)
+- [Architecture Details](/reference/architecture)
+- [Hardware Integration](/reference/hardware/actuator)
+

@@ -1,17 +1,14 @@
 use anyhow::Result;
 use clap::Parser;
-use rerun::{RecordingStream, RecordingStreamBuilder, MemoryLimit, TextLog, Scalars};
-use re_web_viewer_server::WebViewerServerPort;
 use tokio::time::{sleep, Duration};
 
 use tonic::transport::Server;
 use tokio::net::UnixListener;
-use tokio_stream::wrappers::UnixListenerStream;
+use tokio_stream::wrappers::{UnixListenerStream, BroadcastStream};
 
 use tokio_stream::StreamExt;
 
 use prost::Message;
-use colored::Colorize;
 
 pub mod bus {
     include!(concat!(env!("OUT_DIR"), "/bus.rs"));
@@ -83,7 +80,7 @@ impl Bus for BusImpl {
     async fn subscribe(&self, request: tonic::Request<SubscribeRequest>) -> Result<tonic::Response<Self::SubscribeStream>, tonic::Status> {
         let SubscribeRequest { .. } = request.into_inner();
         let rx = self.tx.subscribe();
-        let stream = tokio_stream::wrappers::BroadcastStream::new(rx)
+        let stream = BroadcastStream::new(rx)
             .filter_map(|res| match res {
                 Ok(env) => Some(Ok(env)),
                 Err(_) => None, // lagged; skip
@@ -142,63 +139,13 @@ fn spawn_simulated_sensor(tx: Sender<Envelope>) {
     });
 }
 
-/// Spawn a task that listens to the bus and logs messages to Rerun.
-fn spawn_bus_logger(rec: RecordingStream, mut rx: broadcast::Receiver<Envelope>) {
-    tokio::spawn(async move {
-        while let Ok(env) = rx.recv().await {
-            let topic = env.topic.as_str();
-            match topic {
-                "/device/announce" => {
-                    if let Ok(desc) = DeviceDescriptor::decode(&*env.data) {
-                        let entity = format!("device/{}", desc.id);
-                        let text = format!("kind={} data_type={} tags={:?}", desc.kind, desc.data_type, desc.tags);
-                        let _ = rec.log(entity.as_str(), &TextLog::new(text));
-                    }
-                }
-                "/goal" => {
-                    if let Ok(text) = String::from_utf8(env.data.clone()) {
-                        let _ = rec.log("goal", &TextLog::new(text));
-                    }
-                }
-                _ if topic.starts_with("/sensor/") => {
-                    let sensor_id = &topic[8..]; // after "/sensor/"
-                    if env.data.len() == 4 {
-                        let val = f32::from_le_bytes(env.data[..4].try_into().unwrap()) as f64;
-                        let _ = rec.log(
-                            format!("sensor/{}", sensor_id),
-                            &Scalars::new([val]),
-                        );
-                    }
-                }
-                _ => {
-                    // For any other topic: try UTF-8 decode first, else log raw bytes as a hex string.
-                    let entity_path = format!("bus{}", topic); // e.g. topic "/foo" -> "bus/foo"
-
-                    if let Ok(text) = String::from_utf8(env.data.clone()) {
-                        let _ = rec.log(entity_path.as_str(), &TextLog::new(text));
-                    } else {
-                        let hex = env.data.iter().map(|b| format!("{:02X}", b)).collect::<String>();
-                        let _ = rec.log(entity_path.as_str(), &TextLog::new(hex));
-                    }
-                }
-            }
-        }
-    });
-}
-
 #[tokio::main(flavor = "multi_thread")] // multithreaded runtime
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    // Initialize Rerun viewer/server
-    let rec = start_rerun(cli.grpc_port, cli.web_port, !cli.no_browser)?;
-
     // Initialize broadcast bus
     let (tx, _) = broadcast::channel(1024);
     spawn_simulated_sensor(tx.clone());
-
-    // Pipe all bus traffic into Rerun for visualization.
-    spawn_bus_logger(rec.clone(), tx.subscribe());
 
     // Bridge Pond bus envelopes into sim-local type.
     let (sim_tx, _) = broadcast::channel(1024);
@@ -213,13 +160,12 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Forward diagnostics from sim back to main bus for Rerun visualization
+    // Forward diagnostics from sim back to main bus for logging (reserved for future)
     {
         let mut diag_rx = sim_tx.subscribe();
         let tx_out = tx.clone();
         tokio::spawn(async move {
             while let Ok(env) = diag_rx.recv().await {
-                // only relay /log/sim namespace to avoid loops
                 if env.topic.starts_with("/log/") {
                     let _ = tx_out.send(bus::Envelope { topic: env.topic.clone(), data: env.data.clone() });
                 }
@@ -227,8 +173,28 @@ async fn main() -> Result<()> {
         });
     }
 
-    // Spawn simulation visualization
-    sim::spawn_sim(rec.clone(), sim_tx.subscribe(), sim_tx.clone());
+    // Start sim server for external clients (pad/sim-view)
+    {
+        let state = sim::server::ServerState::new();
+        tokio::spawn(async move {
+            let _ = sim::server::start_server("0.0.0.0:8080", state).await;
+        });
+    }
+
+    // Start map server in-process
+    {
+        tokio::spawn(async move {
+            let addr = std::env::var("MAP_LISTEN").unwrap_or_else(|_| "0.0.0.0:8081".to_string());
+            if let Ok(listener) = tokio::net::TcpListener::bind(addr).await {
+                let _ = axum::serve(listener, map::server::router()).await;
+            }
+        });
+    }
+
+    // Optionally launch PAD (set MIND_RUN_PAD=1)
+    if std::env::var("MIND_RUN_PAD").ok().as_deref() == Some("1") {
+        let _ = std::process::Command::new("pad").spawn();
+    }
 
     let bus_service = BusServer::new(BusImpl {
         tx: tx.clone(),
@@ -278,46 +244,4 @@ async fn main() -> Result<()> {
     loop {
         sleep(Duration::from_secs(3600)).await;
     }
-}
-
-fn start_rerun(grpc_port: u16, web_port: u16, open_browser: bool) -> Result<RecordingStream> {
-    // Spawn a local Rerun gRPC server and accompanying web viewer.
-    // If `web_port` or `grpc_port` is 0, the OS will auto-select a free port.
-    // We buffer up to 25 % of total system memory for late-connecting viewers.
-
-    // If the user didn't specify a gRPC port (0 = auto), fall back to Rerun's default.
-    // Using 0 causes the web viewer URL to be rendered with port 0, leading to connection errors.
-    let grpc_port = if grpc_port == 0 {
-        rerun::DEFAULT_SERVER_PORT
-    } else {
-        grpc_port
-    };
-
-    let rec = RecordingStreamBuilder::new("pond_mind").serve_web(
-        "0.0.0.0",                                 // bind on all interfaces
-        WebViewerServerPort(web_port),             // HTTP port for web assets
-        grpc_port,                                 // gRPC port for log streaming
-        MemoryLimit::from_fraction_of_total(0.25), // buffer limit
-        open_browser,                              // auto-open browser if requested
-    )?;
-
-    let web_desc = if web_port == 0 {
-        "auto".to_string()
-    } else {
-        web_port.to_string()
-    };
-    let grpc_desc = if grpc_port == 0 {
-        "auto".to_string()
-    } else {
-        grpc_port.to_string()
-    };
-
-    println!(
-        "{} Rerun server started – web: {}  gRPC: {}",
-        "[rerun]".bright_cyan(),
-        web_desc,
-        grpc_desc,
-    );
-
-    Ok(rec)
 }

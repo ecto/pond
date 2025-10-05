@@ -1,0 +1,190 @@
+---
+title: 'PAD Quick Start'
+description: 'Getting started with the Pond Application Dashboard'
+---
+
+# PAD Quick Start
+
+Learn how to use PAD (Pond Application Dashboard) for teleoperation and monitoring.
+
+## What is PAD?
+
+PAD is your primary interface for interacting with Pond robots. It provides:
+
+- **Real-time 3D visualization** of the robot and environment
+- **Teleoperation controls** for manual robot control
+- **Sensor monitoring** with live data feeds
+- **System diagnostics** for health and debugging
+- **Configuration management** for tuning parameters
+
+### PAD Backronyms
+
+Take your pick! 🐸
+
+- **Pond Application Dashboard** (straightforward)
+- **Pilot's Amphibious Deck** (thematic)
+- **Perception And Drive** (functional)
+- **Personal Amphibian Director** (whimsical)
+
+## Installation
+
+PAD is included with Pond. Build it with:
+
+```bash
+cargo build -p pad --release
+```
+
+## Running the System
+
+### 1. Start the Simulation Server
+
+First, launch the simulation server that PAD will connect to:
+
+```bash
+cargo run --bin server --features server -p sim
+```
+
+You should see:
+```
+🐸 Pond Sim Server listening on 0.0.0.0:8080
+```
+
+### 2. Launch PAD
+
+In a new terminal, start PAD:
+
+```bash
+cargo run -p pad
+```
+
+Or connect to a remote server:
+
+```bash
+cargo run -p pad -- --server ws://192.168.1.100:8080
+```
+
+## Interface Overview
+
+### Tab Bar
+
+The top bar shows available tabs. Click or use number keys (1-5):
+
+- `1` - 🎬 **Sim View**: 3D visualization
+- `2` - 🎮 **Teleop**: Manual controls
+- `3` - 📊 **Sensors**: Data readings
+- `4` - 🔧 **Diagnostics**: System health
+- `5` - ⚙️ **Settings**: Configuration
+
+### Sim View Tab
+
+The default tab shows a real-time 3D view:
+
+- **Third-person camera** automatically follows the robot
+- **Ground grid** helps with spatial orientation
+- **Coordinate axes** (RGB = XYZ) at origin
+- Smooth camera interpolation for cinematic feel
+
+### Teleop Tab
+
+Manual control interface:
+
+- Direction buttons (⬆️⬇️⬅️➡️)
+- Speed adjustment
+- Emergency stop (coming soon)
+
+### Sensors Tab
+
+Real-time sensor data in a grid:
+
+- IMU (gyroscope/accelerometer)
+- Position and orientation
+- Battery level
+- Joint angles
+
+### Diagnostics Tab
+
+System health monitoring:
+
+- Connection status
+- Motor health
+- Sensor status
+- Network latency
+- Error logs
+
+### Settings Tab
+
+Configure PAD behavior:
+
+- Server address
+- Display options (grid, axes, camera following)
+- Control sensitivity
+- Data recording
+
+## Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| `1-5` | Switch tabs |
+| `Esc` | Exit application |
+| Arrow keys | Camera/robot control (context-dependent) |
+
+## Command-Line Options
+
+```bash
+pad [OPTIONS]
+
+Options:
+  -s, --server <SERVER>    Simulation server address [default: ws://localhost:8080]
+      --fullscreen         Start in fullscreen mode
+  -h, --help              Print help
+```
+
+## Using with Real Hardware
+
+PAD works the same whether connected to simulation or real hardware:
+
+1. Ensure your robot is running a compatible WebSocket server
+2. Connect PAD with `--server` pointing to the robot's IP
+3. The protocol is identical, so switching is seamless
+
+## Standalone Sim View
+
+You can also run just the 3D viewer without the full PAD interface:
+
+```bash
+cargo run -p sim-view -- --server ws://localhost:8080
+```
+
+This is useful for:
+- Lightweight visualization
+- Multiple simultaneous views
+- Embedding in other applications
+- Remote monitoring without control access
+
+## Troubleshooting
+
+### "Connection refused"
+
+- Check that the sim server is running: `cargo run --bin server --features server -p sim`
+- Verify the server address matches (default: `ws://localhost:8080`)
+- Check firewall settings if connecting remotely
+
+### "Compilation error: bevy_egui"
+
+```bash
+cargo clean
+cargo build -p pad
+```
+
+### Black screen or no robot visible
+
+- Switch to Sim View tab (press `1`)
+- Check Settings tab to ensure "Follow robot camera" is enabled
+- Verify the sim server is sending state updates (check server terminal)
+
+## Next Steps
+
+- [Architecture Overview](/reference/architecture)
+- [Simulation Documentation](/reference/software/sim)
+- [Hardware Integration](/reference/hardware/actuator)
+
