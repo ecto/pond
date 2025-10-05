@@ -65,7 +65,11 @@ fn main() -> Result<()> {
         std::process::exit(0);
     }).ok();
     let mut args = std::env::args().skip(1);
-    let port = args.next().context("usage: can <serial_port> [bitrate] [serial_baud] [motor_id]")?;
+    let port = if let Some(p) = args.next() {
+        p
+    } else {
+        choose_serial_port_interactive()? // auto-detect or prompt when absent
+    };
     let bitrate = match args.next().as_deref() {
         Some("10000") => Bitrate::B10k,
         Some("20000") => Bitrate::B20k,
@@ -523,5 +527,87 @@ fn classify_row(id: u32, motor_id: u32, data: &[u8]) -> (&'static str, String) {
     } else { String::from("") };
     (dir, kind)
 }
+
+fn choose_serial_port_interactive() -> Result<String> {
+    // Prefer common USB serial device patterns per OS; fall back to all ports
+    let ports = serialport::available_ports().unwrap_or_default();
+    let mut candidates: Vec<String> = ports
+        .iter()
+        .map(|p| p.port_name.clone())
+        .collect();
+
+    // Apply heuristic filters
+    #[cfg(target_os = "macos")]
+    {
+        let mut mac_candidates: Vec<String> = candidates
+            .into_iter()
+            .filter(|n| n.contains("tty.usb") || n.contains("cu.usb"))
+            .collect();
+        if mac_candidates.is_empty() {
+            mac_candidates = serialport::available_ports()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| p.port_name)
+                .collect();
+        }
+        candidates = mac_candidates;
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let mut linux_candidates: Vec<String> = candidates
+            .into_iter()
+            .filter(|n| n.contains("ttyACM") || n.contains("ttyUSB"))
+            .collect();
+        if linux_candidates.is_empty() {
+            linux_candidates = serialport::available_ports()
+                .unwrap_or_default()
+                .into_iter()
+                .map(|p| p.port_name)
+                .collect();
+        }
+        candidates = linux_candidates;
+    }
+
+    // Unique and stable ordering
+    candidates.sort();
+    candidates.dedup();
+
+    match candidates.len() {
+        0 => {
+            eprintln!("[can] No serial ports detected. Enter a serial port path (or press Enter to exit):");
+            let mut input = String::new();
+            let _ = std::io::stdin().read_line(&mut input);
+            let sel = input.trim().to_string();
+            if sel.is_empty() {
+                anyhow::bail!("no serial port provided");
+            }
+            Ok(sel)
+        }
+        1 => {
+            let p = candidates.remove(0);
+            eprintln!("[can] Using detected port: {}", p);
+            Ok(p)
+        }
+        _ => {
+            eprintln!("[can] Multiple serial ports detected. Choose one:");
+            for (i, name) in candidates.iter().enumerate() {
+                eprintln!("  [{}] {}", i + 1, name);
+            }
+            eprintln!("Enter number (1-{}) or full path:", candidates.len());
+            let mut input = String::new();
+            let _ = std::io::stdin().read_line(&mut input);
+            let sel = input.trim();
+            if sel.is_empty() { anyhow::bail!("no selection made"); }
+            if let Ok(idx) = sel.parse::<usize>() {
+                if idx >= 1 && idx <= candidates.len() {
+                    return Ok(candidates[idx - 1].clone());
+                }
+            }
+            // Treat as path
+            Ok(sel.to_string())
+        }
+    }
+}
+
 
 
