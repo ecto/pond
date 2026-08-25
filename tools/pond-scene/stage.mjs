@@ -5,16 +5,36 @@
 export const FOV = 30;
 const TAN_HALF = Math.tan((FOV * Math.PI) / 180 / 2);
 
-/* On-screen height of each character, in stage units. The cast reads at
-   roughly comparable size regardless of the robots' true scale; pond-bot and
-   the Z1 are trimmed below the rest because both are far wider than they are
-   tall and would otherwise hog the edge bands they live in. */
-/* T1 trimmed from 1.12 when preview.js started applying joint limits: its
-   Elbow_Yaw is authored at +-0.20 against one-sided limits and the runtime
-   clamps it, so the shipped silhouette is a shade wider than the renders used
-   to show and clipped the copy column by 0.3%. Corrected here rather than in
-   t1.mjs so the character module stays the animator's. */
-export const HEIGHT = { pondbot: 0.44, go2: 0.88, t1: 1.09, z1: 0.70 };
+/* ---------------- TRUE SCALE ----------------
+
+   One stage unit is ONE METRE. Nothing is normalised to a common on-screen
+   size any more.
+
+   This used to be a HEIGHT map of hand-picked on-screen heights that made the
+   cast read at "roughly comparable size regardless of the robots' true scale".
+   That is a lie about the product, and the truth is a better story: Pond spans
+   a desk-size frog and a person-size humanoid, and the scene should say so.
+
+   MODEL_SCALE converts a character's source units to metres. The three URDFs
+   are authored in metres already; the pond-bot GLB is a CAD export in
+   millimetres. That is the whole conversion — there is no per-character taste
+   number left in it.
+
+   Measured rest/swept heights, for reference (metres):
+
+     pond-bot  0.097   (the GLB is 85 x 97 x 120 mm)
+     Go2       0.461   (~0.40 at the shoulder, plus the back)
+     Z1        0.508   in its work sweep; 0.74 at full reach
+     T1        1.129   crouched at rest; ~1.19 standing tall
+
+   So the frog is a twelfth of the T1's height. It is genuinely tiny, and it
+   stays legible by standing DOWNSTAGE, close to the camera, where perspective
+   gives it back most of what true scale takes away. */
+export const MODEL_SCALE = { pondbot: 0.001, go2: 1, t1: 1, z1: 1 };
+
+/* True height in metres, used for the things that scale with a body: the
+   contact patch, and a reaction's posY (authored in body heights). */
+export const HEIGHT = { pondbot: 0.097, go2: 0.461, t1: 1.129, z1: 0.508 };
 
 /* Allowed crop budget.
    The old PNG layout got big characters by letting them run off the edges, and
@@ -87,7 +107,17 @@ export function keepOut(vwPx, vhPx) {
    that perspective across the stage's depth gets silly. */
 export const VW_BASE = 4.55;
 export const VH_MIN = 2.30;
-export const FLOOR_FRAC = 0.12;      // the stage-centre floor line, up from the bottom
+/* The stage-centre floor line, up from the bottom of the frame.
+
+   Raised from 0.12 for true scale. With everything normalised to a common
+   height the cast could sit in a shallow band just above the bottom edge, but
+   a 97mm frog only reads if it stands DOWNSTAGE, close to the camera — and
+   with a level camera a downstage floor point sits LOWER in the frame. At 0.12
+   the floor ran off the bottom edge by z = 1.9, which is barely downstage at
+   all. Lifting the line to 0.26 lowers the camera and buys the depth the size
+   range needs, without tilting: a tilted camera would keystone the whole stage
+   and every projection in here assumes it is level. */
+export const FLOOR_FRAC = 0.26;
 export const MARGIN_FRAC = 0.015;    // clear margin required at the frame edges
 
 /* The aspect range the layout is verified over. Within it the camera is always

@@ -140,19 +140,21 @@ async function buildStage(names) {
     char.period = W.PERIOD[key];
     char.entryEnd = W.ENTRY_END[key] || 0;
 
-    // Normalise against the whole behaviour loop, with grounding applied.
-    // Two passes: the gaits are authored in the robot's own metres, so the
-    // poses depend on metres-per-stage-unit, which depends on the height the
-    // first pass measures.
-    let samples = [];
+    /* Measure the whole behaviour loop with grounding applied.
+
+       This used to need two passes: metres-per-stage-unit was derived from the
+       character's measured height (because every character was normalised to a
+       common on-screen size), but the poses depend on mps, so the first pass
+       had to bootstrap it. At TRUE scale mps is just 1 / MODEL_SCALE — a
+       constant known before anything is measured — so the bootstrap pass is
+       gone and the poses sampled here are the poses that ship. */
+    const mps0 = 1 / S.MODEL_SCALE[key];
     const sample = (mps) => {
       const out = [];
       for (let i = 0; i < 48; i++) out.push(char.act(char.entryEnd + (i / 48) * char.period, { mps }).j || {});
       return out;
     };
-    measure(char, sample(1), fk, char.ground);
-    const mps0 = char.height / S.HEIGHT[key];
-    samples = sample(mps0);
+    const samples = sample(mps0);
     measure(char, samples, fk, char.ground);
 
     // anchor x/z on the stance centre (mean of the planted links) so place.x is
@@ -167,7 +169,9 @@ async function buildStage(names) {
     }
 
     STAGE_HEIGHT[key] = S.HEIGHT[key];
-    char.stageScale = S.HEIGHT[key] / char.height;
+    // TRUE SCALE: source units -> metres, and one stage unit IS one metre
+    char.halfWidth = (W.ROAM[key] || {}).halfWidth;
+    char.stageScale = S.MODEL_SCALE[key];
     char.mps = 1 / char.stageScale;          // metres per stage unit
     char.ctx = { mps: char.mps };
 
@@ -345,7 +349,7 @@ function stageSoup(cast, t, opts = {}) {
     }
     // contact blob on the shared floor
     if (opts.blobs !== false) {
-      const r = 0.34 * (char.stageScale * char.height);
+      const r = 0.95 * (char.halfWidth || 0.3);   // footprint, not height
       const g = new THREE.CircleGeometry(r, 18);
       const flat = new THREE.Matrix4().makeRotationX(-Math.PI / 2)
         .premultiply(new THREE.Matrix4().makeTranslation(a.place.x, 0.002, a.place.z));

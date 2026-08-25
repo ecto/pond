@@ -16,7 +16,7 @@ import {
 import { MESH_B64 } from './mesh-data.js';
 import { WORK, PERIOD, ENTRY_END, REACTIONS_BY_KEY, CHARACTERS,
   createPointerState, updatePointer, pointerFor } from './anim/index.mjs';
-import { HEIGHT, cameraFor } from './stage.mjs';
+import { HEIGHT, MODEL_SCALE, cameraFor } from './stage.mjs';
 import { makeClock, beginReaction, phaseOf, isExpired, bodyChannel } from './anim/reaction.mjs';
 import { isDarkPage, themeSettings, setupRenderer, buildEnvironment, buildLights,
   buildShadowCatcher, makeMaterials } from './studio.js';
@@ -189,7 +189,7 @@ function start(frame) {
     const shift = new Group();
     const gnd = new Group();
     const zup = new Group();
-    const stageScale = HEIGHT[spec.key] / (robot.height || 1);
+    const stageScale = MODEL_SCALE[spec.key];   // TRUE SCALE: one stage unit is one metre
     norm.scale.setScalar(stageScale);
     shift.position.set(-robot.pivot[0], -robot.pivot[1], -robot.pivot[2]);
     if (!robot.yUp) zup.rotation.x = -Math.PI / 2;   // URDF is Z-up, the stage is Y-up
@@ -205,7 +205,10 @@ function start(frame) {
     // shadow lives on the floor, not on the character, so a hop lifts the body
     // away from its own contact patch the way it should
     const blob = new Mesh(
-      new CircleGeometry(0.34 * HEIGHT[spec.key], 20),
+      /* sized off the FOOTPRINT, not the height. At true scale the Go2 is
+         0.46 tall but 0.7 long, so a height-derived patch sat under its belly
+         and left the feet visually unsupported. */
+      new CircleGeometry(0.95 * (CHARACTERS[spec.key].roam.halfWidth || 0.3), 20),
       // a tight contact darkening under the feet. The cast shadow does the
       // big grounding; this does the last centimetre, where a shadow map is
       // always too coarse and where the eye actually looks for contact.

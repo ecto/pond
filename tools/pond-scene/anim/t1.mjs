@@ -80,7 +80,7 @@ const sched = plan(
 /* Roam region — see INTERFACE.md, "Moving a character". */
 export const roam = {
   side: 'right',
-  halfWidth: 0.49,
+  halfWidth: 0.50,            // true swept half-extent, metres
   work: { x: [1.63, 1.72], z: [-0.44, -0.30] },
   entry: { x: [1.63, 3.70], z: [-0.44, -0.30] },
 };

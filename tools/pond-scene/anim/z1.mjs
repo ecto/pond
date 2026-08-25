@@ -188,7 +188,7 @@ const AT = { x: 1.15, z: 0.60 }, YAW = -0.75;
 /* Bolted down: the region is a point. See INTERFACE.md, "Moving a character". */
 export const roam = {
   side: 'right',
-  halfWidth: 0.73,
+  halfWidth: 0.52,            // true swept half-extent, metres
   work: { x: [1.15, 1.15], z: [0.60, 0.60] },
 };
 export const ground = ['link00'];

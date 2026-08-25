@@ -32,7 +32,7 @@ Edit:
 | --- | --- |
 | what one character is *doing* (work loop, entrance, gait, reactions, pointer behaviour) | `anim/<character>.mjs` — see `anim/INTERFACE.md` |
 | shared motion machinery (IK, schedules, pointer projection, the reaction lifecycle, the authoring context) | `anim/kinematics.mjs`, `anim/schedule.mjs`, `anim/pointer.mjs`, `anim/reaction.mjs`, `anim/context.mjs` |
-| the stage itself: camera framing, character sizes, swept-extent constants | `stage.mjs` |
+| the stage itself: camera framing, true scale, swept-extent constants | `stage.mjs` |
 | colours, props, lifecycle | `scene.js` |
 | lighting, materials, tone mapping, the two page themes | `studio.js` |
 | triangle budgets, palette mapping, poses baked into the payload | `build.js` |
@@ -130,6 +130,17 @@ and looking down -Z, which puts the horizon exactly at screen centre: a
 character further downstage stands lower in the frame, and the ground recedes
 without the keystoning a tilted camera would add. The floor under the stage
 centre lands 12% up from the bottom edge.
+
+**One stage unit is one metre.** The cast is at TRUE scale — a 97mm pond-bot,
+a 0.46m Go2, a 0.51m Z1 and a 1.13m T1 — rather than normalised to a common
+on-screen height. The frog is a twelfth of the humanoid's height, which is the
+honest size story: Pond spans a desk-size machine and a person-size one.
+`MODEL_SCALE` in `stage.mjs` is the whole conversion (the URDFs are in metres,
+the pond-bot GLB is in millimetres); there is no per-character taste number.
+The frog stays legible by standing DOWNSTAGE, close to the camera, where
+perspective gives back most of what true scale takes away — which is why
+`FLOOR_FRAC` sits at 0.26 rather than 0.12, buying downstage depth without
+tilting the camera.
 
 **Width is the primary constraint.** The visible width at the stage plane is
 fixed (`VW_BASE`), so the cast fills the frame side to side and each character

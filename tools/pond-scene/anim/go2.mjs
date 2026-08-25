@@ -88,7 +88,7 @@ const sched = plan(
    character"). Tune motion freely; relocating needs the composition owner. */
 export const roam = {
   side: 'left',
-  halfWidth: 0.80,            // widest horizontal half-extent, world units
+  halfWidth: 0.40,            // true swept half-extent, metres            // widest horizontal half-extent, world units
   work: { x: [-1.90, -1.74], z: [-0.64, -0.40] },
   entry: { x: [-3.70, -1.74], z: [-0.64, -0.40] },
 };

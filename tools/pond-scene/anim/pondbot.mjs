@@ -24,7 +24,7 @@
 import { clamp01, smooth, mix, TAU } from './schedule.mjs';
 
 export const params = {
-  arc: 0.20,        // nominal hop apex, stage units (the body is 0.44 tall)
+  arc: 0.095,       // nominal hop apex, metres — about one body height (0.097)
   stretch: 0.20,    // how much the body stretches at take-off and touchdown
   crouch: 0.21,     // how deep the anticipation compresses it
   vicinity: 1.55,   // pointer-attention radius, stage units
@@ -63,7 +63,7 @@ const wrapPi = (a) => a - TAU * Math.round(a / TAU);
    moves the gaze. */
 const heading = (dx, dz) => Math.atan2(-dz, dx);
 
-const HOME = { x: -1.36, z: 0.73 };
+const HOME = { x: -0.95, z: 2.20 };
 /* the rest of the cast, plus the camera and a patch of open water downstage */
 const CAST = {
   camera: { x: 0.00, z: 7.60 },     // the visitor
@@ -80,20 +80,24 @@ for (const k of Object.keys(CAST)) LOOK[k] = heading(CAST[k].x - HOME.x, CAST[k]
    the hop has to be sold vertically. It still matters: a hop that lands on the
    exact millimetre it left from reads as a bounce, not a hop. */
 const SPOT = {
-  a: { x: -1.38, z: 0.70 },
-  b: { x: -1.31, z: 0.67 },
-  c: { x: -1.41, z: 0.715 },
-  d: { x: -1.34, z: 0.725 },
-  e: { x: -1.42, z: 0.66 },
+  a: { x: -0.97, z: 2.18 },
+  b: { x: -0.90, z: 2.14 },
+  c: { x: -1.00, z: 2.24 },
+  d: { x: -0.93, z: 2.26 },
+  e: { x: -1.01, z: 2.10 },
 };
 
 /* Roam region — see INTERFACE.md, "Moving a character". Unchanged: the
    composition owns these numbers, this file owns the motion inside them. */
+/* halfWidth is the TRUE swept half-extent now: 64mm, measured, not the 0.46
+   left over from when every character was normalised to a common size. A
+   stale halfWidth makes feasibleX solve the wrong composition, which is the
+   guard rail quietly lying. */
 export const roam = {
   side: 'left',
-  halfWidth: 0.46,
-  work: { x: [-1.42, -1.30], z: [0.66, 0.80] },
-  entry: { x: [-1.42, -1.30], z: [0.66, 2.40] },
+  halfWidth: 0.075,
+  work: { x: [-1.05, -0.86], z: [2.05, 2.32] },
+  entry: { x: [-1.05, -0.86], z: [2.05, 3.40] },
 };
 export const ground = [];              // it leaves the floor, so nothing is pinned
 
@@ -148,10 +152,10 @@ const LOOP = route(BEATS, SPOT.a, LOOK.camera);
    bigger one that carries it home, spinning past the camera and settling back.
    It travels straight upstage, so it holds a three-quarter facing on the way
    in rather than showing the viewer its back for three seconds. */
-const OFFSTAGE = { x: -1.33, z: 2.36 };
+const OFFSTAGE = { x: -0.92, z: 3.30 };
 const ENTRY = route([
-  { at: { x: -1.38, z: 1.80 }, yaw: 1.05 - Math.PI / 2, load: 0.18, fly: 0.44, arc: 0.80, dwell: 0.30 },
-  { at: { x: -1.31, z: 1.22 }, yaw: 0.72 - Math.PI / 2, load: 0.14, fly: 0.46, arc: 0.92, dwell: 0.26 },
+  { at: { x: -0.98, z: 2.85 }, yaw: 1.05 - Math.PI / 2, load: 0.18, fly: 0.44, arc: 0.80, dwell: 0.30 },
+  { at: { x: -0.92, z: 2.50 }, yaw: 0.72 - Math.PI / 2, load: 0.14, fly: 0.46, arc: 0.92, dwell: 0.26 },
   // the big one: lands home, overshoots the turn, then settles onto the visitor
   { at: SPOT.a, yaw: LOOK.camera, load: 0.28, fly: 0.66, arc: 1.70, dwell: 1.05,
     glances: [[0.02, -0.34, 0.62]] },
