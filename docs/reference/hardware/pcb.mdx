@@ -1,0 +1,278 @@
+---
+title: PCB Generation
+description: Programmatic PCB design for RANA actuator stators
+---
+
+# PCB Generation
+
+The `pcb` crate provides programmatic PCB generation for RANA actuator stators using Rust and Python.
+
+## Overview
+
+Instead of manually designing PCB stators in KiCad, we generate them parametrically from code. This enables:
+
+- **Rapid iteration**: Change parameters and regenerate instantly
+- **Version control**: Track design evolution in git
+- **Consistency**: All RANA variants follow the same patterns
+- **Automation**: Batch generate multiple variants
+- **Integration**: Coordinate with 3D CAD models
+
+## Quick Start
+
+Generate all PCB stators:
+
+```bash
+cargo run --bin generate-pcb
+```
+
+Output location: `target/pcb/*.kicad_pcb`
+
+Open generated files in KiCad 7+ for review and refinement.
+
+## Architecture
+
+The system consists of three layers:
+
+### 1. Rust CLI (`generate_pcb.rs`)
+
+Discovers and executes Python model scripts:
+
+- Creates Python virtual environment
+- Walks `crates/pcb/models/` directory
+- Executes each `.py` file
+- Collects output in `target/pcb/`
+
+### 2. Python Base Classes (`pcb_stator_base.py`)
+
+Provides parametric PCB generation:
+
+- `StatorParams`: Configuration dataclass with validation
+- `StatorGenerator`: Main generator with spiral coil algorithm
+- Helper functions for coordinate transformations
+
+### 3. Python Models (`rana_*.py`)
+
+Define specific PCB designs:
+
+- RANA-S: 60mm diameter, 6-8 Nm
+- RANA-M: 80mm diameter, 15-25 Nm
+- RANA-L: 100mm diameter, 30-50 Nm
+
+## PCB Stator Design
+
+### What is a PCB Stator?
+
+A PCB stator replaces traditional hand-wound copper wire with **multi-layer spiral traces** on a printed circuit board.
+
+**Advantages**:
+- Automated manufacturing (standard PCB fab)
+- Integrated sensors (Hall arrays, temperature, current sense)
+- Precise geometry (better tolerance than wire winding)
+- Compact design (10-15% shorter)
+- Thermal management (copper planes conduct heat)
+
+### Layer Stackup
+
+```
+Layer 1 (F.Cu):   Phase A spiral coils (clockwise)
+Layer 2 (In1.Cu): Phase B spiral coils (counter-clockwise)
+Layer 3 (In2.Cu): Phase C spiral coils (clockwise)
+Layer 4 (B.Cu):   Ground plane + thermal dissipation
+```
+
+### Key Specifications
+
+| Parameter | RANA-S | RANA-M | RANA-L |
+|-----------|--------|--------|--------|
+| Outer Ø | 60mm | 80mm | 100mm |
+| Center Bore | 10mm | 15mm | 20mm |
+| Slots | 12 | 12 | 12 |
+| Poles | 14 | 14 | 14 |
+| Layers | 4 | 4 | 4 |
+| Trace Width | 0.25mm | 0.25mm | 0.25mm |
+| Copper Weight | 4 oz | 5 oz | 6 oz |
+| Continuous Torque | 6-8 Nm | 15-25 Nm | 30-50 Nm |
+
+## Usage
+
+### Generate All Designs
+
+```bash
+cargo run --bin generate-pcb
+```
+
+### Create Custom Design
+
+1. Copy an existing model:
+
+```bash
+cp crates/pcb/models/stators/rana_s.py crates/pcb/models/stators/custom.py
+```
+
+2. Edit parameters:
+
+```python
+def create_custom_params() -> StatorParams:
+    return StatorParams(
+        name="custom",
+        outer_diameter=70.0,      # Custom size
+        inner_diameter=12.0,
+        turns_per_coil=10,        # More inductance
+        copper_weight_oz=4.5,     # Custom weight
+        # ... other params
+    )
+```
+
+3. Regenerate:
+
+```bash
+cargo run --bin generate-pcb
+```
+
+4. Open `target/pcb/stators_custom.kicad_pcb` in KiCad
+
+## File Format
+
+Generated files use **KiCad 7.0 S-expression format**:
+
+```scheme
+(kicad_pcb (version 20221018) (generator pcbnew)
+  (general
+    (thickness 1.6))
+  (layers
+    (0 "F.Cu" signal)
+    (1 "In1.Cu" signal)
+    (2 "In2.Cu" signal)
+    (31 "B.Cu" signal))
+  (segment (start 10.0 20.0) (end 15.0 25.0)
+           (width 0.25) (layer "F.Cu") (net 0))
+  (via (at 12.5 22.5) (size 0.6) (drill 0.3)
+       (layers "F.Cu" "B.Cu") (net 0))
+  ...)
+```
+
+Files are directly editable in KiCad PCB Editor.
+
+## Comparison with Alternatives
+
+### This Approach: Direct S-expression Generation
+
+**Pros**:
+- ✅ No KiCad dependency for generation
+- ✅ Fast iteration
+- ✅ Version control friendly (text format)
+- ✅ Integrates with existing workflow
+- ✅ Type-safe Rust CLI
+
+**Cons**:
+- ⚠️ Limited to basic features initially
+- ⚠️ Manual connector placement in KiCad
+
+### KiCad Python API (pcbnew)
+
+**Pros**:
+- Native KiCad integration
+- Full feature access
+
+**Cons**:
+- ❌ Requires KiCad installation
+- ❌ API complexity
+- ❌ Version compatibility issues
+- ❌ Hard to package/distribute
+
+### Manual KiCad Design
+
+**Pros**:
+- Full control
+- Visual feedback
+
+**Cons**:
+- ❌ Time-consuming
+- ❌ Error-prone for spirals
+- ❌ Hard to version control
+- ❌ Not parametric
+
+### Commercial Tools (Altium, etc.)
+
+**Pros**:
+- Advanced features
+- Simulation
+
+**Cons**:
+- ❌ Expensive
+- ❌ Proprietary formats
+- ❌ Not scriptable
+
+## Integration
+
+### With CAD Crate
+
+PCB stators are designed to fit 3D-printed actuator housings:
+
+```bash
+# Generate CAD models
+cargo run --bin generate-cad
+
+# Generate PCB designs
+cargo run --bin generate-pcb
+
+# Both use matching dimensions from rana.md
+```
+
+### With Manufacturing
+
+1. Open generated `.kicad_pcb` in KiCad
+2. Add physical connectors and mounting holes
+3. Run DRC (Design Rule Check)
+4. Generate Gerber files
+5. Send to PCB fab (JLCPCB, OSH Park, etc.)
+
+## Best Practices
+
+### Design Iteration
+
+1. **Start with existing**: Copy closest RANA model
+2. **Small changes**: Modify one parameter at a time
+3. **Regenerate**: `cargo run --bin generate-pcb`
+4. **Review**: Open in KiCad
+5. **Commit**: Version control your parameters
+
+### Electrical Validation
+
+- **Trace current**: 0.5A per 0.25mm @ 1oz copper (scale with oz)
+- **Resistance**: Calculate based on trace length and copper weight
+- **Inductance**: Expect 50-200 µH per phase
+- **Thermal**: Ensure adequate copper for continuous current
+
+### Manufacturing
+
+- **Minimum via size**: 0.3mm drill typical
+- **Minimum trace/space**: 0.15mm for most fabs
+- **Copper weight**: Check fab capabilities (up to 6 oz)
+- **Board thickness**: Standard 1.6mm or custom
+
+## API Reference
+
+See the full documentation:
+
+- [README.md](../../../crates/pcb/README.md) - Complete documentation
+- [QUICKSTART.md](../../../crates/pcb/QUICKSTART.md) - Getting started
+- [CHEATSHEET.md](../../../crates/pcb/CHEATSHEET.md) - Command reference
+
+## Related Documentation
+
+- [RANA Specifications](/reference/hardware/actuator) - Motor specs
+- [CAD Generation](/reference/hardware/cad) - 3D model generation
+- [Project Architecture](/reference/architecture) - Overall system
+
+## Contributing
+
+To add new PCB designs:
+
+1. Create new Python file in `crates/pcb/models/`
+2. Define `StatorParams` with your specifications
+3. Call `StatorGenerator.generate()`
+4. Test generation with `cargo run --bin generate-pcb`
+
+Follow existing patterns for consistency.
+
