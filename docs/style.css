@@ -1,31 +1,1063 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;600;700&display=swap');
 
-body {
-  font-family: "IBM Plex Sans", sans-serif;
-  color: rgba(20, 20, 20, 0.8);
+/* Iowan Old Style BT: titles. Preview from the macOS system face. */
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style"), local("IowanOldStyle-Roman"), local("Iowan Old Style BT");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
-pre, code, kbd, samp, td {
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 0.9em;
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style Italic"), local("IowanOldStyle-Italic");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style Bold"), local("IowanOldStyle-Bold");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style Bold Italic"), local("IowanOldStyle-BoldItalic");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Pond Sans: Mona Sans instanced to GT America Standard (wdth=100, opsz=14). */
+@font-face {
+  font-family: "Pond Sans";
+  src: url("/fonts/pond-sans/PondSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pond Sans";
+  src: url("/fonts/pond-sans/PondSans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pond Sans";
+  src: url("/fonts/pond-sans/PondSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
 }
 
 :root {
-  --primary: 13 147 115;
-  --primary-light: 85 215 153;
-  --primary-dark: 13 147 115;
-  --background-light: 255 255 255;
-  --background-dark: 11 13 14;
-  --gray-50: 243 247 246;
-  --gray-100: 238 242 241;
-  --gray-200: 222 226 226;
-  --gray-300: 206 210 209;
-  --gray-400: 158 163 162;
-  --gray-500: 112 116 115;
-  --gray-600: 80 84 83;
-  --gray-700: 62 67 66;
-  --gray-800: 37 41 40;
-  --gray-900: 23 27 26;
-  --gray-950: 10 14 13;
+  --font-serif: "Iowan Old Style BT Web", "Iowan Old Style", Palatino, "Palatino Linotype", serif;
+  --font-sans: "Pond Sans", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --ink: #111111;
+  --muted: #555555;
+  --stone: #333333;
+  --rule: #e8e8e8;
+  --paper: #ffffff;
+  --trough: #f3f3f3;
+  --plotter: #0000ff;
+  --mark-yellow: #f0ad00;
+  --mark-red: #e13a26;
+  --mark-green: #2aa13f;
+  --text: 16px;
+  --leading: 1.6;
+  --h1: 1.75rem;
+  --h2: 1.375rem;
+  --h3: 1.125rem;
+  --meta: 0.875rem;
+  --ui: 13px;
+}
+
+html.dark {
+  --ink: #ffffff;
+  --muted: #c8c8c8;
+  --stone: #d6d6d6;
+  --rule: #2a2a2a;
+  --paper: #000000;
+  --trough: #1a1a1a;
+  --plotter: #3d5fff;
+  --mark-yellow: #ffc61a;
+  --mark-red: #ff4f38;
+  --mark-green: #3fd465;
+}
+
+html,
+body,
+#background-color {
+  background: var(--paper) !important;
+  color: var(--ink);
+  font-family: var(--font-sans);
+}
+
+/* Chrome: Pond Sans at Lite's GT America UI size. */
+#navbar,
+#sidebar,
+#sidebar-content,
+#table-of-contents,
+#table-of-contents-content,
+#table-of-contents-layout,
+#search-bar-entry,
+#search-bar-entry-mobile,
+#pagination,
+#footer,
+#mobile-nav,
+#mobile-nav-content,
+#topbar-cta-button,
+#header {
+  font-family: var(--font-sans);
+  color: var(--stone);
+}
+
+#navbar,
+#sidebar,
+#sidebar-content {
+  background: var(--paper);
+  font-size: var(--ui);
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+#sidebar {
+  padding-top: 1.75rem;
+  overflow-y: auto;
+}
+
+#sidebar,
+#navbar {
+  border: none !important;
+  box-shadow: none;
+}
+
+/* Mobile header bar: drop the two horizontal rules (under the wordmark row
+   and under the breadcrumb row) and give both rows a bit more room. */
+#navbar-transition,
+#navbar .border-b {
+  border-bottom: none !important;
+}
+
+#navbar .flex.items-center.h-16 {
+  padding-top: 0.375rem;
+  padding-bottom: 0.375rem;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+#navbar button.h-14 {
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+}
+
+#sidebar .border-t,
+#sidebar .border-b,
+#sidebar .border-r,
+#sidebar .border-l,
+#sidebar-content .border-t,
+#sidebar-content .border-l {
+  border: none !important;
+}
+
+#sidebar a,
+#navbar a {
+  color: var(--stone);
+}
+
+#sidebar {
+  --side-inset: 1.5rem;
+}
+
+#sidebar,
+#sidebar-content {
+  padding-left: var(--side-inset) !important;
+  padding-right: var(--side-inset) !important;
+}
+
+#sidebar a[aria-current="page"] {
+  color: var(--plotter);
+  font-weight: 500;
+  background: none !important;
+}
+
+#sidebar a:hover,
+#sidebar button:hover {
+  color: var(--ink);
+}
+
+#sidebar a[href="/"],
+#sidebar a[aria-label*="home" i] {
+  display: inline-flex !important;
+  align-items: center;
+  color: var(--ink);
+  line-height: 0;
+  overflow: visible;
+  margin-left: -0.75rem;
+}
+
+#sidebar a[href="/"]::before,
+#sidebar a[href="/"]::after {
+  content: none !important;
+}
+
+#sidebar .nav-logo,
+#sidebar a[href="/"] .nav-logo,
+#navbar .nav-logo,
+#navbar a[href="/"] .nav-logo {
+  display: block !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  color: transparent !important;
+  width: 5.1rem !important;
+  height: 1.05rem !important;
+  max-width: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  overflow: visible !important;
+  background-color: var(--ink) !important;
+  background-image: linear-gradient(
+    90deg,
+    var(--mark-green) 0 23%,
+    var(--plotter) 23% 50%,
+    var(--mark-red) 50% 76%,
+    var(--mark-yellow) 76% 100%
+  ) !important;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+#navbar .nav-logo,
+#navbar a[href="/"] .nav-logo {
+  width: 6.4rem !important;
+  height: 1.3rem !important;
+}
+
+#sidebar .nav-logo::before,
+#sidebar .nav-logo::after,
+#navbar .nav-logo::before,
+#navbar .nav-logo::after {
+  content: none !important;
+}
+
+#navbar .nav-logo svg {
+  display: none !important;
+}
+
+#sidebar svg {
+  display: none !important;
+}
+
+#sidebar button[aria-label*="Switch"] svg,
+#sidebar button[aria-label*="theme" i] svg {
+  display: block !important;
+}
+
+#sidebar #navigation-items a,
+#sidebar #navigation-items button,
+#sidebar-content nav a,
+#sidebar-content nav button {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  width: 100% !important;
+  min-height: 1.7rem;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#sidebar .sidebar-group > li > ul a,
+#sidebar #navigation-items .sidebar-group ul a.ml-4 {
+  padding-left: 0.85rem !important;
+}
+
+#search-bar-entry,
+#search-bar-entry-mobile {
+  display: none !important;
+}
+
+#sidebar button[aria-label*="Switch"],
+#sidebar button[aria-label*="theme" i],
+#sidebar .rounded-full {
+  display: none !important;
+}
+
+#sidebar h3,
+#sidebar-content h3,
+#sidebar .uppercase,
+#sidebar [class*="uppercase"] {
+  display: none !important;
+}
+
+#sidebar a[href^="http"] {
+  color: var(--muted);
+}
+
+/* Code/Community are global anchors, but should read as an ordinary
+   sidebar section rather than a visually distinct block. */
+#sidebar .nav-anchor {
+  padding-top: 0.375rem !important;
+  padding-bottom: 0.375rem !important;
+  margin-bottom: 0 !important;
+  color: var(--stone) !important;
+}
+
+#sidebar .nav-anchor:hover {
+  color: var(--ink) !important;
+}
+
+#sidebar,
+#sidebar-content {
+  justify-content: flex-start !important;
+  align-items: stretch !important;
+}
+
+#sidebar > ul[class*="bottom-0"] {
+  display: none !important;
+}
+
+#sidebar #navigation-items > ul.mt-8,
+#sidebar #navigation-items > .mt-6 {
+  margin-top: 0.15rem !important;
+}
+
+/* Code/Community (global anchors) render first in the DOM; push them
+   below the page groups instead. */
+#sidebar #navigation-items {
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+#sidebar #navigation-items > ul.mt-8 {
+  order: 10 !important;
+}
+
+#table-of-contents,
+#table-of-contents-content,
+#table-of-contents-layout a {
+  font-family: var(--font-sans);
+  font-size: var(--ui);
+  line-height: 1.35;
+  font-weight: 400;
+  color: var(--stone);
+}
+
+#page-title,
+#content h1,
+#content h2,
+#content h3,
+#content h4,
+#content h5,
+#content h6 {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  line-height: 1.2;
+  text-wrap: balance;
+}
+
+#page-title,
+#content h1 {
+  font-size: var(--h1);
+  max-width: 34rem;
+}
+
+#content h2 {
+  font-size: var(--h2);
+}
+
+#content h3 {
+  font-size: var(--h3);
+}
+
+.eyebrow {
+  display: none !important;
+}
+
+body:has(a[href="/start/introduction"][aria-current="page"]) #header {
+  text-align: center;
+}
+
+body:has(a[href="/start/introduction"][aria-current="page"]) #page-title,
+body:has(a[href="/start/introduction"][aria-current="page"]) #header p {
+  margin-inline: auto;
+}
+
+body:has(a[href="/start/welcome"][aria-current="page"]) #header {
+  display: none;
+}
+
+#content:has(.landing) {
+  max-width: none;
+  width: 100%;
+  margin-top: 0;
+}
+
+body:has(a[href="/start/welcome"][aria-current="page"]) #sidebar,
+body:has(a[href="/start/welcome"][aria-current="page"]) #sidebar-content,
+body:has(a[href="/start/welcome"][aria-current="page"]) #navbar,
+body:has(a[href="/start/welcome"][aria-current="page"]) #pagination,
+body:has(a[href="/start/welcome"][aria-current="page"]) #content-side-layout,
+body:has(a[href="/start/welcome"][aria-current="page"]) #footer,
+body:has(a[href="/start/welcome"][aria-current="page"]) #mobile-nav {
+  display: none !important;
+}
+
+body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
+  margin-left: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  padding: 0 !important;
+}
+
+.landing {
+  width: 100%;
+}
+
+.landing-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.landing-masthead,
+.landing-hero {
+  position: relative;
+  z-index: 1;
+}
+
+.landing-masthead {
+  display: flex;
+  justify-content: center;
+  padding: 3.5rem 1.5rem 0;
+}
+
+.landing-mark {
+  position: relative;
+  display: inline-flex;
+  text-decoration: none;
+}
+
+.landing-mark::after {
+  content: "";
+  position: absolute;
+  left: 36.73%;
+  top: 50%;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--plotter);
+  transform: translate(-50%, -50%) scale(0.55);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.landing-mark:hover::after {
+  animation: pond-ripple 0.9s ease-out;
+}
+
+@keyframes pond-ripple {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.55);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.3);
+  }
+}
+
+.landing-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  flex: 1;
+  min-height: 0;
+  padding: 2rem 1.5rem;
+}
+
+#content .landing-chip,
+.landing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: var(--trough);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  margin-bottom: 1.5rem;
+}
+
+.landing-chip > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.landing-chip strong {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.landing-chip-sep {
+  opacity: 0.5;
+}
+
+.landing-chip-arrow {
+  transition: transform 200ms ease-out;
+}
+
+.landing-chip:hover {
+  color: var(--ink);
+}
+
+.landing-chip:hover .landing-chip-arrow {
+  transform: translateX(2px);
+}
+
+.landing-shapes {
+  width: 5.5rem;
+  height: 1.1rem;
+  margin: 0;
+  background-color: var(--ink);
+  background-image: linear-gradient(
+    90deg,
+    var(--mark-green) 0 23%,
+    var(--plotter) 23% 50%,
+    var(--mark-red) 50% 76%,
+    var(--mark-yellow) 76% 100%
+  );
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.landing-critter {
+  position: absolute;
+  z-index: 0;
+  pointer-events: auto;
+  cursor: pointer;
+  user-select: none;
+  transform-origin: 50% 100%;
+  filter: drop-shadow(0 16px 32px rgb(0 0 0 / 0.3));
+  transition:
+    rotate 0.38s cubic-bezier(0.34, 1.56, 0.64, 1),
+    scale 0.38s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.landing-critter-bottom {
+  width: 15rem;
+  left: 18%;
+  bottom: -3.5rem;
+  transform: translateX(-50%);
+  animation:
+    critter-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.45s both,
+    critter-life-a 11s ease-in-out 1.4s infinite;
+}
+
+.landing-critter-left {
+  width: 11rem;
+  left: -3.25rem;
+  bottom: 17%;
+  animation:
+    critter-left 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.65s both,
+    critter-life-b 13s ease-in-out 1.6s infinite;
+}
+
+.landing-critter-right {
+  width: 12rem;
+  right: -3rem;
+  bottom: 34%;
+  animation:
+    critter-right 0.9s cubic-bezier(0.22, 1, 0.36, 1) 0.85s both,
+    critter-life-c 17s ease-in-out 1.8s infinite;
+}
+
+.landing-critter-corner {
+  width: 13rem;
+  right: 11%;
+  bottom: -3rem;
+  animation:
+    critter-up-plain 0.9s cubic-bezier(0.22, 1, 0.36, 1) 1.05s both,
+    critter-life-d 19s ease-in-out 1.8s infinite;
+}
+
+/* Hover perks: rotate/scale only, so they compose with the
+   transform (entrance) and translate (life) channels. */
+.landing-critter-bottom:hover {
+  rotate: -3deg;
+  scale: 1.07;
+}
+
+.landing-critter-left:hover {
+  rotate: 4deg;
+  scale: 1.08;
+}
+
+.landing-critter-right:hover {
+  rotate: -4deg;
+  scale: 1.08;
+}
+
+.landing-critter-corner:hover {
+  rotate: 2deg;
+  scale: 1.06;
+}
+
+/* Press reactions: each character answers a click differently.
+   Snappier curve than the hover perk so the press reads as a
+   distinct beat, still rotate/scale only. */
+.landing-critter:active {
+  transition:
+    rotate 0.16s cubic-bezier(0.34, 1.56, 0.64, 1),
+    scale 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* bottom — squash: plants down and widens. */
+.landing-critter-bottom:active {
+  rotate: 0deg;
+  scale: 1.14 0.9;
+}
+
+/* left — nose-dive lean into the frame. */
+.landing-critter-left:active {
+  rotate: 13deg;
+  scale: 0.96 1.06;
+}
+
+/* right — recoil away, a startled hop back. */
+.landing-critter-right:active {
+  rotate: -14deg;
+  scale: 1.1 0.94;
+}
+
+/* corner — spin-tip, the rear-view one shows off. */
+.landing-critter-corner:active {
+  rotate: -9deg;
+  scale: 0.92;
+}
+
+@keyframes critter-up {
+  from {
+    transform: translateX(-50%) translateY(110%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes critter-left {
+  from {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes critter-right {
+  from {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes critter-up-plain {
+  from {
+    transform: translateY(110%);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+/* Life cycles: `translate` only — never transform/rotate/scale.
+   Coprime periods (11/13/17/19s) and distinct hop phases keep
+   the four critters from ever syncing up. */
+@keyframes critter-life-a {
+  0% {
+    translate: 0 0;
+  }
+  20% {
+    translate: 0 -6px;
+  }
+  40% {
+    translate: 0 0;
+  }
+  60% {
+    translate: 0 -6px;
+  }
+  80%,
+  88% {
+    translate: 0 0;
+  }
+  90.5% {
+    translate: 0 -16px;
+  }
+  93%,
+  100% {
+    translate: 0 0;
+  }
+}
+
+@keyframes critter-life-b {
+  0% {
+    translate: 0 0;
+  }
+  15% {
+    translate: 0 -6px;
+  }
+  30%,
+  40% {
+    translate: 0 0;
+  }
+  42.5% {
+    translate: 0 -16px;
+  }
+  45%,
+  60% {
+    translate: 0 0;
+  }
+  75% {
+    translate: 0 -6px;
+  }
+  90%,
+  100% {
+    translate: 0 0;
+  }
+}
+
+@keyframes critter-life-c {
+  0% {
+    translate: 0 0;
+  }
+  20% {
+    translate: 0 -6px;
+  }
+  40%,
+  62% {
+    translate: 0 0;
+  }
+  64.5% {
+    translate: 0 -16px;
+  }
+  67% {
+    translate: 0 0;
+  }
+  85% {
+    translate: 0 -6px;
+  }
+  100% {
+    translate: 0 0;
+  }
+}
+
+@keyframes critter-life-d {
+  0%,
+  20% {
+    translate: 0 0;
+  }
+  22.5% {
+    translate: 0 -16px;
+  }
+  25% {
+    translate: 0 0;
+  }
+  45% {
+    translate: 0 -6px;
+  }
+  65% {
+    translate: 0 0;
+  }
+  85% {
+    translate: 0 -6px;
+  }
+  100% {
+    translate: 0 0;
+  }
+}
+
+#content .landing h1,
+.landing h1 {
+  font-family: var(--font-serif);
+  font-size: clamp(2.4rem, 4.5vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 18ch;
+  margin: 0 0 0.75rem;
+  text-wrap: balance;
+}
+
+#content .landing-lede,
+.landing-lede {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.65;
+  color: var(--muted) !important;
+  max-width: 34rem;
+  margin: 0 0 1.6rem;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+.landing-cta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+}
+
+.landing-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.65rem;
+  padding: 0.6rem 1.35rem;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: var(--ui);
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+}
+
+#content .landing-btn-primary,
+.landing-btn-primary {
+  background: #0000ff;
+  color: #ffffff;
+}
+
+.landing-btn-primary:hover {
+  color: #ffffff;
+  filter: brightness(1.08);
+}
+
+#content .landing-btn-ghost,
+.landing-btn-ghost {
+  background: var(--trough);
+  color: var(--ink);
+}
+
+.landing-btn-ghost:hover {
+  color: var(--plotter);
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.landing-hero .landing-chip,
+.landing-hero h1,
+.landing-hero .landing-lede,
+.landing-hero .landing-cta {
+  animation: landing-rise 0.7s ease both;
+}
+
+.landing-hero h1 {
+  animation-delay: 0.08s;
+}
+
+.landing-hero .landing-lede {
+  animation-delay: 0.16s;
+}
+
+.landing-hero .landing-cta {
+  animation-delay: 0.24s;
+}
+
+@media (max-width: 900px) {
+  .landing-critter-left,
+  .landing-critter-right {
+    display: none;
+  }
+
+  .landing-critter-bottom {
+    width: 12rem;
+  }
+
+  .landing-critter-corner {
+    width: 10rem;
+    right: 6%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-hero .landing-chip,
+  .landing-hero h1,
+  .landing-hero .landing-lede,
+  .landing-hero .landing-cta,
+  .landing-critter {
+    animation: none;
+    transition: none;
+  }
+
+  /* :active outranks the bare-class rule above, so neutralize the
+     press reactions explicitly rather than relying on source order. */
+  .landing-critter:active {
+    transition: none;
+    rotate: 0deg;
+    scale: 1;
+  }
+
+  .landing-mark::after {
+    animation: none !important;
+  }
+}
+
+#header p,
+#header .text-sm,
+#header .text-lg,
+#content-area > #header p {
+  font-family: var(--font-sans);
+  font-size: var(--meta);
+  line-height: 1.45;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+/* Paper column, Pond Sans prose. */
+#content-container {
+  padding-top: 8rem !important;
+  padding-left: 1rem !important;
+  padding-right: 1rem !important;
+}
+
+#content,
+#content-area,
+#body-content {
+  font-family: var(--font-sans);
+  color: var(--ink);
+}
+
+#content-area {
+  padding-inline: 0;
+}
+
+#content-area > #header {
+  margin-bottom: 4.5rem;
+}
+
+#content {
+  max-width: 65ch;
+}
+
+#content p,
+#content li,
+#content strong,
+#content em,
+#content blockquote,
+#content [data-as="p"] {
+  font-family: var(--font-sans);
+  font-size: var(--text);
+  line-height: 1.65;
+  color: var(--ink) !important;
+}
+
+#content th,
+#content td {
+  font-family: var(--font-sans);
+  font-size: var(--meta);
+  line-height: 1.45;
+  color: var(--ink) !important;
+}
+
+#content p,
+#content [data-as="p"] {
+  text-align: left;
+  text-wrap: pretty;
+}
+
+#content a,
+#content a:hover,
+html.dark .text-primary,
+html.dark .text-primary-light {
+  color: var(--plotter);
+}
+
+html.dark .text-gray-400,
+html.dark .text-gray-500,
+html.dark .dark\\:text-gray-400,
+html.dark .dark\\:text-gray-500 {
+  color: var(--muted) !important;
+}
+
+#content :not(pre):not(.code-block) > code {
+  color: var(--ink);
+  background: var(--trough);
+}
+
+#content pre,
+#content code,
+#content kbd,
+#content samp {
+  font-family: var(--font-mono);
+}
+
+.code-block,
+.code-block-background,
+#content pre,
+#content .code-block {
+  background: var(--trough) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+}
+
+.card {
+  background: var(--trough) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+}
+
+#pagination {
+  font-size: var(--ui);
+  color: var(--stone);
+}
+
+:focus-visible {
+  outline: 2px solid var(--plotter);
+  outline-offset: 2px;
 }
