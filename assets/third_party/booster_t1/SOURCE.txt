@@ -1,0 +1,4 @@
+Booster Robotics T1 (substitute for K1 — no K1 description is published)
+Source: https://github.com/BoosterRobotics/booster_gym (resources/T1)
+License: Apache License 2.0 (see LICENSE), (c) 2024 Booster Robotics Technology Co., Ltd
+Used: meshes (.STL) + T1_serial.urdf, posed and re-skinned for the Pond landing scene.
