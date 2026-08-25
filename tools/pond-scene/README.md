@@ -43,13 +43,14 @@ eyeball in a contact sheet is the pose that ships.
 ```
 npm run preview             # full-frame stage sheets at the test viewports
 npm run preview -- extents  # swept-extent margins, as numbers
-npm run preview -- solve    # re-derive the stage constants after a roam change
+npm run preview -- solve    # report the cast's swept world extents
 npm run preview -- solo t1  # one character, close up, on a ground slab
 ```
 
 `preview` renders the WHOLE composited frame through the same camera solve the
-runtime uses, at 1280x700, 1440x1300 and 1280x1400, at six times chosen to
-catch the roam extremes — which is where cropping would reappear. It goes
+runtime uses, at 1280x700, 1280x1000, 1440x1300 and 1280x1400, at six times
+chosen to catch the roam extremes — which is where cropping would reappear —
+with the copy's keep-out rectangle tinted in. It goes
 through a small software rasterizer (`raster.js`), so no browser is involved.
 **Look at every frame.** The joint sign conventions are not guessable; every
 pose and facing in `work.mjs` was found by rendering candidates and picking.
@@ -58,9 +59,9 @@ a facing is `atan2(-dz, dx)`. Getting that wrong makes the Go2 walk sideways,
 which the foot-slip check in the selftest catches.)
 
 `extents` prints, per character per viewport, how much clear margin its swept
-silhouette leaves on each edge. Nothing may be negative. After moving any
-waypoint, run `solve` and paste the two constants it prints into `stage.mjs`,
-then re-run `extents` to confirm.
+silhouette leaves on each frame edge and whether it intersects the copy. Nothing
+may be negative and nothing may be under the copy. Edge margins in the 3-6%
+range are the target: much larger means the cast has bunched toward the centre.
 
 ```
 npm run selftest
@@ -118,23 +119,46 @@ back on the deck. On a shared floor this is what keeps everyone standing on it.
 
 ## The stage
 
+**Text high and centred, machines low and at the edges.**
+
 Floor at y=0. The camera is **level** — no tilt — sitting `camY` above the floor
 and looking down -Z, which puts the horizon exactly at screen centre: a
-character further upstage stands higher in the frame, and the ground recedes
+character further downstage stands lower in the frame, and the ground recedes
 without the keystoning a tilted camera would add. The floor under the stage
-centre lands 30% up from the bottom edge.
+centre lands 12% up from the bottom edge.
+
+**Width is the primary constraint.** The visible width at the stage plane is
+fixed (`VW_BASE`), so the cast fills the frame side to side and each character
+keeps the same share of the width at every viewport. Height follows from the
+aspect, and because the floor is pinned near the bottom, a taller viewport turns
+into empty air *above* the cast — where the title lives — rather than shrinking
+or re-centring anyone. `VH_MIN` stops very short/wide viewports from pulling the
+camera so close that perspective across the stage's depth gets silly.
 
 The camera solves from the viewport aspect alone. It never tracks a character,
-never bobs, and never repositions anyone in screen space. At wide viewports the
-design framing (`VH_BASE`) applies; at portrait-ish ones the stage's own width
-takes over and the camera pulls back, so the cast is never cropped sideways.
+never bobs, and never repositions anyone in screen space.
 
-Roam regions are disjoint enough in x, and separated in depth, that the quadrant
-distribution is structural — two characters cannot converge on the same spot.
-The far pair (Go2 upstage-left, T1 upstage-right) and the near pair (pond-bot
-downstage-centre, Z1 downstage-right) are free to share screen columns, because
-depth separates them: the nearer one occludes the further one and it reads as a
-scene rather than a collision.
+### The copy keep-out
+
+The landing copy is a first-class constraint, not a hope. `keepOut(w, h)` returns
+the rectangle the machines must stay out of: the 544px centred text column, from
+the top of the frame down past the CTAs, plus a little pad. The model is fitted
+to the live DOM — the measurements and the fit are in `stage.mjs`. Both
+`preview.js extents` and the selftest assert that **no character's swept screen
+AABB intersects it at any viewport or roam extreme**, and the stage sheets tint
+the rectangle so a violation is visible at a glance.
+
+That leaves two safe bands, left and right of the column, which is where the
+cast lives — Go2 and pond-bot left, T1 and Z1 right. Within a band the pair is
+separated by *depth*: pond-bot and the Z1 stand well downstage of the Go2 and
+T1, so they sit lower in the frame and in front. Small edge margins are the
+goal, not large ones — a big margin everywhere means the cast has drifted back
+to the middle, which is the failure mode this layout exists to prevent.
+
+Depth is deliberately shallow (|z| under ~0.8). The screen-x of a world point
+depends on aspect only through its depth, so a deep stage makes the horizontal
+composition drift between viewports; keeping the cast shallow keeps the bands
+stable from 1280x700 to 1280x1400.
 
 ## Files
 
@@ -142,14 +166,14 @@ scene rather than a collision.
 | --- | --- |
 | `scene.js` | runtime: node graph, posing, grounding, lifecycle. Bundle entry point. |
 | `work.mjs` | work loops, gaits, roam schedules and click reactions. Shared with the preview. |
-| `stage.mjs` | floor, camera solve, character sizes, swept-extent constants. Shared with the preview. |
+| `stage.mjs` | floor, camera solve, character sizes, the copy keep-out. Shared with the preview. |
 | `mesh-data.js` | **generated** base64 skeleton + geometry payload. |
 | `export.js` | packs the built characters into `mesh-data.js`. |
 | `build.js` | per-character specs: source, pose, palette mapping, triangle budget. |
 | `assemble.js` | URDF/GLB -> per-link geometry; welding and budgeted decimation. |
 | `urdf.js` | minimal URDF parser (links, joints, axes, limits, mesh refs). |
 | `loaders.js` | DAE/STL/GLB mesh loading. |
-| `preview.js` | offline stage renders, swept-extent checks, and the constant solve. |
+| `preview.js` | offline stage renders, swept-extent and keep-out checks. |
 | `raster.js` | tiny software rasterizer + PNG writer. |
 | `selftest.js` | decode, node-graph FK equivalence, IK inversion, and foot-slip checks. |
 | `glb-export.js` | optional: writes the posed, skinned characters back out as GLBs. |

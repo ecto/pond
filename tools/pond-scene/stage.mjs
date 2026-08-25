@@ -1,52 +1,70 @@
-/* The stage: one floor, one camera, four characters that walk around on it.
+/* The stage: one floor, one camera, four characters that work on it.
    Shared by the browser runtime (scene.js) and the offline stage preview
    (preview.js) so the framing you check offline is the framing that ships. */
 
 export const FOV = 30;
 const TAN_HALF = Math.tan((FOV * Math.PI) / 180 / 2);
 
-/* On-screen height of each character, in stage units. These carry the sizing
-   the landing page already had (the old per-character `px` heights, over a
-   300px reference) — the cast reads at roughly equal size regardless of the
-   robots' true scale, which is what makes the composition work. */
-/* pond-bot and the Z1 are much WIDER than they are tall, so matching everyone
-   on height alone gives them far too much visual mass on a shared stage; both
-   are trimmed until the four silhouettes balance. */
-export const HEIGHT = { pondbot: 0.52, go2: 0.92, t1: 1.07, z1: 0.62 };
+/* On-screen height of each character, in stage units. The cast reads at
+   roughly comparable size regardless of the robots' true scale; pond-bot and
+   the Z1 are trimmed below the rest because both are far wider than they are
+   tall and would otherwise hog the edge bands they live in. */
+export const HEIGHT = { pondbot: 0.36, go2: 0.62, t1: 1.02, z1: 0.44 };
 
-/* Framing.
+/* ---------------- the text keep-out ----------------
 
-   The camera is LEVEL — no tilt — sitting camY above a floor at y=0 and looking
-   down -Z. That puts the horizon exactly at screen centre, so a character
-   further back stands higher up the frame and the ground reads as receding
-   without any of the keystoning a tilted camera would introduce.
+   The landing copy is a fixed 544px column, centred, with the masthead above
+   it, and the machines must never sit under it. Measured off the live DOM
+   (.landing-masthead + h1 + .landing-lede + .landing-cta, as fractions of
+   .landing-frame):
 
-   The floor under the stage centre lands FLOOR_FRAC up from the bottom edge,
-   and the design framing shows VH_BASE stage units of height. At narrow
-   (portrait-ish) viewports the stage's own width takes over and the camera
-   pulls back, so nothing is ever cropped sideways.
+     1280x700   x 0.2875..0.7125   text y 0.3687..0.7650
+     1280x1000  x 0.2875..0.7125   text y 0.4081..0.6855
+     1440x1300  x 0.3111..0.6889   text y 0.4293..0.6427
 
-   X_MAX / Z_MAX are the swept world extents of the whole cast over its full
-   behaviour loops, geometry and props included. They are produced by
-   `node preview.js solve` and verified by `node preview.js extents`; the
-   runtime just applies them, so it needs no kinematics at load time. */
-export const VH_BASE = 3.05;
-export const FLOOR_FRAC = 0.30;
-export const MARGIN_FRAC = 0.025;   // clear margin required, as a fraction of the viewport
-export const X_MAX = 1.930;
-export const Z_MAX = 0.906;
+   The column is 544px wide at every width (0.425*1280 == 0.3778*1440), and the
+   copy's bottom edge is 0.5*H + 185 px at every height (535 / 685 / 835). The
+   masthead shares the column and reaches the top of the frame, so the keep-out
+   is that column from the top of the frame down to the bottom of the CTAs. */
+const COL_PX = 544, COL_HALF = COL_PX / 2;
+const TEXT_BOTTOM_PX = (h) => 0.5 * h + 185;
+export const KEEPOUT_PAD = 0.015;    // a little air around the copy, in frame fractions
 
-/**
- * Solve the camera for a viewport aspect.
- *
- * A swept point (x, z) lands at screen fraction
- *   sx = 0.5 + x / ((vh - 2*z*tanHalf) * aspect)
- * so keeping the whole cast inside [m, 1-m] needs
- *   vh >= X_MAX / ((0.5-m)*aspect) + 2*Z_MAX*tanHalf.
- */
+/** the forbidden rectangle for a viewport, in frame fractions [x0,y0,x1,y1] */
+export function keepOut(vwPx, vhPx) {
+  return [
+    0.5 - COL_HALF / vwPx - KEEPOUT_PAD,
+    0,
+    0.5 + COL_HALF / vwPx + KEEPOUT_PAD,
+    TEXT_BOTTOM_PX(vhPx) / vhPx + KEEPOUT_PAD,
+  ];
+}
+
+/* ---------------- framing ----------------
+
+   Text high and centred, machines low and at the edges.
+
+   The camera is LEVEL — no tilt — sitting camY above a floor at y=0 and
+   looking down -Z, so the horizon lands exactly at screen centre and a
+   character further upstage stands higher in the frame without any of the
+   keystoning a tilted camera would add.
+
+   WIDTH is the primary constraint: the visible width at the stage plane is
+   fixed, so the cast always fills the frame side to side and each character
+   keeps the same share of the width at every viewport. Height then follows
+   from the aspect, and because the floor is pinned near the BOTTOM of the
+   frame, a taller viewport turns into empty air ABOVE the cast — where the
+   title lives — rather than shrinking or re-centring anyone.
+
+   VH_MIN keeps very short/wide viewports from pulling the camera in so close
+   that perspective across the stage's depth gets silly. */
+export const VW_BASE = 4.55;
+export const VH_MIN = 2.30;
+export const FLOOR_FRAC = 0.12;      // the stage-centre floor line, up from the bottom
+export const MARGIN_FRAC = 0.015;    // clear margin required at the frame edges
+
 export function cameraFor(aspect) {
-  const need = X_MAX / ((0.5 - MARGIN_FRAC) * aspect) + 2 * Z_MAX * TAN_HALF;
-  const vh = Math.max(VH_BASE, need);
+  const vh = Math.max(VH_MIN, VW_BASE / aspect);
   return {
     vh,
     vw: vh * aspect,
@@ -58,7 +76,8 @@ export function cameraFor(aspect) {
 
 /**
  * Project a stage point to normalised screen coordinates (0..1 from the
- * top-left), for the swept-extent checks. Mirrors the level camera above.
+ * top-left). Mirrors the level camera above, and is what the swept-extent and
+ * keep-out checks are built on.
  */
 export function project(p, cam) {
   const d = cam.dist - p.z;

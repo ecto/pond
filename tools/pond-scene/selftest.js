@@ -144,6 +144,30 @@ function checkIK(WORK) {
       + `(${slip.foot.toFixed(4)} vs ${slip.body.toFixed(4)} stage units/s)`);
     if (slip.rel > 0.05) { console.error('FOOT SKATE'); process.exit(1); }
   }
+  // composition: nothing cropped at the frame edges, nothing under the copy
+  const { sweptExtent, VIEWPORTS } = require('./preview');
+  const S = await import('./stage.mjs');
+  let tightest = Infinity, tightestWho = '', overlap = 0, overlapWho = '';
+  for (const [vw, vh] of VIEWPORTS) {
+    const cam = S.cameraFor(vw / vh);
+    const K = S.keepOut(vw, vh);
+    for (const c of cast) {
+      const e = sweptExtent(c, cam, S);
+      const m = Math.min(e.x0, 1 - e.x1, e.y0, 1 - e.y1);
+      if (m < tightest) { tightest = m; tightestWho = `${c.key} @ ${vw}x${vh}`; }
+      const ow = Math.min(e.x1, K[2]) - Math.max(e.x0, K[0]);
+      const oh = Math.min(e.y1, K[3]) - Math.max(e.y0, K[1]);
+      const hit = (ow > 0 && oh > 0) ? Math.min(ow, oh) : 0;
+      if (hit > overlap) { overlap = hit; overlapWho = `${c.key} @ ${vw}x${vh}`; }
+    }
+  }
+  console.log(`tightest frame-edge margin ${(tightest * 100).toFixed(1)}%  (${tightestWho})`);
+  if (tightest < S.MARGIN_FRAC) { console.error('CROPPED AT THE FRAME EDGE'); process.exit(1); }
+  console.log(overlap > 0
+    ? `copy keep-out VIOLATED by ${(overlap * 100).toFixed(1)}%  (${overlapWho})`
+    : 'copy keep-out clear at every viewport and roam extreme');
+  if (overlap > 0) { console.error('CHARACTER UNDER THE COPY'); process.exit(1); }
+
   console.log('selftest OK');
 /* Sample a walking stretch and compare how fast the planted foot moves across
    the stage against how fast the body does. */

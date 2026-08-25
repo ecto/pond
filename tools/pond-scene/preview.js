@@ -25,7 +25,7 @@ const PALETTE = {
 };
 const ACCENT = { pondbot: 'blue', go2: 'green', t1: 'red', z1: 'amber' };
 const ORDER = ['pondbot', 'go2', 't1', 'z1'];
-const VIEWPORTS = [[1280, 700], [1440, 1300], [1280, 1400]];
+const VIEWPORTS = [[1280, 700], [1280, 1000], [1440, 1300], [1280, 1400]];
 
 /* props: cheap primitives that make the work legible. Sizes are in the robot's
    own metres, in its own frame. Kept in sync with scene.js. */
@@ -405,6 +405,18 @@ async function stageSheets() {
           PALETTE[ACCENT.pondbot], PALETTE[ACCENT.go2], PALETTE[ACCENT.t1], PALETTE[ACCENT.z1],
           [206, 209, 214], [236, 238, 242]],
       });
+      // tint the copy's rectangle so a character sitting under it is obvious
+      const K = S.keepOut(vw, vh);
+      const kx0 = Math.round(K[0] * w), kx1 = Math.round(K[2] * w);
+      const ky0 = Math.round(K[1] * h), ky1 = Math.round(K[3] * h);
+      for (let y = ky0; y < ky1; y++) {
+        for (let x = kx0; x < kx1; x++) {
+          const o = (y * w + x) * 3;
+          const edge = (y === ky0 || y === ky1 - 1 || x === kx0 || x === kx1 - 1);
+          if (edge) { img[o] = 210; img[o + 1] = 120; img[o + 2] = 120; continue; }
+          img[o] = (img[o] * 236) >> 8; img[o + 1] = (img[o + 1] * 246) >> 8; img[o + 2] = (img[o + 2] * 250) >> 8;
+        }
+      }
       for (let y = 0; y < h; y++) img.copy(sheet, (y * w * TIMES.length + i * w) * 3, y * w * 3, (y + 1) * w * 3);
     });
     const f = `preview/stage-${vw}x${vh}.png`;
@@ -413,25 +425,44 @@ async function stageSheets() {
   }
 }
 
+/* how far a swept extent pokes into the copy's rectangle, as a fraction of the
+   viewport. 0 means clear. */
+function keepOutOverlap(e, K) {
+  const w = Math.min(e.x1, K[2]) - Math.max(e.x0, K[0]);
+  const h = Math.min(e.y1, K[3]) - Math.max(e.y0, K[1]);
+  if (w <= 0 || h <= 0) return 0;
+  // report the smaller of the two penetrations: that is how far the character
+  // would have to move to be clear again
+  return Math.min(w, h);
+}
+
 async function extents() {
   const { cast, S } = await buildStage();
-  let worst = Infinity, worstWho = '';
+  let worstEdge = Infinity, worstWho = '', worstHit = 0, hitWho = '';
   for (const [vw, vh] of VIEWPORTS) {
     const cam = S.cameraFor(vw / vh);
-    console.log(`\n${vw}x${vh}  aspect ${(vw / vh).toFixed(3)}  vh ${cam.vh.toFixed(2)} vw ${cam.vw.toFixed(2)} dist ${cam.dist.toFixed(2)} camY ${cam.camY.toFixed(2)}`);
-    console.log('  character   left   right     top  bottom   | min margin (% of viewport)');
+    const K = S.keepOut(vw, vh);
+    console.log(`\n${vw}x${vh}  aspect ${(vw / vh).toFixed(3)}  vh ${cam.vh.toFixed(2)} vw ${cam.vw.toFixed(2)} `
+      + `dist ${cam.dist.toFixed(2)} camY ${cam.camY.toFixed(2)}`);
+    console.log(`  copy keep-out  x ${(K[0] * 100).toFixed(1)}..${(K[2] * 100).toFixed(1)}%  y ${(K[1] * 100).toFixed(1)}..${(K[3] * 100).toFixed(1)}%`);
+    console.log('  character   left  right    top bottom  | edge  | copy');
     for (const char of cast) {
       const e = sweptExtent(char, cam, S);
-      const m = [e.x0, 1 - e.x1, e.y0, 1 - e.y1];
-      const min = Math.min(...m);
-      if (min < worst) { worst = min; worstWho = `${char.key} @ ${vw}x${vh}`; }
-      console.log(`  ${char.key.padEnd(9)} ${(e.x0 * 100).toFixed(1).padStart(6)} ${((1 - e.x1) * 100).toFixed(1).padStart(7)} `
-        + `${(e.y0 * 100).toFixed(1).padStart(7)} ${((1 - e.y1) * 100).toFixed(1).padStart(7)}   | ${(min * 100).toFixed(1)}%`
-        + (min < 0 ? '   <-- CROPPED' : ''));
+      const min = Math.min(e.x0, 1 - e.x1, e.y0, 1 - e.y1);
+      const hit = keepOutOverlap(e, K);
+      if (min < worstEdge) { worstEdge = min; worstWho = `${char.key} @ ${vw}x${vh}`; }
+      if (hit > worstHit) { worstHit = hit; hitWho = `${char.key} @ ${vw}x${vh}`; }
+      console.log(`  ${char.key.padEnd(9)} ${(e.x0 * 100).toFixed(1).padStart(6)} ${((1 - e.x1) * 100).toFixed(1).padStart(6)} `
+        + `${(e.y0 * 100).toFixed(1).padStart(6)} ${((1 - e.y1) * 100).toFixed(1).padStart(6)}  |`
+        + `${(min * 100).toFixed(1).padStart(6)}%${min < 0 ? ' CROP' : '     '}|`
+        + (hit > 0 ? ` ${(hit * 100).toFixed(1)}% UNDER COPY` : ' clear'));
     }
   }
-  console.log(`\ntightest margin ${(worst * 100).toFixed(1)}%  (${worstWho})`);
-  return worst;
+  console.log(`\ntightest edge margin ${(worstEdge * 100).toFixed(1)}%  (${worstWho})`);
+  console.log(worstHit > 0
+    ? `WORST COPY OVERLAP ${(worstHit * 100).toFixed(1)}%  (${hitWho})`
+    : 'copy keep-out: clear at every viewport and roam extreme');
+  return { worstEdge, worstHit };
 }
 
 async function solo(only) {
