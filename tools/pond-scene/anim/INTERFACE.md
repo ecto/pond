@@ -8,6 +8,7 @@ anim/
   pondbot.mjs   go2.mjs   t1.mjs   z1.mjs     <- one owner each. Edit freely.
   index.mjs     context.mjs                   <- SHARED. Do not edit.
   kinematics.mjs  schedule.mjs  pointer.mjs   <- SHARED. Import, never edit.
+  reaction.mjs                                <- SHARED. The reaction lifecycle.
   INTERFACE.md
 ```
 
@@ -38,7 +39,12 @@ export default {
 `t` is absolute seconds since the scene started. `entrance` is called while
 `t < entryEnd`, `work` after. Both get the same `ctx`. A reaction's `t` is
 normalised 0..1 across its own `duration`, and `dir` is ±1 so a reaction can be
-mirrored.
+mirrored. The runtime guarantees that window (`anim/reaction.mjs`), so you are
+never asked for a pose outside it — but the same lifecycle drops your whole body
+nudge the instant the reaction expires, so **whatever you are still holding at
+`t = 1` is what snaps away**. Start and end on neutral. The selftest checks it,
+and it checks the body's *orientation*, so ending on a whole extra turn (a
+backflip's −TAU) is correctly read as neutral.
 
 Everything is a **pure function of time**. No hidden state between frames — the
 offline tools evaluate arbitrary times out of order, and anything stateful will

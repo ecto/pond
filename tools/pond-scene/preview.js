@@ -25,6 +25,10 @@ const PALETTE = {
 };
 const ACCENT = { pondbot: 'blue', go2: 'green', t1: 'red', z1: 'amber' };
 const ORDER = ['pondbot', 'go2', 't1', 'z1'];
+/* stage.mjs's HEIGHT, cached at buildStage time. The runtime scales a
+   reaction's posY by the character's stage height, so the preview needs it
+   outside the async builder. */
+const STAGE_HEIGHT = {};
 const VIEWPORTS = [[1280, 700], [1280, 1000], [1440, 1300], [1280, 1400]];
 
 /* props: cheap primitives that make the work legible. Sizes are in the robot's
@@ -162,6 +166,7 @@ async function buildStage(names) {
       if (n) { a.multiplyScalar(1 / n); char.pivot[0] = a.x; char.pivot[2] = a.z; }
     }
 
+    STAGE_HEIGHT[key] = S.HEIGHT[key];
     char.stageScale = S.HEIGHT[key] / char.height;
     char.mps = 1 / char.stageScale;          // metres per stage unit
     char.ctx = { mps: char.mps };
@@ -255,27 +260,52 @@ function propMatrix(char, P, a, world, pm, t) {
   return L ? new THREE.Matrix4().multiplyMatrices(pm.Mshift, L) : null;
 }
 
+/* The runtime's per-frame body channel, reproduced exactly (scene.js render()).
+   The work loop's tilt/squash seed it; a live reaction's nudge then REPLACES
+   rotX/rotZ/posY/sclX/sclY and ADDS rotY, and the whole channel is dropped the
+   instant the reaction expires. Modelling this offline is the only way a
+   jointless character's reactions are visible at all in the preview. */
+function bodyChannel(char, a, react) {
+  const tl = a.tilt || {};
+  const body = {
+    rot: { x: tl.pitch || 0, y: 0, z: tl.roll || 0 },
+    pos: { y: 0 },
+    scl: { x: 1, y: a.squash || 1 },
+  };
+  if (react && react.R && react.R.body && react.t < 1) react.R.body(body, react.t, react.dir == null ? 1 : react.dir);
+  return body;
+}
+
 /** the character's model-to-stage matrix at time t, plus its state.
-    `at` overrides the floor position, for sweeping a whole roam box. */
-function placeMatrix(char, t, at) {
+    opts.at    overrides the floor position, for sweeping a whole roam box
+    opts.react { R, t, dir } a reaction layered the way the runtime layers it */
+function placeMatrix(char, t, opts) {
+  const o = opts == null ? {} : (opts.x !== undefined || opts.z !== undefined ? { at: opts } : opts);
+  const at = o.at;
   const a = char.act(t, char.ctx);
   if (at) a.place = { x: at.x, z: at.z, yaw: a.place.yaw };
-  const world = fk(char, a.j || {});
+  const react = o.react;
+  const jr = react && react.R && react.R.joints ? react.R.joints(react.t, react.dir == null ? 1 : react.dir) : null;
+  const j = { ...(a.j || {}) };
+  if (jr && react.t < 1) for (const k of Object.keys(jr)) j[k] = (j[k] || 0) + jr[k];
+  const world = fk(char, j);
   const dy = groundOffset(char, world, char.ground);
-  const tilt = a.tilt || {};
   const rise = a.rise == null ? 1 : a.rise;
+  const body = bodyChannel(char, a, react);
+  const HEIGHT_K = STAGE_HEIGHT[char.key] == null ? 1 : STAGE_HEIGHT[char.key];
 
-  const M = new THREE.Matrix4().makeTranslation(a.place.x, (a.lift || 0), a.place.z);
-  M.multiply(new THREE.Matrix4().makeRotationY(a.place.yaw || 0));
-  M.multiply(new THREE.Matrix4().makeRotationX(tilt.pitch || 0));
-  M.multiply(new THREE.Matrix4().makeRotationZ(tilt.roll || 0));
-  M.multiply(new THREE.Matrix4().makeScale(1, (a.squash || 1) * rise, 1));
+  const M = new THREE.Matrix4().makeTranslation(
+    a.place.x, (a.lift || 0) + body.pos.y * HEIGHT_K, a.place.z);
+  M.multiply(new THREE.Matrix4().makeRotationY((a.place.yaw || 0) + body.rot.y));
+  M.multiply(new THREE.Matrix4().makeRotationX(body.rot.x));
+  M.multiply(new THREE.Matrix4().makeRotationZ(body.rot.z));
+  M.multiply(new THREE.Matrix4().makeScale(body.scl.x, body.scl.y * rise, body.scl.x));
   M.multiply(new THREE.Matrix4().makeScale(char.stageScale, char.stageScale, char.stageScale));
   M.multiply(new THREE.Matrix4().makeTranslation(-char.pivot[0], -char.pivot[1], -char.pivot[2]));
   // everything up to here is scene.js's `shift`; a parked prop hangs off it
   const Mshift = M.clone();
   M.multiply(shiftToModel(char, dy));
-  return { M, Mshift, a, world, dy };
+  return { M, Mshift, a, world, dy, body, j };
 }
 
 /** whole stage at time t -> one soup in stage coordinates */
@@ -605,7 +635,10 @@ async function character(name, outDir) {
   /* one tile: the character alone, with the stage placement stripped so it
      fills the frame, on a slab at its own contact height */
   const tile = (t, react) => {
-    const pm = placeMatrix(char, t);
+    // the reaction goes THROUGH placeMatrix, so its body nudge (lean, hop and
+    // squash) is composed exactly as the runtime composes it — not just its
+    // joint deltas. A jointless character is all nudge and nothing else.
+    const pm = placeMatrix(char, t, { react });
     const { M, a, world } = pm;
     const strip = new THREE.Matrix4().makeTranslation(-a.place.x, -(a.lift || 0), -a.place.z);
     const local = strip.clone().multiply(M);
@@ -619,8 +652,7 @@ async function character(name, outDir) {
       }
       for (let k = 0; k < soup.index.length; k++) idx.push(soup.index[k] + base);
     };
-    // a reaction is layered exactly the way the runtime layers it
-    const world2 = react ? fk(char, applyReaction(a.j, react.R, react.t)) : world;
+    const world2 = world;   // placeMatrix already folded the reaction's joints in
     for (const [ln, geo] of Object.entries(char.links)) push(geo, new THREE.Matrix4().multiplyMatrices(local, world2[ln]));
     const P = PROPS[name];
     if (P && a.prop) {
@@ -637,12 +669,6 @@ async function character(name, outDir) {
     }
     for (let k = 0; k < g.index.array.length; k++) idx.push(g.index.array[k] + base);
     return { positions: new Float32Array(pos), index: new Uint32Array(idx), matId: new Uint8Array(mid) };
-  };
-  const applyReaction = (j, R, t) => {
-    const out = { ...j };
-    const d = R.joints ? R.joints(t, 1) : null;
-    if (d) for (const k of Object.keys(d)) out[k] = (out[k] || 0) + d[k];
-    return out;
   };
 
   const N = 6;

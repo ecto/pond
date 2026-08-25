@@ -18,6 +18,7 @@ import { MESH_B64 } from './mesh-data.js';
 import { WORK, PERIOD, ENTRY_END, REACTIONS_BY_KEY, CHARACTERS,
   createPointerState, updatePointer, pointerFor } from './anim/index.mjs';
 import { HEIGHT, cameraFor } from './stage.mjs';
+import { makeClock, beginReaction, phaseOf, isExpired, bodyChannel } from './anim/reaction.mjs';
 
 /* Pond's four mark colours, one per character, over the shared bone/ink base */
 const BONE = 0xefece2, INK = 0x212327;
@@ -277,6 +278,12 @@ function start(frame) {
   }
   layout();
 
+  /* ONE clock for the whole scene: seconds since it started. The frame loop and
+     the click handler both read time from here, and they must — a reaction's
+     phase is the difference between the two, so a mismatched origin does not
+     look like a small error, it looks like a reaction that never ends. */
+  const clock = makeClock();
+
   /* click -> raycast -> one random morphology-appropriate reaction, played
      wherever the character happens to be standing */
   const ray = new Raycaster();
@@ -291,14 +298,12 @@ function start(frame) {
     for (const a of actors) {
       if (a.react) continue;
       if (!ray.intersectObject(a.root, true).length) continue;
-      const list = a.reactions;
-      if (!list.length) break;
-      a.react = {
-        R: list[(Math.random() * list.length) | 0],
-        start: performance.now() / 1000,
-        vary: 0.82 + Math.random() * 0.36,
-        dir: Math.random() < 0.5 ? -1 : 1,
-      };
+      // clock(), NOT performance.now(): the frame loop runs on a scene-relative
+      // clock, and stamping an absolute one here made every reaction start at
+      // t = -(page uptime) and never expire. See anim/reaction.mjs.
+      const r2 = beginReaction(a.reactions, clock());
+      if (!r2) break;
+      a.react = r2;
       break;
     }
   }
@@ -310,14 +315,13 @@ function start(frame) {
   const midV = new Vector3();
   const body = { rot: { x: 0, y: 0, z: 0 }, pos: { y: 0 }, scl: { x: 1, y: 1 } };
 
-  function reactT(a, now) {
-    return (now - a.react.start) / (a.react.R.dur * a.react.vary);
-  }
-
   function poseActor(a, t, now) {
+    // hand the reaction back BEFORE posing, so neither the joint deltas nor the
+    // body channel is ever evaluated past the end of its own window
+    if (a.react && isExpired(a.react, now)) a.react = null;
     const w = a.act(t, a.ctx);
     const R = a.react && a.react.R;
-    const jd = R && R.joints ? R.joints(reactT(a, now), a.react.dir) : null;
+    const jd = R && R.joints ? R.joints(phaseOf(a.react, now), a.react.dir) : null;
 
     for (const j of a.skel.joints) {
       let q = w.j[j.name] || 0;
@@ -380,21 +384,10 @@ function start(frame) {
       a.ctx.limits = a.limits;
       const w = poseActor(a, t, now);
       a.at.x = w.place.x; a.at.z = w.place.z;
-      const tl = w.tilt || {};
-
-      body.rot.x = tl.pitch || 0;
-      body.rot.y = 0;
-      body.rot.z = tl.roll || 0;
-      body.pos.y = 0;
-      body.scl.x = 1;
-      body.scl.y = w.squash || 1;
-
-      if (a.react) {
-        const R = a.react.R;
-        const rt = reactT(a, now);
-        if (rt >= 1) a.react = null;
-        else if (R.body) R.body(body, rt, a.react.dir);
-      }
+      // work-loop tilt/squash, then a running reaction's nudge over the top
+      // (poseActor has already expired a finished one). Shared with the preview
+      // and the selftest — see anim/reaction.mjs.
+      bodyChannel(w, a.react, now, body);
 
       const rise = w.rise == null ? 1 : w.rise;
       a.root.position.set(w.place.x, (w.lift || 0) + body.pos.y * HEIGHT[a.spec.key], w.place.z);
@@ -416,9 +409,8 @@ function start(frame) {
   function frameLoop() {
     raf = requestAnimationFrame(frameLoop);
     if (!running) return;
-    render(performance.now() / 1000 - t0);
+    render(clock());
   }
-  const t0 = performance.now() / 1000;
 
   if (reduced) render(0);       // one still frame: a grounded tableau
   else frameLoop();

@@ -207,7 +207,108 @@ function checkIK(WORK) {
     : `authored joint angles within URDF limits (${waivedSeen} known exception${waivedSeen === 1 ? '' : 's'})`);
   if (outOfLimit) process.exit(1);
 
+  await checkUpright(cast, WORK);
+
   console.log('selftest OK');
+/* ---- a reaction must hand the body back upright ----------------------------
+   A click reaction drives the WHOLE body — lean, hop and squash — and the
+   runtime drops that channel the instant the reaction expires. So whatever the
+   reaction is doing at the end is what snaps away, and whatever it leaves
+   behind is what the viewer is left looking at.
+
+   This shipped inverted once. The runtime stamped a reaction's start on the
+   absolute performance.now() clock while the frame loop ran on a scene-relative
+   one, so every reaction began at t = -(page uptime): it never reached t >= 1,
+   never expired, and was evaluated far outside the 0..1 window its curves are
+   defined on. pond-bot's `shimmy` envelope, (1 - t)^1.6, reached ~570x there and
+   produced a NEGATIVE body scale — which mirrors the mesh. The frog spent the
+   rest of the session resting on its back.
+
+   So this checks two different things, and both matter:
+     1. the modules: every reaction starts and ends on a neutral body, and stays
+        finite and right-way-up throughout its own window; and
+     2. the runtime lifecycle in anim/reaction.mjs — the same code scene.js
+        runs — never hands a module a `t` outside 0..1, at any page uptime.
+
+   "Upright" is measured as the angle between the body's local +Y and world +Y,
+   so a reaction that ends on a whole extra turn (pond-bot's backflip ends at
+   -TAU) is correctly read as neutral. */
+async function checkUpright(cast, WORK) {
+  const L = await import('./anim/reaction.mjs');
+  const UP = new THREE.Vector3(0, 1, 0);
+  const upright = (b) => THREE.MathUtils.radToDeg(
+    new THREE.Vector3(0, 1, 0)
+      .applyEuler(new THREE.Euler(b.rot.x, 0, b.rot.z, 'XYZ')).angleTo(UP));
+  const finite = (b) => [b.rot.x, b.rot.y, b.rot.z, b.pos.y, b.scl.x, b.scl.y].every(Number.isFinite);
+
+  const TILT_TOL = 2.0;    // degrees off upright at the hand-back
+  const SCL_TOL = 0.02;    // body scale back to 1
+  const POS_TOL = 0.02;    // body back on the deck
+  let bad = 0, worstEnd = 0, worstWho = '', n = 0;
+
+  for (const c of cast) {
+    const list = WORK.REACTIONS_BY_KEY[c.key] || [];
+    for (const R of list) {
+      n++;
+      // a neutral work pose, so what we measure is the reaction and nothing else
+      const flat = { tilt: { pitch: 0, roll: 0 }, squash: 1 };
+      for (const dir of [-1, 1]) {
+        for (let i = 0; i <= 240; i++) {
+          const u = i / 240;
+          const react = { R, start: 0, vary: 1, dir };
+          const b = L.bodyChannel(flat, react, u * R.dur);
+          if (!finite(b)) { console.error(`  ${c.key}/${R.name}: non-finite body at t=${u.toFixed(3)}`); bad++; break; }
+          if (b.scl.y <= 0 || b.scl.x <= 0) {
+            console.error(`  ${c.key}/${R.name}: body scale went non-positive (${b.scl.x.toFixed(2)}, ${b.scl.y.toFixed(2)}) at t=${u.toFixed(3)} — a negative scale mirrors the mesh`);
+            bad++; break;
+          }
+          // the ends must be neutral: that is the frame the runtime snaps from
+          if (u === 0 || u === 1) {
+            const d = upright(b);
+            if (u === 1 && d > worstEnd) { worstEnd = d; worstWho = `${c.key}/${R.name}`; }
+            if (d > TILT_TOL || Math.abs(b.scl.y - 1) > SCL_TOL
+              || Math.abs(b.scl.x - 1) > SCL_TOL || Math.abs(b.pos.y) > POS_TOL) {
+              console.error(`  ${c.key}/${R.name}: not neutral at t=${u} — `
+                + `${d.toFixed(1)}deg off upright, scale (${b.scl.x.toFixed(3)}, ${b.scl.y.toFixed(3)}), posY ${b.pos.y.toFixed(3)}`);
+              bad++;
+            }
+          }
+        }
+      }
+
+      /* the lifecycle itself, at realistic page uptimes. `start` comes from the
+         scene clock; if anything ever puts the two clocks back on different
+         origins, the phase goes negative here and this fails. */
+      for (const uptime of [0, 0.5, 5, 120, 3600]) {
+        const react = L.beginReaction([R], uptime, () => 0.5);
+        for (let i = 0; i <= 120; i++) {
+          const now = uptime + (i / 120) * R.dur * 1.4;
+          const u = L.phaseOf(react, now);
+          if (!(u >= 0)) {
+            console.error(`  ${c.key}/${R.name}: phase ${u} outside 0..1 at uptime ${uptime}s`);
+            bad++; break;
+          }
+          if (L.isExpired(react, now)) {
+            // expired: the runtime drops the channel, so the body is the work pose
+            const b = L.bodyChannel(flat, null, now);
+            if (upright(b) > TILT_TOL || Math.abs(b.scl.y - 1) > SCL_TOL) { console.error(`  ${c.key}/${R.name}: not upright after expiry`); bad++; }
+            break;
+          }
+        }
+        // and it must actually expire, at every uptime
+        if (!L.isExpired(react, uptime + R.dur * 1.19)) {
+          console.error(`  ${c.key}/${R.name}: still running after its full duration at uptime ${uptime}s — it will never hand back`);
+          bad++;
+        }
+      }
+    }
+  }
+  console.log(bad
+    ? `REACTIONS DO NOT RETURN THE BODY UPRIGHT: ${bad} failure${bad === 1 ? '' : 's'}`
+    : `reactions hand the body back upright (${n} reactions, worst end-of-reaction lean ${worstEnd.toFixed(2)}deg)`);
+  if (bad) process.exit(1);
+}
+
 /* Sample a walking stretch and compare how fast the planted foot moves across
    the stage against how fast the body does. */
 function footSlip(char, WORK) {

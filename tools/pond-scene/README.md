@@ -31,7 +31,7 @@ Edit:
 | what you want to change | file |
 | --- | --- |
 | what one character is *doing* (work loop, entrance, gait, reactions, pointer behaviour) | `anim/<character>.mjs` — see `anim/INTERFACE.md` |
-| shared motion machinery (IK, schedules, pointer projection, the authoring context) | `anim/kinematics.mjs`, `anim/schedule.mjs`, `anim/pointer.mjs`, `anim/context.mjs` |
+| shared motion machinery (IK, schedules, pointer projection, the reaction lifecycle, the authoring context) | `anim/kinematics.mjs`, `anim/schedule.mjs`, `anim/pointer.mjs`, `anim/reaction.mjs`, `anim/context.mjs` |
 | the stage itself: camera framing, character sizes, swept-extent constants | `stage.mjs` |
 | colours, props, lighting, lifecycle | `scene.js` |
 | triangle budgets, palette mapping, poses baked into the payload | `build.js` |
@@ -189,6 +189,7 @@ stable from 1280x700 to 1280x1400.
 | `anim/kinematics.mjs` | planar leg IK and foot paths. |
 | `anim/schedule.mjs` | easing, keyframe tracks, waypoint schedules. |
 | `anim/pointer.mjs` | pointer raycast into stage space, per-character view. |
+| `anim/reaction.mjs` | the reaction lifecycle: the scene clock, a reaction's 0..1 phase, expiry, and the body channel. Shared by the runtime, the preview and the selftest. |
 | `anim/INTERFACE.md` | the character-module contract. Read this first. |
 | `stage.mjs` | floor, camera solve, character sizes, the copy keep-out. Shared with the preview. |
 | `mesh-data.js` | **generated** base64 skeleton + geometry payload. |
