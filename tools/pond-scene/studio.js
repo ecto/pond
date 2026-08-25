@@ -199,8 +199,14 @@ export function makeMaterials(accent, S) {
     envMapIntensity: env * 1.28,   // the ink lives or dies on reflected light
     side: DoubleSide,
   });
+  /* The accent also carries the shared heartbeat (see anim/world.mjs): all
+     four characters' accent parts breathe on ONE clock, in phase. It rides
+     emissive rather than colour so the brand hue itself never moves — only how
+     lit it looks. scene.js drives emissiveIntensity every frame. */
   const acc = new MeshPhysicalMaterial({
     color: new Color(accent),
+    emissive: new Color(accent),
+    emissiveIntensity: 0,
     roughness: 0.30,
     metalness: 0.0,
     clearcoat: 0.65,
@@ -208,6 +214,7 @@ export function makeMaterials(accent, S) {
     envMapIntensity: env,
     side: DoubleSide,
   });
+  acc.userData.isAccent = true;
   return [bone, ink, acc];
 }
 

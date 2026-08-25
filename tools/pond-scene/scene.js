@@ -18,8 +18,14 @@ import { WORK, PERIOD, ENTRY_END, REACTIONS_BY_KEY, CHARACTERS,
   createPointerState, updatePointer, pointerFor } from './anim/index.mjs';
 import { HEIGHT, MODEL_SCALE, cameraFor } from './stage.mjs';
 import { makeClock, beginReaction, phaseOf, isExpired, bodyChannel } from './anim/reaction.mjs';
+import { pulse as worldPulse } from './anim/world.mjs';
 import { isDarkPage, themeSettings, setupRenderer, buildEnvironment, buildLights,
   buildShadowCatcher, makeMaterials } from './studio.js';
+
+/* How far the shared heartbeat swings the accent emissive. Deliberately small:
+   the accents are saturated brand colours on small parts, and anything more
+   than a hint reads as a blinking LED rather than as breathing. */
+const PULSE_LO = 0.02, PULSE_HI = 0.15;
 
 /* Pond's four mark colours, one per character, over the shared bone/ink base */
 const BONE = 0xefece2, INK = 0x212327;
@@ -172,6 +178,7 @@ function start(frame) {
   const lights = buildLights(scene, S);
   const deck = buildShadowCatcher(scene, S);
   const allMats = [];
+  const accentMats = [];
 
   const blobTex = blobTexture();
   const actors = [];
@@ -198,6 +205,7 @@ function start(frame) {
 
     const mats = makeMaterials(spec.accent, S);
     allMats.push(...mats);
+    accentMats.push(mats[2]);
     const skel = buildSkeleton(robot, mats);
     zup.add(skel.root);
     scene.add(root);
@@ -447,6 +455,16 @@ function start(frame) {
       }
     }
     if (lastCam) updatePointer(pointer, lastCam, now);
+
+    /* ONE MIND. Every accent part on every character breathes together, off a
+       single clock — the same number at the same moment on four machines. It is
+       the cheapest possible way to say "same mind, different bodies", and it
+       only works because it is shared: give each character its own phase and it
+       reads as four idles instead of one thought. Reduced motion pins it. */
+    const beat = worldPulse(now, reduced);
+    const emissive = PULSE_LO + (PULSE_HI - PULSE_LO) * beat;
+    for (const m of accentMats) m.emissiveIntensity = emissive;
+
     for (const a of actors) {
       const t = reduced ? a.entryEnd + FROZEN_U[a.spec.key] * a.period : now;
       // reduced motion neutralises the pointer overlay for everyone

@@ -209,6 +209,7 @@ function checkIK(WORK) {
 
   await checkUpright(cast, WORK);
   await checkBaseOrientation(cast, WORK);
+  await checkWorldTask();
 
   console.log('selftest OK');
 /* ---- a reaction must hand the body back upright ----------------------------
@@ -310,6 +311,104 @@ async function checkUpright(cast, WORK) {
   if (bad) process.exit(1);
 }
 
+
+
+/* ---- the world task holds together -----------------------------------------
+   anim/world.mjs is the score the whole cast reads from, and it is a pure
+   function of the master clock, so it can be checked on its own terms before
+   any character is involved.
+
+   Three things matter. The legs have to tile the master period exactly — a gap
+   means the cube has no owner for a frame, an overlap means two. Every station
+   has to be somewhere its character may actually stand, solved by the same
+   feasibleX the roam clamp uses, so the circuit cannot quietly ask a character
+   to break the copy keep-out. And the shared pulse has to be continuous across
+   the loop wrap, or the whole cast blinks once a period. */
+async function checkWorldTask() {
+  const W = await import('./anim/world.mjs');
+  const S = await import('./stage.mjs');
+  let bad = 0;
+
+  // 1. the legs tile [0, MASTER) with no gap and no overlap
+  const seen = [];
+  for (let i = 0; i <= 4000; i++) {
+    const m = (i / 4000) * W.MASTER * 0.9999;
+    const L = W.legAt(m);
+    if (!L) { console.error(`  world: no leg at master time ${m.toFixed(2)}`); bad++; break; }
+    if (!seen.includes(L.beat)) seen.push(L.beat);
+  }
+  // and the holder is always either null or a real character
+  const KEYS = ['pondbot', 'go2', 't1', 'z1'];
+  for (let i = 0; i <= 2000; i++) {
+    const t = (i / 2000) * W.MASTER;
+    const h = W.holderAt(t);
+    if (h !== null && !KEYS.includes(h)) { console.error(`  world: bogus holder ${h} at t=${t.toFixed(2)}`); bad++; break; }
+    if (h === null && !W.STATIONS[W.parkAt(t)]) { console.error(`  world: cube parked nowhere at t=${t.toFixed(2)}`); bad++; break; }
+  }
+
+  // 2. every handoff names a place, and the giver actually had the cube
+  for (const h of W.HANDOFFS) {
+    if (!h.where || !W.STATIONS[h.where]) {
+      console.error(`  world: handoff ${h.from} -> ${h.to} at t=${h.t} has no station`); bad++;
+    }
+    const before = W.holderAt(h.t - 0.001);
+    const after = W.holderAt(h.t + 0.001);
+    if (before !== h.from || after !== h.to) {
+      console.error(`  world: handoff at t=${h.t} says ${h.from}->${h.to} but the clock says ${before}->${after}`); bad++;
+    }
+  }
+
+  // 3. every station is somewhere its character may stand
+  const HW = {};
+  for (const k of KEYS) HW[k] = (await import('./anim/index.mjs')).ROAM[k].halfWidth;
+  const BODY = [
+    ['z1', 'left', ['z1']],
+    ['go2', 'left', ['go2Load', 'go2Patrol', 'handoff']],
+    ['pondbot', 'left', ['frogHome']],
+    ['pondbot', 'right', ['frogDeliver']],
+    ['t1', 'right', ['t1', 't1Reach']],
+  ];
+  for (const [key, side, names] of BODY) {
+    for (const n of names) {
+      const st = W.STATIONS[n];
+      const [lo, hi] = S.feasibleX(key, side, HW[key], st.z);
+      if (st.x < lo - 1e-9 || st.x > hi + 1e-9) {
+        console.error(`  world: station ${n} (${st.x.toFixed(2)}, ${st.z.toFixed(2)}) is outside `
+          + `${key}'s feasible x [${lo.toFixed(2)}, ${hi.toFixed(2)}] at that depth`);
+        bad++;
+      }
+    }
+  }
+  // the pallets are props, so they answer to the cube's size, not a body's
+  for (const [n, side] of [['z1Pallet', 'left'], ['t1Pallet', 'right']]) {
+    const st = W.STATIONS[n];
+    const [lo, hi] = S.feasibleX('prop', side, W.CUBE, st.z);
+    if (st.x < lo - 1e-9 || st.x > hi + 1e-9) {
+      console.error(`  world: pallet ${n} is outside the feasible band`); bad++;
+    }
+  }
+
+  // 4. the shared pulse: bounded, and continuous across the loop wrap
+  let pMin = 1, pMax = 0, jump = 0;
+  let prev = W.pulse(0, false);
+  for (let i = 1; i <= 6000; i++) {
+    const t = (i / 6000) * W.PULSE_PERIOD * 4;
+    const v = W.pulse(t, false);
+    if (v < pMin) pMin = v;
+    if (v > pMax) pMax = v;
+    jump = Math.max(jump, Math.abs(v - prev));
+    prev = v;
+  }
+  if (pMin < -1e-9 || pMax > 1 + 1e-9) { console.error(`  world: pulse leaves 0..1 (${pMin}..${pMax})`); bad++; }
+  if (jump > 0.02) { console.error(`  world: pulse steps by ${jump.toFixed(3)} between frames — it will read as a blink`); bad++; }
+  if (W.pulse(3.3, true) !== 0.5 || W.pulse(11.7, true) !== 0.5) {
+    console.error('  world: reduced motion does not pin the pulse'); bad++;
+  }
+
+  if (bad) { console.error(`WORLD TASK INCONSISTENT: ${bad} problem${bad === 1 ? '' : 's'}`); process.exit(1); }
+  console.log(`world task coherent (${seen.length} legs tiling ${W.MASTER}s, ${W.HANDOFFS.length} handoffs, `
+    + 'all stations inside their feasible bands, pulse continuous)');
+}
 
 /* ---- the frog is the right way up, absolutely ------------------------------
    Not "upright relative to its rest pose" — the rest pose itself was the bug.

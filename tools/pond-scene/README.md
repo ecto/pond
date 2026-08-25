@@ -203,6 +203,7 @@ stable from 1280x700 to 1280x1400.
 | `anim/schedule.mjs` | easing, keyframe tracks, waypoint schedules. |
 | `anim/pointer.mjs` | pointer raycast into stage space, per-character view. |
 | `anim/reaction.mjs` | the reaction lifecycle: the scene clock, a reaction's 0..1 phase, expiry, and the body channel. Shared by the runtime, the preview and the selftest. |
+| `anim/world.mjs` | **the world task**: stations, the master clock, who holds the cube, the handoff moments, and the shared heartbeat. The score all four characters read from. |
 | `anim/INTERFACE.md` | the character-module contract. Read this first. |
 | `stage.mjs` | floor, camera solve, character sizes, the copy keep-out. Shared with the preview. |
 | `mesh-data.js` | **generated** base64 skeleton + geometry payload. |
@@ -280,6 +281,44 @@ against one global cell size so surface detail density stays uniform.
 | Go2 | 399k | 74,612 | 17 | 12 |
 | T1 | 169k | 90,784 | 24 | 23 |
 | Z1 | 178k | 53,060 | 7 | 6 |
+
+## The world task
+
+`anim/world.mjs` is the score: one cube, one closed circuit, a master clock, and
+a role for each character at every moment. It is a pure function of time, so the
+offline tools and the browser agree by construction.
+
+The circuit is shaped by a measured fact, not a preference. Ask which characters
+can physically stand *under* the copy column — floor still on screen, own height
+below the copy's bottom edge — and only one can do it at all four viewports:
+
+| viewport | pond-bot | Go2 | Z1 | T1 |
+| --- | --- | --- | --- | --- |
+| 1280x700 | from z=1.32 | never | never | from z=4.66 |
+| 1280x1000 | from z=-0.42 | from z=2.98 | from z=3.42 | never |
+| 1440x1300 | from z=-2.00 | from z=1.44 | from z=2.00 | never |
+| 1280x1400 | from z=-2.00 | from z=0.00 | from z=0.60 | never |
+
+A downstage floor point sits *lower* in frame, so walking further forward drops
+the floor off the bottom edge faster than distance shrinks a body: the Go2 runs
+out of frame before it runs out from under the words. So the copy column is a
+wall, and the frog is the only one small enough to pass under it — which is
+exactly what makes it the courier. At true scale each body does what only it can:
+the arm has precision, the dog has range and a flat back, the frog fits, the
+humanoid has hands and height.
+
+Stations are solved against `feasibleX` at their own depth, not eyeballed, and
+the selftest asserts it: the usable band narrows fast downstage, and at true
+scale the Z1 has no lateral room at all past z=0.5, the Go2 past z=1.2, the T1
+past z=0.5, while the 75mm-half-width frog still has 330mm at z=2.0.
+
+### One mind
+
+All four accents breathe on **one** clock, in phase — the same number at the same
+moment on four machines (`pulse()`, ~5s). It rides emissive rather than colour so
+the brand hue never moves, only how lit it looks. It only says anything because
+it is shared: give each character its own phase and it reads as four idles
+instead of one thought. `prefers-reduced-motion` pins it to the middle.
 
 ## The work loops and gaits
 
