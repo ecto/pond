@@ -485,6 +485,22 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
   }
 }
 
+/* The copy sits HIGH — masthead, then the copy block in the top third, then
+   open floor. That is the composition the landing scene was drawn for, and it
+   is also load-bearing for the 3D stage behind it.
+
+   The machines may never stand under the copy column, and the only gap between
+   the words and the bottom of the frame is a downstage corridor whose height is
+   set by exactly one number: how far up the frame the copy's bottom edge sits.
+   Centred copy (the old `justify-content: center` alone) left a corridor about
+   0.175m tall in stage units at 1280x700 — frog-sized, and nothing else.
+
+   `padding-bottom` is the lever. The block stays centred in its content box, so
+   P of extra bottom padding lifts its centre by exactly P/2. The stage's
+   keep-out model has the block's bottom at 0.5h + 185px; to move that to
+   0.42h + 185px the centre must rise by 0.08h, so P = 0.16h = 16vh. Both halves
+   of that arithmetic live in stage.mjs's keepOut() too — CHANGE THEM TOGETHER,
+   and re-measure against the live DOM if you touch the block's own height. */
 .landing-hero {
   display: flex;
   flex-direction: column;
@@ -493,7 +509,7 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
   text-align: center;
   flex: 1;
   min-height: 0;
-  padding: 2rem 1.5rem;
+  padding: 2rem 1.5rem calc(2rem + 16vh);
 }
 
 #content .landing-chip,

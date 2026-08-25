@@ -74,7 +74,24 @@ export function edgeAllowance(key, sweptWidth) {
    masthead shares the column and reaches the top of the frame, so the keep-out
    is that column from the top of the frame down to the bottom of the CTAs. */
 const COL_PX = 544, COL_HALF = COL_PX / 2;
-const TEXT_BOTTOM_PX = (h) => 0.5 * h + 185;
+/* THE COPY IS RAISED. `.landing-hero` carries 16vh of extra bottom padding, and
+   because the block stays centred in its own content box that lifts its centre
+   by half of it — 0.08h. The measured bottom edge was 0.5h + 185px when the
+   block was centred, so it is now 0.42h + 185px.
+
+   This single coefficient is the tallest thing that can cross under the copy.
+   At 0.50 the corridor passes 0.175m at 1280x700 — the frog, and nothing else,
+   which is why the frog was the courier. At 0.42 it passes ~0.31m, which is
+   what makes a conveyor deck under the headline possible at all.
+
+   0.42 is not a taste number, it is the floor. The block is ~370px tall and the
+   masthead owns the top ~100px, so at 1280x700 the block's centre cannot rise
+   above ~285px = 0.41h without the two colliding. There is no more corridor to
+   be had from this lever.
+
+   Keep in lockstep with docs/style.css `.landing-hero`. */
+const TEXT_CENTRE_FRAC = 0.42;
+const TEXT_BOTTOM_PX = (h) => TEXT_CENTRE_FRAC * h + 185;
 export const KEEPOUT_PAD = 0.015;    // a little air around the copy, in frame fractions
 
 /** the forbidden rectangle for a viewport, in frame fractions [x0,y0,x1,y1] */
