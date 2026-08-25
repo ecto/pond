@@ -1,0 +1,14 @@
+Unitree H2 — h2_description (the flagship humanoid; the scene's host)
+Source: https://github.com/unitreerobotics/unitree_ros (robots/h2_description) @ 4ddbf6d
+License: BSD 3-Clause (see LICENSE), (c) 2016-2022 HangZhou YuShu TECHNOLOGY CO.,LTD ("Unitree Robotics")
+Used: visual meshes (.dae) + H2_dae.urdf, posed and re-skinned for the Pond landing scene.
+
+Notes:
+  1.82m, 37 links, 31 movable joints. Legs are a coplanar two-link chain
+  (thigh 0.3196m hip_yaw->knee, shank 0.4966m knee->ankle_pitch), so the same
+  closed-form leg IK the Go2 and K1 use applies unchanged.
+  Ankle order is knee -> ankle_ROLL -> ankle_PITCH, the opposite of the K1's.
+  H2_dae.urdf is the DAE-visual variant; H2.urdf references the same geometry
+  as STL. h2_plus (98 links, dexterous hands) also exists upstream and was
+  considered and rejected: the extra hand links cost triangles the bundle
+  budget cannot spare and read as noise at this scale.

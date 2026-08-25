@@ -1,0 +1,20 @@
+Booster Robotics K1 — the kid-size humanoid at the far end of the belt
+Source: https://github.com/BoosterRobotics/booster_assets (robots/K1) @ 508cbee
+License: BSD 3-Clause (see LICENSE), (c) 2025 BoosterRobotics
+Used: meshes (.STL) + K1_22dof.urdf, posed and re-skinned for the Pond landing scene.
+
+Notes:
+  ~0.95m, 23 links, 22 movable joints. Legs are a coplanar two-link chain
+  (thigh 0.1170m hip_yaw->knee, shank 0.2452m knee->foot).
+  The STLs carry no materials, so the Pond palette is assigned by link name in
+  build.js rather than read out of the source — see SPECS.k1.materialFor.
+  K1 shares the T1's joint vocabulary (AAHead_yaw, Head_pitch, *_Shoulder_*,
+  *_Hip_*, *_Knee_Pitch, *_Ankle_Pitch/Roll) with two differences worth
+  knowing: the shoulder-pitch joints are named ALeft_/ARight_Shoulder_Pitch,
+  and there is NO Waist joint — the hips hang directly off the Trunk, so the
+  T1's "yawing the waist swings both feet" trap does not exist here.
+
+  This robot is what the T1 was standing in for. When the landing scene was
+  first built no K1 description was published and the T1 was substituted; the
+  K1 is now public under a real licence, so it takes the slot it was always
+  meant to have.

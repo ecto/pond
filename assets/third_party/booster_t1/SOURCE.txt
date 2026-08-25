@@ -1,4 +1,24 @@
-Booster Robotics T1 (substitute for K1 — no K1 description is published)
+Booster Robotics T1 — RETIRED FROM THE CAST (see below)
 Source: https://github.com/BoosterRobotics/booster_gym (resources/T1)
 License: Apache License 2.0 (see LICENSE), (c) 2024 Booster Robotics Technology Co., Ltd
 Used: meshes (.STL) + T1_serial.urdf, posed and re-skinned for the Pond landing scene.
+
+RETIRED. The T1 was only ever a stand-in. The landing scene wanted a Booster
+K1, and when it was first built no K1 description was published, so the T1 was
+substituted in that slot. The K1 is now public and licensed
+(assets/third_party/booster_k1), and it has taken the slot back. No T1 geometry
+ships in the payload any more; this vault is kept for the record.
+
+PROVENANCE NOTE — the licence, stated precisely, because it was queried:
+  - booster_gym DOES contain a real Apache-2.0 LICENSE file, reproduced here
+    verbatim. The attribution above is correct and always was.
+  - What is true is that GitHub's automatic licence DETECTOR reports
+    NOASSERTION for booster_gym: its LICENSE file opens with the copyright
+    line before the Apache boilerplate, which the detector's matcher does not
+    recognise as a clean SPDX match. That is a limitation of the detector, not
+    a missing or ambiguous grant.
+  - The canonical, unambiguously-licensed home for Booster's robot
+    descriptions is now https://github.com/BoosterRobotics/booster_assets
+    (BSD 3-Clause, (c) 2025 BoosterRobotics), which carries robots/T1 as well
+    as robots/K1. Anything that needs T1 assets in future should be re-vaulted
+    from there rather than from booster_gym.
