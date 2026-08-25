@@ -174,14 +174,19 @@ async function buildStage(names) {
     const P = PROPS[key];
     if (P) {
       char.parked = {};
+      /* A release is recorded in the character's `shift` frame — the frame
+         scene.js parks the prop into (`shift.attach(prop)`), which sits ABOVE
+         the grounding node. That is what makes a set-down crate stay on the
+         deck while the body re-grounds under it.
+
+         Recording it in the model frame with the release-time dy folded in was
+         wrong: placeMatrix applies the CURRENT dy again on the way out, so the
+         prop was lifted twice and rode up as the character stood. */
       const grab = (t) => {
-        const pose = char.act(t, char.ctx);
-        const world = fk(char, pose.j || {});
-        const M = attachMatrix(char, P, world);
-        if (!M) return null;
-        const dy = groundOffset(char, world, char.ground);
-        const q = new THREE.Vector3().setFromMatrixPosition(M);
-        return M.clone().setPosition(q.x, q.y, char.yUp ? q.z : q.z + dy);
+        const pm = placeMatrix(char, t);
+        const A = attachMatrix(char, P, pm.world);
+        if (!A) return null;
+        return shiftToModel(char, pm.dy).multiply(A);
       };
       // two periods: characters whose cycle alternates (the Z1's cube
        // ping-pongs between two spots) only reveal one park label per period
@@ -228,6 +233,28 @@ function parkedAt(char, t) {
   return best.M;
 }
 
+/** shift-frame -> model frame: the grounding push plus the Z-up rotation.
+    Mirrors the `gnd` and `zup` nodes scene.js hangs under `shift`. */
+function shiftToModel(char, dy) {
+  const M = new THREE.Matrix4().makeTranslation(0, dy, 0);
+  if (!char.yUp) M.multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
+  return M;
+}
+
+/** the stage matrix for a character's prop at time t, held or parked.
+    Held: it rides the attach node, so the full model matrix applies. Parked:
+    it hangs off `shift`, ABOVE the grounding, exactly as in scene.js — so the
+    current dy must NOT be applied to it. */
+function propMatrix(char, P, a, world, pm, t) {
+  if (!P || !a.prop) return null;
+  if (a.prop.held) {
+    const A = attachMatrix(char, P, world);
+    return A ? new THREE.Matrix4().multiplyMatrices(pm.M, A) : null;
+  }
+  const L = parkedAt(char, t);
+  return L ? new THREE.Matrix4().multiplyMatrices(pm.Mshift, L) : null;
+}
+
 /** the character's model-to-stage matrix at time t, plus its state.
     `at` overrides the floor position, for sweeping a whole roam box. */
 function placeMatrix(char, t, at) {
@@ -245,9 +272,10 @@ function placeMatrix(char, t, at) {
   M.multiply(new THREE.Matrix4().makeScale(1, (a.squash || 1) * rise, 1));
   M.multiply(new THREE.Matrix4().makeScale(char.stageScale, char.stageScale, char.stageScale));
   M.multiply(new THREE.Matrix4().makeTranslation(-char.pivot[0], -char.pivot[1], -char.pivot[2]));
-  M.multiply(new THREE.Matrix4().makeTranslation(0, dy, 0));
-  if (!char.yUp) M.multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
-  return { M, a, world, dy };
+  // everything up to here is scene.js's `shift`; a parked prop hangs off it
+  const Mshift = M.clone();
+  M.multiply(shiftToModel(char, dy));
+  return { M, Mshift, a, world, dy };
 }
 
 /** whole stage at time t -> one soup in stage coordinates */
@@ -268,7 +296,8 @@ function stageSoup(cast, t, opts = {}) {
   // stage each robot's accent is remapped to its own slot
   const slotOf = (char, m) => (m === 2 ? 2 + ORDER.indexOf(char.key) : m);
   for (const char of cast) {
-    const { M, a, world } = placeMatrix(char, t);
+    const pm = placeMatrix(char, t);
+    const { M, a, world } = pm;
     for (const [ln, geo] of Object.entries(char.links)) {
       const X = new THREE.Matrix4().multiplyMatrices(M, world[ln]);
       const base = pos.length / 3;
@@ -281,9 +310,8 @@ function stageSoup(cast, t, opts = {}) {
     }
     const P = PROPS[char.key];
     if (P && a.prop) {
-      const local = a.prop.held ? attachMatrix(char, P, world)
-        : parkedAt(char, t);
-      if (local) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(M, local), slotOf(char, P.mat));
+      const X = propMatrix(char, P, a, world, pm, t);
+      if (X) push(boxSoup(P.size, P.mat), X, slotOf(char, P.mat));
     }
     // contact blob on the shared floor
     if (opts.blobs !== false) {
@@ -380,17 +408,16 @@ function roamBoxExtent(char, cam, S, roam, samples = 48) {
   for (const at of spots) {
     for (let i = 0; i <= samples; i++) {
       const t = char.entryEnd + (i / samples) * char.period;
-      const { M, a, world } = placeMatrix(char, t, at);
+      const pm = placeMatrix(char, t, at);
+      const { M, a, world } = pm;
       for (const [n, pts] of Object.entries(hull)) {
         const L = new THREE.Matrix4().multiplyMatrices(M, world[n]);
         for (const q of pts) { v.copy(q).applyMatrix4(L); add(v); }
       }
       const P = PROPS[char.key];
       if (P && a.prop) {
-        const local = a.prop.held ? attachMatrix(char, P, world)
-          : parkedAt(char, t);
-        if (local) {
-          const L = new THREE.Matrix4().multiplyMatrices(M, local);
+        const L = propMatrix(char, P, a, world, pm, t);
+        if (L) {
           for (const c of CORNERS) {
             v.set(c[0] === 'max' ? P.size[0] / 2 : -P.size[0] / 2,
               c[1] === 'max' ? P.size[1] / 2 : -P.size[1] / 2,
@@ -418,17 +445,16 @@ function sweptExtent(char, cam, S, samples = 160) {
   // the loop only: the entrance is deliberately offstage
   for (let i = 0; i <= samples; i++) {
     const t = char.entryEnd + (i / samples) * char.period;
-    const { M, a, world } = placeMatrix(char, t);
+    const pm = placeMatrix(char, t);
+    const { M, a, world } = pm;
     for (const [n, pts] of Object.entries(hull)) {
       const L = new THREE.Matrix4().multiplyMatrices(M, world[n]);
       for (const q of pts) { v.copy(q).applyMatrix4(L); add(v); }
     }
     const P = PROPS[char.key];
     if (P && a.prop) {
-      const local = a.prop.held ? attachMatrix(char, P, world)
-        : parkedAt(char, t);
-      if (local) {
-        const L = new THREE.Matrix4().multiplyMatrices(M, local);
+      const L = propMatrix(char, P, a, world, pm, t);
+      if (L) {
         for (const c of CORNERS) {
           v.set(c[0] === 'max' ? P.size[0] / 2 : -P.size[0] / 2,
             c[1] === 'max' ? P.size[1] / 2 : -P.size[1] / 2,
@@ -459,7 +485,8 @@ async function solveConstants() {
     const hull = linkHull(char);
     for (let i = 0; i <= 200; i++) {
       const t = char.entryEnd + (i / 200) * char.period;
-      const { M, a, world } = placeMatrix(char, t);
+      const pm = placeMatrix(char, t);
+      const { M, a, world } = pm;
       const consider = (p) => {
         if (Math.abs(p.x) > xmax) xmax = Math.abs(p.x);
         if (p.z > zmax) zmax = p.z;
@@ -472,9 +499,8 @@ async function solveConstants() {
       }
       const P = PROPS[char.key];
       if (P && a.prop) {
-        const local = a.prop.held ? attachMatrix(char, P, world) : parkedAt(char, t);
-        if (local) {
-          const L = new THREE.Matrix4().multiplyMatrices(M, local);
+        const L = propMatrix(char, P, a, world, pm, t);
+        if (L) {
           for (const c of CORNERS) {
             v.set(c[0] === 'max' ? P.size[0] / 2 : -P.size[0] / 2,
               c[1] === 'max' ? P.size[1] / 2 : -P.size[1] / 2,
@@ -579,8 +605,10 @@ async function character(name, outDir) {
   /* one tile: the character alone, with the stage placement stripped so it
      fills the frame, on a slab at its own contact height */
   const tile = (t, react) => {
-    const { M, a, world } = placeMatrix(char, t);
-    const local = new THREE.Matrix4().makeTranslation(-a.place.x, -(a.lift || 0), -a.place.z).multiply(M);
+    const pm = placeMatrix(char, t);
+    const { M, a, world } = pm;
+    const strip = new THREE.Matrix4().makeTranslation(-a.place.x, -(a.lift || 0), -a.place.z);
+    const local = strip.clone().multiply(M);
     const pos = [], idx = [], mid = [];
     const v = new THREE.Vector3();
     const push = (soup, X, mo) => {
@@ -596,9 +624,8 @@ async function character(name, outDir) {
     for (const [ln, geo] of Object.entries(char.links)) push(geo, new THREE.Matrix4().multiplyMatrices(local, world2[ln]));
     const P = PROPS[name];
     if (P && a.prop) {
-      const lm = a.prop.held ? attachMatrix(char, P, world2)
-        : parkedAt(char, t);
-      if (lm) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(local, lm), P.mat);
+      const lm = propMatrix(char, P, a, world2, pm, t);
+      if (lm) push(boxSoup(P.size, P.mat), strip.clone().multiply(lm), P.mat);
     }
     const g = new THREE.PlaneGeometry(3, 3);
     const flat = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
@@ -730,9 +757,11 @@ async function solo(only) {
     for (let i = 0; i < N; i++) {
       const t = win ? win[0] + ((i + 0.5) / N) * (win[1] - win[0])
         : char.entryEnd + ((i + 0.5) / N) * char.period;
-      const { M, a, world } = placeMatrix(char, t);
+      const pm = placeMatrix(char, t);
+      const { M, a, world } = pm;
       // strip the stage placement so the character fills the tile
-      const local = new THREE.Matrix4().makeTranslation(-a.place.x, -(a.lift || 0), -a.place.z).multiply(M);
+      const strip = new THREE.Matrix4().makeTranslation(-a.place.x, -(a.lift || 0), -a.place.z);
+      const local = strip.clone().multiply(M);
       const pos = [], idx = [], mid = [];
       const v = new THREE.Vector3();
       const push = (soup, X, mo) => {
@@ -746,8 +775,10 @@ async function solo(only) {
       for (const [ln, geo] of Object.entries(char.links)) push(geo, new THREE.Matrix4().multiplyMatrices(local, world[ln]));
       const P = PROPS[char.key];
       if (P && a.prop) {
-        const lm = a.prop.held ? attachMatrix(char, P, world2) : parkedAt(char, t);
-        if (lm) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(local, lm), P.mat);
+        // (was `world2` here — undefined in this scope; no reaction is layered
+        // in the solo sheet, so the work-loop FK is the right frame)
+        const lm = propMatrix(char, P, a, world, pm, t);
+        if (lm) push(boxSoup(P.size, P.mat), strip.clone().multiply(lm), P.mat);
       }
       const g = new THREE.PlaneGeometry(3, 3);
       const flat = new THREE.Matrix4().makeRotationX(-Math.PI / 2);

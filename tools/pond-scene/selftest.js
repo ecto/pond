@@ -173,14 +173,12 @@ function checkIK(WORK) {
   // silently clamped by the runtime, so the pose rendered offline is not the
   // pose that ships — which is exactly how the Z1's elbow stayed wrong for so
   // long. Cheap check, whole class of bug.
-  /* Pre-existing violations, waived so a NEW one still fails the build. Each
-     entry is owned by that character's animator and should be cleared, not
-     extended: the effect is that the joint is pinned at its limit, so whatever
-     the pose was reaching for is not happening. */
-  const WAIVED = new Set([
-    't1/Left_Elbow_Yaw',   // authored +0.20 against [-2.44, 0]; pinned at 0
-    't1/Right_Elbow_Yaw',  // authored -0.20 against [0, 2.44]; pinned at 0
-  ]);
+  /* Waivers for pre-existing violations go here, so a NEW one still fails the
+     build. Each entry is owned by that character's animator and should be
+     cleared, not extended: the effect is that the joint is pinned at its limit,
+     so whatever the pose was reaching for is not happening. Currently empty —
+     every character authors inside its URDF limits. Keep it that way. */
+  const WAIVED = new Set([]);
   let outOfLimit = 0, waivedSeen = 0;
   for (const c of cast) {
     const lim = Object.fromEntries(c.joints.filter((j) => j.limit).map((j) => [j.name, j.limit]));
