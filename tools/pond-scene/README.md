@@ -30,13 +30,16 @@ Edit:
 
 | what you want to change | file |
 | --- | --- |
-| what a character is *doing*, and where it roams (work loops, gaits, waypoints, click reactions) | `work.mjs` |
+| what one character is *doing* (work loop, entrance, gait, reactions, pointer behaviour) | `anim/<character>.mjs` — see `anim/INTERFACE.md` |
+| shared motion machinery (IK, schedules, pointer projection, the authoring context) | `anim/kinematics.mjs`, `anim/schedule.mjs`, `anim/pointer.mjs`, `anim/context.mjs` |
 | the stage itself: camera framing, character sizes, swept-extent constants | `stage.mjs` |
 | colours, props, lighting, lifecycle | `scene.js` |
 | triangle budgets, palette mapping, poses baked into the payload | `build.js` |
 
-`work.mjs` is shared by the runtime and the offline preview, so a pose you
-eyeball in a contact sheet is the pose that ships.
+The `anim/` modules are shared by the runtime and the offline preview, so a pose
+you eyeball in a contact sheet is the pose that ships. Each character is one
+file with a single owner; **`anim/INTERFACE.md` is the contract** — the ctx API,
+the joint tables, the grounding and anti-skate rules, and the quality bar.
 
 ## Look at the work before you accept it
 
@@ -44,7 +47,7 @@ eyeball in a contact sheet is the pose that ships.
 npm run preview             # full-frame stage sheets at the test viewports
 npm run preview -- extents  # swept-extent margins, as numbers
 npm run preview -- solve    # report the cast's swept world extents
-npm run preview -- solo t1  # one character, close up, on a ground slab
+npm run preview -- character t1 --out DIR   # one character: entrance, work, every reaction
 ```
 
 `preview` renders the WHOLE composited frame through the same camera solve the
@@ -180,7 +183,13 @@ stable from 1280x700 to 1280x1400.
 | file | role |
 | --- | --- |
 | `scene.js` | runtime: node graph, posing, grounding, lifecycle. Bundle entry point. |
-| `work.mjs` | work loops, gaits, roam schedules and click reactions. Shared with the preview. |
+| `anim/<character>.mjs` | one character's choreography. One owner each. |
+| `anim/index.mjs` | assembles the cast, applies the roam clamps, exposes the runtime API. |
+| `anim/context.mjs` | the authoring context characters write through. |
+| `anim/kinematics.mjs` | planar leg IK and foot paths. |
+| `anim/schedule.mjs` | easing, keyframe tracks, waypoint schedules. |
+| `anim/pointer.mjs` | pointer raycast into stage space, per-character view. |
+| `anim/INTERFACE.md` | the character-module contract. Read this first. |
 | `stage.mjs` | floor, camera solve, character sizes, the copy keep-out. Shared with the preview. |
 | `mesh-data.js` | **generated** base64 skeleton + geometry payload. |
 | `export.js` | packs the built characters into `mesh-data.js`. |

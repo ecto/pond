@@ -102,7 +102,7 @@ function attachMatrix(char, P, world) {
 
 /* ---------------- the stage ---------------- */
 async function buildStage(names) {
-  const W = await import('./work.mjs');
+  const W = await import('./anim/index.mjs');
   const S = await import('./stage.mjs');
   const cast = [];
   for (const key of (names || ORDER)) {
@@ -165,9 +165,11 @@ async function buildStage(names) {
   return { cast, W, S };
 }
 
-/** the character's model-to-stage matrix at time t, plus its state */
-function placeMatrix(char, t) {
+/** the character's model-to-stage matrix at time t, plus its state.
+    `at` overrides the floor position, for sweeping a whole roam box. */
+function placeMatrix(char, t, at) {
   const a = char.act(t, char.ctx);
+  if (at) a.place = { x: at.x, z: at.z, yaw: a.place.yaw };
   const world = fk(char, a.j || {});
   const dy = groundOffset(char, world, char.ground);
   const tilt = a.tilt || {};
@@ -217,7 +219,7 @@ function stageSoup(cast, t, opts = {}) {
     const P = PROPS[char.key];
     if (P && a.prop) {
       const local = a.prop.held ? attachMatrix(char, P, world)
-        : (char.parked && char.parked[a.prop.park]) || null;
+        : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
       if (local) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(M, local), slotOf(char, P.mat));
     }
     // contact blob on the shared floor
@@ -287,6 +289,58 @@ function linkHull(char) {
 const CORNERS = [];
 for (let i = 0; i < 8; i++) CORNERS.push([(i & 1) ? 'max' : 'min', (i & 2) ? 'max' : 'min', (i & 4) ? 'max' : 'min']);
 
+/**
+ * The extent of everything the character could ever cover, given that shared
+ * code clamps it into its roam box: its pose cycle evaluated at every corner
+ * and the centre of the box. Any waypoint a specialist picks inside the box is
+ * inside this, so the composition invariants hold for ANY choreography they
+ * write — which is what makes four people editing four files in parallel safe.
+ */
+function roamBoxExtent(char, cam, S, roam, samples = 48) {
+  const box = roam.work || roam;
+  const spots = [];
+  const zs = [box.z[0], (box.z[0] + box.z[1]) / 2, box.z[1]];
+  for (const z of zs) {
+    const [lo, hi] = S.worldXRange(box.sx[0], box.sx[1], z);
+    for (const x of [lo, (lo + hi) / 2, hi]) spots.push({ x, z });
+  }
+  const hull = linkHull(char);
+  const ext = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+  const v = new THREE.Vector3();
+  const add = (p) => {
+    const q = S.project(p, cam);
+    if (q.x < ext.x0) ext.x0 = q.x;
+    if (q.x > ext.x1) ext.x1 = q.x;
+    if (q.y < ext.y0) ext.y0 = q.y;
+    if (q.y > ext.y1) ext.y1 = q.y;
+  };
+  for (const at of spots) {
+    for (let i = 0; i <= samples; i++) {
+      const t = char.entryEnd + (i / samples) * char.period;
+      const { M, a, world } = placeMatrix(char, t, at);
+      for (const [n, pts] of Object.entries(hull)) {
+        const L = new THREE.Matrix4().multiplyMatrices(M, world[n]);
+        for (const q of pts) { v.copy(q).applyMatrix4(L); add(v); }
+      }
+      const P = PROPS[char.key];
+      if (P && a.prop) {
+        const local = a.prop.held ? attachMatrix(char, P, world)
+          : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
+        if (local) {
+          const L = new THREE.Matrix4().multiplyMatrices(M, local);
+          for (const c of CORNERS) {
+            v.set(c[0] === 'max' ? P.size[0] / 2 : -P.size[0] / 2,
+              c[1] === 'max' ? P.size[1] / 2 : -P.size[1] / 2,
+              c[2] === 'max' ? P.size[2] / 2 : -P.size[2] / 2).applyMatrix4(L);
+            add(v);
+          }
+        }
+      }
+    }
+  }
+  return ext;
+}
+
 function sweptExtent(char, cam, S, samples = 160) {
   const hull = linkHull(char);
   const ext = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
@@ -309,7 +363,7 @@ function sweptExtent(char, cam, S, samples = 160) {
     const P = PROPS[char.key];
     if (P && a.prop) {
       const local = a.prop.held ? attachMatrix(char, P, world)
-        : (char.parked && char.parked[a.prop.park]) || null;
+        : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
       if (local) {
         const L = new THREE.Matrix4().multiplyMatrices(M, local);
         for (const c of CORNERS) {
@@ -385,6 +439,133 @@ async function solveConstants() {
   console.log(`  tallest swept point lands ${(topFrac * 100).toFixed(1)}% from the top at the widest viewport`);
   return { xmax, zmax, ymax };
 }
+
+/**
+ * Grow each character's roam box as far as it can go while the whole box still
+ * satisfies the composition invariants at every viewport. The result is the
+ * movement budget a character specialist may place waypoints inside without
+ * having to think about the layout at all.
+ */
+async function solveRoam() {
+  const { cast, S } = await buildStage();
+  const A = await import('./anim/index.mjs');
+  const cams = VIEWPORTS.map(([vw, vh]) => ({ vw, vh, cam: S.cameraFor(vw / vh), K: S.keepOut(vw, vh) }));
+
+  const ok = (char, box) => {
+    for (const { cam, K } of cams) {
+      const e = roamBoxExtent(char, cam, S, { work: box }, 32);
+      const al = S.edgeAllowance(char.key, e.x1 - e.x0);
+      const slack = Math.min(e.x0 - al.left, (1 - e.x1) - al.right, e.y0 - al.top, (1 - e.y1) - al.bottom);
+      const ow = Math.min(e.x1, K[2]) - Math.max(e.x0, K[0]);
+      const oh = Math.min(e.y1, K[3]) - Math.max(e.y0, K[1]);
+      if (slack < 0.005 || (ow > 0 && oh > 0)) return false;
+    }
+    return true;
+  };
+
+  console.log('\nmaximal safe roam boxes (paste into each character module):\n');
+  for (const char of cast) {
+    // start from the character's own waypoints, then grow each edge as far as
+    // the invariants allow
+    const seed = A.ROAM[char.key].work;
+    let box = { sx: [...seed.sx], z: [...seed.z] };
+    const edges = [['sx', 0, -1], ['sx', 1, +1], ['z', 0, -1], ['z', 1, +1]];
+    const scale = { sx: 0.20, z: 0.40 };
+    for (const [axis, idx, dir] of edges) {
+      let step = scale[axis];
+      for (let i = 0; i < 11; i++) {
+        const b = { sx: [...box.sx], z: [...box.z] };
+        b[axis][idx] += dir * step;
+        if (b.sx[0] < b.sx[1] && b.z[0] < b.z[1] && ok(char, b)) box = b; else step /= 2;
+      }
+    }
+    const f = (v) => v.toFixed(3);
+    const grew = (a, b) => ((b - a) >= 0 ? '+' : '') + (b - a).toFixed(3);
+    console.log(`  ${char.key.padEnd(9)} work: { sx: [${f(box.sx[0])}, ${f(box.sx[1])}], z: [${f(box.z[0])}, ${f(box.z[1])}] }`);
+    console.log(`  ${' '.repeat(9)} room beyond today's waypoints: sx ${grew(seed.sx[0], box.sx[0])} / ${grew(seed.sx[1], box.sx[1])}`
+      + `, z ${grew(seed.z[0], box.z[0])} / ${grew(seed.z[1], box.z[1])}`
+      + `   ${ok(char, seed) ? '' : '(SEED ITSELF FAILS)'}`);
+  }
+}
+
+/* ---------------- one character, end to end ----------------
+   Entrance, work cycle and every reaction, on a ground slab, written wherever
+   the caller asks. Four specialists run this in parallel, so the output
+   directory is a parameter and never a fixed path. */
+async function character(name, outDir) {
+  if (!CHARACTERS_OK.includes(name)) throw new Error(`unknown character "${name}" (try ${CHARACTERS_OK.join(', ')})`);
+  const { cast } = await buildStage([name]);
+  const A = await import('./anim/index.mjs');
+  const char = cast[0];
+  const dir = path.resolve(outDir || path.join(__dirname, 'preview', name));
+  fs.mkdirSync(dir, { recursive: true });
+  const AZ = { go2: 62, t1: 30, z1: 45, pondbot: 74 };
+  const W = 380, H = 430;
+  const colors = [PALETTE.bone, PALETTE.ink, PALETTE[ACCENT[name]], [220, 222, 226]];
+
+  const sheet = (file, frames) => {
+    const row = Buffer.alloc(W * frames.length * H * 3, 255);
+    frames.forEach((f, i) => {
+      const { img } = render(f, { azimuth: AZ[name], elevation: 8, width: W, height: H, zoom: 1.2, colors });
+      for (let y = 0; y < H; y++) img.copy(row, (y * W * frames.length + i * W) * 3, y * W * 3, (y + 1) * W * 3);
+    });
+    writePNG(path.join(dir, file), W * frames.length, H, row);
+    console.log('  -> ' + path.join(dir, file));
+  };
+
+  /* one tile: the character alone, with the stage placement stripped so it
+     fills the frame, on a slab at its own contact height */
+  const tile = (t, react) => {
+    const { M, a, world } = placeMatrix(char, t);
+    const local = new THREE.Matrix4().makeTranslation(-a.place.x, -(a.lift || 0), -a.place.z).multiply(M);
+    const pos = [], idx = [], mid = [];
+    const v = new THREE.Vector3();
+    const push = (soup, X, mo) => {
+      const base = pos.length / 3;
+      for (let k = 0; k < soup.positions.length; k += 3) {
+        v.set(soup.positions[k], soup.positions[k + 1], soup.positions[k + 2]).applyMatrix4(X);
+        pos.push(v.x, v.y, v.z); mid.push(mo == null ? soup.matId[k / 3] : mo);
+      }
+      for (let k = 0; k < soup.index.length; k++) idx.push(soup.index[k] + base);
+    };
+    // a reaction is layered exactly the way the runtime layers it
+    const world2 = react ? fk(char, applyReaction(a.j, react.R, react.t)) : world;
+    for (const [ln, geo] of Object.entries(char.links)) push(geo, new THREE.Matrix4().multiplyMatrices(local, world2[ln]));
+    const P = PROPS[name];
+    if (P && a.prop) {
+      const lm = a.prop.held ? attachMatrix(char, P, world2)
+        : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
+      if (lm) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(local, lm), P.mat);
+    }
+    const g = new THREE.PlaneGeometry(3, 3);
+    const flat = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
+    const base = pos.length / 3;
+    const arr = g.attributes.position.array;
+    for (let k = 0; k < arr.length; k += 3) {
+      v.set(arr[k], arr[k + 1], arr[k + 2]).applyMatrix4(flat);
+      pos.push(v.x, v.y, v.z); mid.push(3);
+    }
+    for (let k = 0; k < g.index.array.length; k++) idx.push(g.index.array[k] + base);
+    return { positions: new Float32Array(pos), index: new Uint32Array(idx), matId: new Uint8Array(mid) };
+  };
+  const applyReaction = (j, R, t) => {
+    const out = { ...j };
+    const d = R.joints ? R.joints(t, 1) : null;
+    if (d) for (const k of Object.keys(d)) out[k] = (out[k] || 0) + d[k];
+    return out;
+  };
+
+  const N = 6;
+  sheet('entrance.png', Array.from({ length: N }, (_, i) => tile((i / (N - 1)) * char.entryEnd)));
+  sheet('work.png', Array.from({ length: N }, (_, i) => tile(char.entryEnd + ((i + 0.5) / N) * char.period)));
+  for (const R of A.REACTIONS_BY_KEY[name]) {
+    const t0 = char.entryEnd + 0.25 * char.period;
+    sheet(`reaction-${R.name}.png`, Array.from({ length: N }, (_, i) => tile(t0, { R, t: i / (N - 1) })));
+  }
+  console.log(`\n  ${name}: entrance ${char.entryEnd.toFixed(1)}s, work loop ${char.period.toFixed(1)}s, `
+    + `${A.REACTIONS_BY_KEY[name].length} reactions`);
+}
+const CHARACTERS_OK = ORDER;
 
 /* ---------------- entry points ---------------- */
 async function stageSheets() {
@@ -526,9 +707,12 @@ async function solo(only) {
 
 if (require.main === module) {
   const [mode, ...rest] = process.argv.slice(2);
-  const run = mode === 'extents' ? extents() : mode === 'solve' ? solveConstants()
+  const flag = (n) => { const i = rest.indexOf(n); return i >= 0 ? rest[i + 1] : null; };
+  const run = mode === 'character' ? character(rest[0], flag('--out'))
+    : mode === 'extents' ? extents() : mode === 'roam' ? solveRoam()
+    : mode === 'solve' ? solveConstants()
     : mode === 'solo' ? solo(rest) : stageSheets();
   run.catch((e) => { console.error(e); process.exit(1); });
 }
 
-module.exports = { fk, groundOffset, attachMatrix, buildStage, stageSoup, placeMatrix, sweptExtent, PALETTE, ACCENT, PROPS, VIEWPORTS };
+module.exports = { fk, groundOffset, attachMatrix, buildStage, stageSoup, placeMatrix, sweptExtent, roamBoxExtent, PALETTE, ACCENT, PROPS, VIEWPORTS };

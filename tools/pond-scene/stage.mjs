@@ -85,6 +85,77 @@ export const VH_MIN = 2.30;
 export const FLOOR_FRAC = 0.12;      // the stage-centre floor line, up from the bottom
 export const MARGIN_FRAC = 0.015;    // clear margin required at the frame edges
 
+/* The aspect range the layout is verified over. Within it the camera is always
+   width-bound (vh = VW_BASE/aspect stays above VH_MIN), so the visible width at
+   the stage plane is exactly VW_BASE and screen-x depends on aspect only
+   through a point's depth. */
+export const SUPPORTED_ASPECTS = [1280 / 700, 1280 / 1000, 1440 / 1300, 1280 / 1400];
+
+/** visible width at depth z, for a given aspect */
+export function widthAtDepth(z, aspect) {
+  return VW_BASE - 2 * z * TAN_HALF * aspect;
+}
+
+/** where a floor point lands horizontally, as a frame fraction */
+export function screenXOf(x, z, aspect) {
+  return 0.5 + x / widthAtDepth(z, aspect);
+}
+
+/**
+ * The world-x interval that keeps a floor point inside the screen-x band
+ * [sxLo, sxHi] at EVERY supported aspect. Because the depth term scales with
+ * aspect, a fixed world-x drifts horizontally between viewports; solving in
+ * screen space and intersecting over the aspect range removes that drift, and
+ * is why roam regions are declared as screen bands rather than world boxes.
+ */
+export function worldXRange(sxLo, sxHi, z) {
+  let lo = -Infinity, hi = Infinity;
+  for (const a of SUPPORTED_ASPECTS) {
+    const V = widthAtDepth(z, a);
+    lo = Math.max(lo, (sxLo - 0.5) * V);
+    hi = Math.min(hi, (sxHi - 0.5) * V);
+  }
+  return lo <= hi ? [lo, hi] : [(lo + hi) / 2, (lo + hi) / 2];
+}
+
+/* Viewports the layout is verified at; the feasible-x solve intersects over
+   all of them, so a position that passes is safe at every one. */
+export const TEST_VIEWPORTS = [[1280, 700], [1280, 1000], [1440, 1300], [1280, 1400]];
+
+/**
+ * The world-x interval a character may stand in at depth z — DERIVED, not
+ * authored. A character module says only which band it lives in and how wide
+ * its silhouette is; the composition rules (copy keep-out on the inside edge,
+ * crop budget on the outside edge) do the rest, intersected over every
+ * supported viewport.
+ *
+ * This is the reason a character specialist cannot break the layout: there is
+ * no hand-tuned safe box to keep in sync with the artwork, so moving a
+ * waypoint can only ever move the character within a region that is correct by
+ * construction.
+ */
+export function feasibleX(key, side, halfWidth, z) {
+  const crop = OUTER[key] === side ? CROP_MAX : 0;
+  let lo = -Infinity, hi = Infinity;
+  for (const [vwPx, vhPx] of TEST_VIEWPORTS) {
+    const aspect = vwPx / vhPx;
+    const V = widthAtDepth(z, aspect);
+    const W = (2 * halfWidth) / V;             // silhouette width, frame fractions
+    const K = keepOut(vwPx, vhPx);
+    let cLo, cHi;
+    if (side === 'left') {
+      cLo = W * (0.5 - crop);                  // outer edge, crop budget allowed
+      cHi = K[0] - W / 2;                      // inner edge, clear of the copy
+    } else {
+      cLo = K[2] + W / 2;
+      cHi = 1 - W * (0.5 - crop);
+    }
+    lo = Math.max(lo, (cLo - 0.5) * V);
+    hi = Math.min(hi, (cHi - 0.5) * V);
+  }
+  return lo <= hi ? [lo, hi] : [(lo + hi) / 2, (lo + hi) / 2];
+}
+
 export function cameraFor(aspect) {
   const vh = Math.max(VH_MIN, VW_BASE / aspect);
   return {

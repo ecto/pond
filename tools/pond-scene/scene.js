@@ -15,16 +15,17 @@ import {
   CircleGeometry, CanvasTexture, Color, DoubleSide,
 } from 'three';
 import { MESH_B64 } from './mesh-data.js';
-import { WORK, PERIOD, ENTRY_END, REACTIONS } from './work.mjs';
+import { WORK, PERIOD, ENTRY_END, REACTIONS_BY_KEY, CHARACTERS,
+  createPointerState, updatePointer, pointerFor } from './anim/index.mjs';
 import { HEIGHT, cameraFor } from './stage.mjs';
 
 /* Pond's four mark colours, one per character, over the shared bone/ink base */
 const BONE = 0xefece2, INK = 0x212327;
 const CAST = [
-  { key: 'pondbot', accent: 0x0000ff, reactions: ['flip', 'boing', 'shimmy', 'hop'] },
-  { key: 'go2', accent: 0x2aa13f, reactions: ['playbow', 'wag', 'hop', 'shimmy'] },
-  { key: 't1', accent: 0xcf331e, reactions: ['bow', 'twist', 'shimmy'] },
-  { key: 'z1', accent: 0xf0ad00, reactions: ['wave', 'lean', 'boing'] },
+  { key: 'pondbot', accent: 0x0000ff },
+  { key: 'go2', accent: 0x2aa13f },
+  { key: 't1', accent: 0xcf331e },
+  { key: 'z1', accent: 0xf0ad00 },
 ];
 
 /* Props: cheap primitives, but they are what make the work legible. Sizes and
@@ -221,12 +222,44 @@ function start(frame) {
       prop, carry, propHeld: true, propCfg: P,
       hands: [skel.nodes.left_hand_link, skel.nodes.right_hand_link],
       act: WORK[spec.key],
+      reactions: REACTIONS_BY_KEY[spec.key] || [],
+      limits: Object.fromEntries(robot.joints.filter((j) => j.lim).map((j) => [j.n, j.lim])),
+      vicinity: (CHARACTERS[spec.key].params || {}).vicinity || 1,
+      at: { x: 0, z: 0 },
       period: PERIOD[spec.key] || 10,
       entryEnd: ENTRY_END[spec.key] || 0,
       ctx: { mps: 1 / stageScale },
       react: null,
     });
   }
+
+  /* ---- pointer awareness ----
+     Passive listeners only; the projection into stage space happens once per
+     frame in render(). Character modules read it through ctx.pointer and decide
+     for themselves what to do with it. */
+  let lastCam = null;
+  const pointer = createPointerState();
+  const setNdc = (cx, cy, touch) => {
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return;
+    pointer.ndcX = ((cx - r.left) / r.width) * 2 - 1;
+    pointer.ndcY = -((cy - r.top) / r.height) * 2 + 1;
+    pointer.isTouch = !!touch;
+    pointer.active = pointer.ndcX >= -1 && pointer.ndcX <= 1 && pointer.ndcY >= -1 && pointer.ndcY <= 1;
+  };
+  const onPointerMove = (ev) => setNdc(ev.clientX, ev.clientY, ev.pointerType === 'touch');
+  const onPointerDown = onPointerMove;
+  const onPointerOut = () => { pointer.active = false; };
+  const onTouch = (ev) => {
+    const p = ev.touches && ev.touches[0];
+    if (p) setNdc(p.clientX, p.clientY, true);
+  };
+  const POINTER_OPTS = { passive: true };
+  window.addEventListener('pointermove', onPointerMove, POINTER_OPTS);
+  window.addEventListener('pointerdown', onPointerDown, POINTER_OPTS);
+  window.addEventListener('pointerleave', onPointerOut, POINTER_OPTS);
+  window.addEventListener('touchstart', onTouch, POINTER_OPTS);
+  window.addEventListener('touchmove', onTouch, POINTER_OPTS);
 
   /* the camera adapts to the viewport aspect and nothing else */
   function layout() {
@@ -235,6 +268,7 @@ function start(frame) {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.setSize(vw, vh, false);
     const cam = cameraFor(vw / vh);
+    lastCam = cam;
     camera.fov = cam.fov;
     camera.aspect = vw / vh;
     camera.position.set(0, cam.camY, cam.dist);
@@ -257,9 +291,10 @@ function start(frame) {
     for (const a of actors) {
       if (a.react) continue;
       if (!ray.intersectObject(a.root, true).length) continue;
-      const list = a.spec.reactions;
+      const list = a.reactions;
+      if (!list.length) break;
       a.react = {
-        name: list[(Math.random() * list.length) | 0],
+        R: list[(Math.random() * list.length) | 0],
         start: performance.now() / 1000,
         vary: 0.82 + Math.random() * 0.36,
         dir: Math.random() < 0.5 ? -1 : 1,
@@ -276,13 +311,12 @@ function start(frame) {
   const body = { rot: { x: 0, y: 0, z: 0 }, pos: { y: 0 }, scl: { x: 1, y: 1 } };
 
   function reactT(a, now) {
-    const R = REACTIONS[a.react.name];
-    return (now - a.react.start) / (R.dur * a.react.vary);
+    return (now - a.react.start) / (a.react.R.dur * a.react.vary);
   }
 
   function poseActor(a, t, now) {
     const w = a.act(t, a.ctx);
-    const R = a.react && REACTIONS[a.react.name];
+    const R = a.react && a.react.R;
     const jd = R && R.joints ? R.joints(reactT(a, now), a.react.dir) : null;
 
     for (const j of a.skel.joints) {
@@ -334,9 +368,18 @@ function start(frame) {
   }
 
   function render(now) {
+    const dtMs = lastNow == null ? 0 : Math.min(120, (now - lastNow) * 1000);
+    lastNow = now;
+    if (lastCam) updatePointer(pointer, lastCam, now);
     for (const a of actors) {
       const t = reduced ? a.entryEnd + FROZEN_U[a.spec.key] * a.period : now;
+      // reduced motion neutralises the pointer overlay for everyone
+      a.ctx.pointer = reduced ? undefined
+        : pointerFor(pointer, { x: a.at.x, z: a.at.z, key: a.spec.key, vicinity: a.vicinity }, now, dtMs);
+      a.ctx.reducedMotion = reduced;
+      a.ctx.limits = a.limits;
       const w = poseActor(a, t, now);
+      a.at.x = w.place.x; a.at.z = w.place.z;
       const tl = w.tilt || {};
 
       body.rot.x = tl.pitch || 0;
@@ -347,7 +390,7 @@ function start(frame) {
       body.scl.y = w.squash || 1;
 
       if (a.react) {
-        const R = REACTIONS[a.react.name];
+        const R = a.react.R;
         const rt = reactT(a, now);
         if (rt >= 1) a.react = null;
         else if (R.body) R.body(body, rt, a.react.dir);
@@ -369,7 +412,7 @@ function start(frame) {
     renderer.render(scene, camera);
   }
 
-  let raf = 0, running = true;
+  let raf = 0, running = true, lastNow = null;
   function frameLoop() {
     raf = requestAnimationFrame(frameLoop);
     if (!running) return;
@@ -392,6 +435,11 @@ function start(frame) {
   return function dispose() {
     cancelAnimationFrame(raf);
     window.removeEventListener('click', onClick, true);
+    window.removeEventListener('pointermove', onPointerMove, POINTER_OPTS);
+    window.removeEventListener('pointerdown', onPointerDown, POINTER_OPTS);
+    window.removeEventListener('pointerleave', onPointerOut, POINTER_OPTS);
+    window.removeEventListener('touchstart', onTouch, POINTER_OPTS);
+    window.removeEventListener('touchmove', onTouch, POINTER_OPTS);
     window.removeEventListener('resize', onResize);
     document.removeEventListener('visibilitychange', onVis);
     pngs.forEach((el) => { if (el.dataset.pondHidden) { el.style.display = ''; delete el.dataset.pondHidden; } });

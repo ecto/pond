@@ -84,7 +84,7 @@ function checkIK(WORK) {
   const src = fs.readFileSync('mesh-data.js', 'utf8');
   const b64 = src.match(/"([A-Za-z0-9+/=]+)"/)[1];
   const robots = decode(b64);
-  const WORK = await import('./work.mjs');
+  const WORK = await import('./anim/index.mjs');
   const { buildStage } = require('./preview');
   const { cast } = await buildStage();
   const byKey = Object.fromEntries(cast.map((c) => [c.key, c]));
