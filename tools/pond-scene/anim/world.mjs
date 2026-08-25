@@ -1,5 +1,40 @@
 /* SHARED — do not edit from a character module.
 
+   ===========================================================================
+   STATUS: THE SCORE IS WRITTEN, THE CAST HAS NOT LEARNED IT YET.
+
+   Everything in this file is live and asserted — the stations are solved
+   against the real composition, the legs tile the master clock, the handoffs
+   are consistent, and `pulse()` IS driving all four accents in the shipped
+   bundle right now.
+
+   What is NOT yet wired: the four character modules still run their own
+   independent loops at their own periods (17.5 / 19.7 / 36.6 / 46.6s) from
+   their own roam regions, and the cube is still the Z1's private prop. So the
+   STATIONS below describe where the cast needs to stand for the relay, not
+   where it stands today — the Z1 in particular is still in the RIGHT band and
+   has to move left before this circuit is real.
+
+   Remaining work to make the relay run, in order:
+     1. cross-character prop ownership: one cube whose parent is holderAt(t),
+        re-parented preserving world transform, in scene.js AND preview.js
+        (extend the release-timeline in preview.js — a prop's parent becomes a
+        function of world time rather than a park label);
+     2. each character's work() reads roleOf(key, t) and drives its existing
+        motion vocabulary to the station and gesture it names, replacing its
+        private scheduler — the Z1 moves band, the Go2's patrol becomes the
+        two rendezvous, the T1 gains a step-out-and-squat, the frog gains the
+        crossing route;
+     3. retire the T1's ink crate in favour of the shared 5cm cube plus two
+        small static pallets (this also frees band width — the crate is
+        180x300x500mm, which is enormous next to a 50mm cube at true scale);
+     4. the handoff assertion the whole design turns on: sample the cube's
+        world position either side of every ownership change and require
+        continuity, so a handoff can never become a teleport.
+
+   Do not treat the STATIONS as descriptive of the current scene.
+   ===========================================================================
+
    THE WORLD TASK. Four bodies, one mind, one job: move a single cube around a
    closed circuit, forever. Every character reads its role out of this file, so
    the scene is one task performed by four machines rather than four loops that

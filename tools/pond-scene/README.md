@@ -288,6 +288,13 @@ against one global cell size so surface detail density stays uniform.
 a role for each character at every moment. It is a pure function of time, so the
 offline tools and the browser agree by construction.
 
+> **Status.** The score is written and asserted, and the shared heartbeat below
+> is live in the shipped bundle. The cast has **not** learned the relay yet: the
+> four modules still run their own independent loops from their own roam
+> regions, and the cube is still the Z1's private prop. The stations describe
+> where the cast needs to stand, not where it stands today. The remaining steps
+> are listed at the top of `anim/world.mjs`.
+
 The circuit is shaped by a measured fact, not a preference. Ask which characters
 can physically stand *under* the copy column — floor still on screen, own height
 below the copy's bottom edge — and only one can do it at all four viewports:
