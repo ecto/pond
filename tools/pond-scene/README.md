@@ -10,6 +10,11 @@ The characters are **articulated**: the payload keeps each robot's URDF link
 hierarchy — per-link geometry plus a joint table — and the runtime drives joint
 angles, so each one performs an actual job rather than bobbing in place.
 
+They also share **one stage**: a single floor at y=0 and one fixed camera that
+re-solves for the viewport aspect and nothing else. Nobody is pinned to a
+screen position and nobody floats — the characters walk, shuffle and hop around
+the floor, and standing on it is an invariant rather than a correction.
+
 ## Rebuild the bundle (the common case)
 
 ```
@@ -25,8 +30,9 @@ Edit:
 
 | what you want to change | file |
 | --- | --- |
-| what a character is *doing* (work loops, click reactions) | `work.mjs` |
-| where a character sits on the page, colours, props, camera, lighting | `scene.js` |
+| what a character is *doing*, and where it roams (work loops, gaits, waypoints, click reactions) | `work.mjs` |
+| the stage itself: camera framing, character sizes, swept-extent constants | `stage.mjs` |
+| colours, props, lighting, lifecycle | `scene.js` |
 | triangle budgets, palette mapping, poses baked into the payload | `build.js` |
 
 `work.mjs` is shared by the runtime and the offline preview, so a pose you
@@ -35,15 +41,26 @@ eyeball in a contact sheet is the pose that ships.
 ## Look at the work before you accept it
 
 ```
-npm run preview        # -> preview/<robot>.png, preview/all.png
-npm run preview -- z1  # one character
+npm run preview             # full-frame stage sheets at the test viewports
+npm run preview -- extents  # swept-extent margins, as numbers
+npm run preview -- solve    # re-derive the stage constants after a roam change
+npm run preview -- solo t1  # one character, close up, on a ground slab
 ```
 
-Renders each character at five phases of its work cycle through a small
-software rasterizer (`raster.js`) — no browser needed. A grey slab marks the
-measured ground contact, so a floating character or prop is obvious. **Look at
-every frame.** The joint sign conventions are not guessable; every pose in
-`work.mjs` was found by rendering candidates and picking.
+`preview` renders the WHOLE composited frame through the same camera solve the
+runtime uses, at 1280x700, 1440x1300 and 1280x1400, at six times chosen to
+catch the roam extremes — which is where cropping would reappear. It goes
+through a small software rasterizer (`raster.js`), so no browser is involved.
+**Look at every frame.** The joint sign conventions are not guessable; every
+pose and facing in `work.mjs` was found by rendering candidates and picking.
+(The heading convention in particular: the robots' forward axis is URDF +x, so
+a facing is `atan2(-dz, dx)`. Getting that wrong makes the Go2 walk sideways,
+which the foot-slip check in the selftest catches.)
+
+`extents` prints, per character per viewport, how much clear margin its swept
+silhouette leaves on each edge. Nothing may be negative. After moving any
+waypoint, run `solve` and paste the two constants it prints into `stage.mjs`,
+then re-run `extents` to confirm.
 
 ```
 npm run selftest
@@ -51,7 +68,10 @@ npm run selftest
 
 Decodes `mesh-data.js` exactly as the browser does, rebuilds the three.js node
 graph the same way, and checks every link's world transform against the
-reference matrix FK. Catches frame/quaternion/offset mistakes without a browser.
+reference matrix FK. It also checks that the leg IK really inverts the leg's
+forward kinematics, and — the one that matters most — that a planted foot does
+not travel across the ground while the body moves. Anything above 5% of body
+speed reads as skating and fails the test.
 
 ## Regenerating the mesh payload (needed after any `build.js` change)
 
@@ -94,23 +114,44 @@ Sources stay in their native frame (URDF is Z-up); the runtime applies one
 −90° X rotation at the character root. Because the URDF root is the *trunk*,
 bending the legs lifts the feet rather than lowering the body, so every frame
 the character is re-grounded by pushing it down until its lowest planted link is
-back on the deck.
+back on the deck. On a shared floor this is what keeps everyone standing on it.
+
+## The stage
+
+Floor at y=0. The camera is **level** — no tilt — sitting `camY` above the floor
+and looking down -Z, which puts the horizon exactly at screen centre: a
+character further upstage stands higher in the frame, and the ground recedes
+without the keystoning a tilted camera would add. The floor under the stage
+centre lands 30% up from the bottom edge.
+
+The camera solves from the viewport aspect alone. It never tracks a character,
+never bobs, and never repositions anyone in screen space. At wide viewports the
+design framing (`VH_BASE`) applies; at portrait-ish ones the stage's own width
+takes over and the camera pulls back, so the cast is never cropped sideways.
+
+Roam regions are disjoint enough in x, and separated in depth, that the quadrant
+distribution is structural — two characters cannot converge on the same spot.
+The far pair (Go2 upstage-left, T1 upstage-right) and the near pair (pond-bot
+downstage-centre, Z1 downstage-right) are free to share screen columns, because
+depth separates them: the nearer one occludes the further one and it reads as a
+scene rather than a collision.
 
 ## Files
 
 | file | role |
 | --- | --- |
-| `scene.js` | runtime: composition, node graph, animation, lifecycle. Bundle entry point. |
-| `work.mjs` | the work loops and click reactions. Shared with the preview. |
+| `scene.js` | runtime: node graph, posing, grounding, lifecycle. Bundle entry point. |
+| `work.mjs` | work loops, gaits, roam schedules and click reactions. Shared with the preview. |
+| `stage.mjs` | floor, camera solve, character sizes, swept-extent constants. Shared with the preview. |
 | `mesh-data.js` | **generated** base64 skeleton + geometry payload. |
 | `export.js` | packs the built characters into `mesh-data.js`. |
 | `build.js` | per-character specs: source, pose, palette mapping, triangle budget. |
 | `assemble.js` | URDF/GLB -> per-link geometry; welding and budgeted decimation. |
 | `urdf.js` | minimal URDF parser (links, joints, axes, limits, mesh refs). |
 | `loaders.js` | DAE/STL/GLB mesh loading. |
-| `preview.js` | offline contact sheets: FK, props, ground slab, rasterised. |
+| `preview.js` | offline stage renders, swept-extent checks, and the constant solve. |
 | `raster.js` | tiny software rasterizer + PNG writer. |
-| `selftest.js` | decode + node-graph FK equivalence check. |
+| `selftest.js` | decode, node-graph FK equivalence, IK inversion, and foot-slip checks. |
 | `glb-export.js` | optional: writes the posed, skinned characters back out as GLBs. |
 
 ## Budgets
@@ -126,30 +167,53 @@ against one global cell size so surface detail density stays uniform.
 | T1 | 169k | 90,784 | 24 | 23 |
 | Z1 | 178k | 53,060 | 7 | 6 |
 
-## The work loops
+## The work loops and gaits
 
-- **Z1 — pick and place.** Reaches down to a bone cube, grasps, lifts and slews
+Both the Go2 and T1 legs turned out to be exact two-link planar chains, so the
+gaits are driven by **inverse kinematics on the foot**, not by keyframed joint
+angles. During stance the foot is commanded to travel backward at exactly the
+body's forward speed, which makes not-skating a property of the construction
+rather than something to tune. Gait phase is driven by distance travelled, not
+by time, so changing a character's speed changes its cadence and nothing else.
+
+- **Z1 — pick and place.** Bolted to its spot downstage right; it arrives by
+  rising into place rather than walking on. Reaches down to a bone cube, grasps, lifts and slews
   across, sets it down at a second spot, returns home; the next cycle runs the
   other way so the cube ping-pongs forever. The three arm keyposes live on one
   "arm extended" manifold (elbow held near 1.9 rad) because folding the elbow in
   drives `link04` straight through `link02`. 9.5s.
-- **Go2 — sentry patrol.** Stationary scanning: weight rocks between the left
-  and right pairs, one foot steps in place four times a cycle, and the trunk
-  sweeps side to side (the Go2 has no neck joint, so the scan has to come from
-  the body). 11s.
-- **T1 — carry and inspect.** Carries an ink crate gripped at its top rim, sways
-  under the load, then squats to set it on the deck, stands and looks it over,
-  squats again and picks it back up. T1 has no torso-pitch joint — its "Waist"
-  is a yaw that turns the *legs* — so the squat is the only way down, which is
-  why the crate is tall and gripped high. 15s.
-- **pond-bot — the host.** No joints of its own, so its work is social: it hops
-  around to face each coworker in turn and watches them work. 8s.
+- **Go2 — sentry patrol.** Walks a four-waypoint patrol across the upstage left
+  of the floor on a proper crawl gait (duty 0.75, three feet down at a time,
+  sequence left-front, right-hind, right-front, left-hind), pausing at each
+  waypoint to scan. While parked it rocks its weight and re-plants a foot now
+  and then, and the trunk sweeps side to side — the Go2 has no neck joint, so
+  the scan has to come from the body. Measured planted-foot slip: 1.7% of body
+  speed.
+- **T1 — carry and inspect.** Mostly stationary at a work spot upstage right:
+  carries an ink crate gripped at its top rim, sways under the load, then squats
+  to set it on the deck, stands and looks it over, squats again and picks it
+  back up. Twice a loop it walks a few slow careful steps to the neighbouring
+  spot and back. T1 has no torso-pitch joint — its "Waist" is a yaw that turns
+  the *legs* — so the squat is the only way down, which is why the crate is tall
+  and gripped high. Its weight shift lives in the body tilt rather than in hip
+  roll: the lateral chain is one rotational DOF per joint, so rolling the hips
+  cannot shift the pelvis without dragging the planted foot sideways (measured
+  at ~15% of body speed, which reads as a skate). Shipped gait: a real IK walk,
+  not the turn-in-place fallback. Slip 4.8%.
+- **pond-bot — the host.** No joints of its own, so its work is social and its
+  locomotion is ballistic: it hops between four spots downstage centre, turning
+  mid-flight to face whichever coworker it is going to watch, squashing on
+  takeoff and absorbing the landing. Its spots keep clear of the Z1's reach and
+  the Go2's patrol. `lift` is the only thing in the whole scene that ever takes
+  a character off the floor.
 
-Periods differ and each character starts at a random phase, so the four loops
-never sync up.
+Every character walks on from offstage on its first pass — the entrance is just
+the first leg of its schedule, so it arrives on a real gait — and then loops
+forever. The periods differ, so the four never sync up.
 
 Clicking a character plays one random articulated reaction (T1 bows from the
 hips, the Go2 play-bows on folded forelegs, the Z1 waves its tool flange,
 pond-bot backflips) layered additively over whatever it was doing.
-`prefers-reduced-motion` freezes each character in a natural mid-work pose and
-skips the loop and the reactions entirely.
+`prefers-reduced-motion` renders a single still frame: everyone standing on the
+floor at their spot in a natural mid-work pose, with no locomotion, no loop and
+no reactions.

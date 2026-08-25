@@ -7,26 +7,21 @@
    bbox. scene.js rebuilds the node graph from this and drives joint angles. */
 const fs = require('fs');
 const THREE = require('three');
-const { build, measure } = require('./build');
-const { fk } = require('./preview');
+const { buildStage } = require('./preview');
 
-const ORDER = ['pondbot', 'go2', 't1', 'z1'];
 const r = (n, d = 6) => Number(n.toFixed(d));
 
+/* The characters are built, measured and anchored by buildStage() — the same
+   code path the offline stage preview uses — so the payload the browser gets
+   is normalised exactly the way the verified frames were. */
 async function pack() {
-  const WORKMOD = await import('./work.mjs');
+  const { cast } = await buildStage();
   const bufs = [];
   const robots = [];
   let offset = 0;
 
-  for (const name of ORDER) {
-    const c = build(name);
-    // frame against the WHOLE work cycle, not just the rest pose
-    const work = WORKMOD.WORK[name], T = WORKMOD.PERIOD[name];
-    const poses = [];
-    for (let i = 0; i < 32; i++) poses.push(work((i / 32) * T).j || {});
-    c._ground = WORKMOD.GROUND[name] || [];
-    measure(c, poses, fk, c._ground);
+  for (const c of cast) {
+    const name = c.key;
     const links = [];
 
     for (const [ln, geo] of Object.entries(c.links)) {
@@ -69,8 +64,7 @@ async function pack() {
       yUp: !!c.yUp,
       pivot: c.pivot.map((x) => r(x)),
       height: r(c.height),
-      ground: c._ground,
-      rest: Object.fromEntries(Object.entries(c.rest).map(([k, v]) => [k, r(v, 4)])),
+      ground: c.ground,
       links,
       joints: c.joints.map((j) => ({
         n: j.name,

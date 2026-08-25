@@ -54,12 +54,20 @@ function render({ positions, index, matId }, opts = {}) {
   radius = Math.sqrt(radius) || 1;
 
   const ar = (az * Math.PI) / 180, er = (el * Math.PI) / 180;
-  const dist = (radius / Math.sin((30 * Math.PI / 180) / 2)) * (opts.zoom || 1.08);
-  const eye = new THREE.Vector3(
+  let dist = (radius / Math.sin((30 * Math.PI / 180) / 2)) * (opts.zoom || 1.08);
+  let eye = new THREE.Vector3(
     c.x + dist * Math.cos(er) * Math.sin(ar),
     c.y + dist * Math.sin(er),
     c.z + dist * Math.cos(er) * Math.cos(ar)
   );
+  // explicit stage camera: level, at (0, camY, dist), looking down -Z. This is
+  // exactly the camera the runtime uses, so a stage sheet is a real preview of
+  // the composited frame rather than an approximation of it.
+  if (opts.cam) {
+    dist = opts.cam.dist;
+    eye = new THREE.Vector3(0, opts.cam.camY, dist);
+    c.set(0, opts.cam.camY, 0);
+  }
   const view = new THREE.Matrix4().lookAt(eye, c, new THREE.Vector3(0, 1, 0));
   const viewM = new THREE.Matrix4().makeBasis(
     new THREE.Vector3().setFromMatrixColumn(view, 0),
@@ -67,8 +75,10 @@ function render({ positions, index, matId }, opts = {}) {
     new THREE.Vector3().setFromMatrixColumn(view, 2)
   ).setPosition(eye).invert();
   const proj = new THREE.Matrix4().makePerspective(-1, 1, 1, -1, 1, 1000);
-  const fov = 30 * Math.PI / 180;
+  const fov = ((opts.cam && opts.cam.fov) || 30) * Math.PI / 180;
   const f = 1 / Math.tan(fov / 2);
+  // vertical fov is authoritative; horizontal follows the viewport aspect
+  const fx = f / (w / h);
 
   const img = Buffer.alloc(w * h * 3);
   for (let i = 0; i < w * h; i++) { img[i * 3] = bg[0]; img[i * 3 + 1] = bg[1]; img[i * 3 + 2] = bg[2]; }
@@ -93,7 +103,7 @@ function render({ positions, index, matId }, opts = {}) {
     const r = Math.min(255, col[0] * lam), g = Math.min(255, col[1] * lam), b = Math.min(255, col[2] * lam);
 
     for (let k = 0; k < 3; k++) {
-      const sx = (v[k].x * f) / -v[k].z, sy = (v[k].y * f) / -v[k].z;
+      const sx = (v[k].x * fx) / -v[k].z, sy = (v[k].y * f) / -v[k].z;
       p[k].x = (sx * 0.5 + 0.5) * w; p[k].y = (1 - (sy * 0.5 + 0.5)) * h; p[k].z = -v[k].z;
     }
     const minx = Math.max(0, Math.floor(Math.min(p[0].x, p[1].x, p[2].x)));
