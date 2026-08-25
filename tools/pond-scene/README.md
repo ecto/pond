@@ -155,6 +155,21 @@ T1, so they sit lower in the frame and in front. Small edge margins are the
 goal, not large ones — a big margin everywhere means the cast has drifted back
 to the middle, which is the failure mode this layout exists to prevent.
 
+### The crop budget
+
+Full visibility for everyone, a hard copy keep-out, and an edge-spread layout
+are three claims on one budget, and the band width is what pays. The original
+PNG layout bought big characters by letting them run off the frame, so a little
+of that is allowed back: `OUTER` names one edge per character and `CROP_MAX`
+lets it hang up to 10% of its own swept width off that edge — the Go2 to the
+left, the Z1 to the right. A cropped dog hindquarter or arm base reads as
+staging; a half-cropped humanoid just reads broken, so **T1 and pond-bot stay
+whole**, and the copy keep-out stays at zero tolerance for everyone.
+
+`edgeAllowance()` turns that into the per-edge requirement the extents tool and
+the selftest both assert. It is worth roughly 40% of linear size on the two
+characters that use it.
+
 Depth is deliberately shallow (|z| under ~0.8). The screen-x of a world point
 depends on aspect only through its depth, so a deep stage makes the horizontal
 composition drift between viewports; keeping the cast shallow keeps the bands

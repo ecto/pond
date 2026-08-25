@@ -153,7 +153,8 @@ function checkIK(WORK) {
     const K = S.keepOut(vw, vh);
     for (const c of cast) {
       const e = sweptExtent(c, cam, S);
-      const m = Math.min(e.x0, 1 - e.x1, e.y0, 1 - e.y1);
+      const A = S.edgeAllowance(c.key, e.x1 - e.x0);
+      const m = Math.min(e.x0 - A.left, (1 - e.x1) - A.right, e.y0 - A.top, (1 - e.y1) - A.bottom);
       if (m < tightest) { tightest = m; tightestWho = `${c.key} @ ${vw}x${vh}`; }
       const ow = Math.min(e.x1, K[2]) - Math.max(e.x0, K[0]);
       const oh = Math.min(e.y1, K[3]) - Math.max(e.y0, K[1]);
@@ -161,8 +162,8 @@ function checkIK(WORK) {
       if (hit > overlap) { overlap = hit; overlapWho = `${c.key} @ ${vw}x${vh}`; }
     }
   }
-  console.log(`tightest frame-edge margin ${(tightest * 100).toFixed(1)}%  (${tightestWho})`);
-  if (tightest < S.MARGIN_FRAC) { console.error('CROPPED AT THE FRAME EDGE'); process.exit(1); }
+  console.log(`tightest frame-edge slack ${(tightest * 100).toFixed(1)}%  (${tightestWho})`);
+  if (tightest < 0) { console.error('OVER THE EDGE BUDGET'); process.exit(1); }
   console.log(overlap > 0
     ? `copy keep-out VIOLATED by ${(overlap * 100).toFixed(1)}%  (${overlapWho})`
     : 'copy keep-out clear at every viewport and roam extreme');

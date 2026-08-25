@@ -445,20 +445,26 @@ async function extents() {
     console.log(`\n${vw}x${vh}  aspect ${(vw / vh).toFixed(3)}  vh ${cam.vh.toFixed(2)} vw ${cam.vw.toFixed(2)} `
       + `dist ${cam.dist.toFixed(2)} camY ${cam.camY.toFixed(2)}`);
     console.log(`  copy keep-out  x ${(K[0] * 100).toFixed(1)}..${(K[2] * 100).toFixed(1)}%  y ${(K[1] * 100).toFixed(1)}..${(K[3] * 100).toFixed(1)}%`);
-    console.log('  character   left  right    top bottom  | edge  | copy');
+    console.log('  character   left  right    top bottom  | slack | crop | copy');
     for (const char of cast) {
       const e = sweptExtent(char, cam, S);
-      const min = Math.min(e.x0, 1 - e.x1, e.y0, 1 - e.y1);
+      const W = e.x1 - e.x0;
+      const A = S.edgeAllowance(char.key, W);
+      // slack is how much margin is left over its allowance on the worst edge
+      const slack = Math.min(e.x0 - A.left, (1 - e.x1) - A.right, e.y0 - A.top, (1 - e.y1) - A.bottom);
+      const off = Math.max(0, -e.x0) + Math.max(0, e.x1 - 1);
+      const cropPct = W > 0 ? off / W : 0;
       const hit = keepOutOverlap(e, K);
-      if (min < worstEdge) { worstEdge = min; worstWho = `${char.key} @ ${vw}x${vh}`; }
+      if (slack < worstEdge) { worstEdge = slack; worstWho = `${char.key} @ ${vw}x${vh}`; }
       if (hit > worstHit) { worstHit = hit; hitWho = `${char.key} @ ${vw}x${vh}`; }
       console.log(`  ${char.key.padEnd(9)} ${(e.x0 * 100).toFixed(1).padStart(6)} ${((1 - e.x1) * 100).toFixed(1).padStart(6)} `
         + `${(e.y0 * 100).toFixed(1).padStart(6)} ${((1 - e.y1) * 100).toFixed(1).padStart(6)}  |`
-        + `${(min * 100).toFixed(1).padStart(6)}%${min < 0 ? ' CROP' : '     '}|`
+        + `${(slack * 100).toFixed(1).padStart(6)}%${slack < 0 ? '!' : ' '}|`
+        + `${(cropPct * 100).toFixed(1).padStart(5)}% |`
         + (hit > 0 ? ` ${(hit * 100).toFixed(1)}% UNDER COPY` : ' clear'));
     }
   }
-  console.log(`\ntightest edge margin ${(worstEdge * 100).toFixed(1)}%  (${worstWho})`);
+  console.log(`\ntightest edge slack ${(worstEdge * 100).toFixed(1)}%  (${worstWho})${worstEdge < 0 ? '  <-- OVER BUDGET' : ''}`);
   console.log(worstHit > 0
     ? `WORST COPY OVERLAP ${(worstHit * 100).toFixed(1)}%  (${hitWho})`
     : 'copy keep-out: clear at every viewport and roam extreme');

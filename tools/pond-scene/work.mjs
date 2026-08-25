@@ -133,8 +133,8 @@ const GO2_SPEED = 0.30;                      // stage units per second
 const GO2_LEGS = [['FL', 0], ['RR', 0.25], ['FR', 0.5], ['RL', 0.75]];
 const GO2_HIP = { FL: 0.04, RL: 0.04, FR: -0.04, RR: -0.04 };
 
-const GO2_A = { x: -1.86, z: -0.64 }, GO2_B = { x: -1.70, z: -0.40 };
-const GO2_C = { x: -1.84, z: -0.58 }, GO2_D = { x: -1.75, z: -0.46 };
+const GO2_A = { x: -1.90, z: -0.64 }, GO2_B = { x: -1.74, z: -0.40 };
+const GO2_C = { x: -1.88, z: -0.58 }, GO2_D = { x: -1.79, z: -0.46 };
 const GO2_HOLD = 4.2;
 const go2Sched = plan(
   [{ from: { x: -3.60, z: -0.64 }, to: GO2_A, speed: 0.42 }, { hold: GO2_HOLD, at: GO2_A }],
@@ -204,7 +204,7 @@ const T1_ADVANCE = T1_STANCE / T1_DUTY;
 const T1_LIFT = 0.045;
 const T1_SPEED = 0.085;                 // stage units per second
 
-const T1_P1 = { x: 1.58, z: -0.44 }, T1_P2 = { x: 1.67, z: -0.30 };
+const T1_P1 = { x: 1.63, z: -0.44 }, T1_P2 = { x: 1.72, z: -0.30 };
 const T1_WORK = 15.0;
 const t1Sched = plan(
   // arrives at a brisk walk, then shuffles slowly once it is at work
@@ -336,8 +336,8 @@ const PB_CYCLE = PB_HOP + PB_SETTLE;
 /* well downstage of the Go2, so the two left-hand characters separate
    vertically on screen instead of stacking on the same floor line */
 const PB_SPOTS = [
-  { x: -1.48, z: 0.68 }, { x: -1.36, z: 0.80 },
-  { x: -1.42, z: 0.66 }, { x: -1.39, z: 0.78 },
+  { x: -1.42, z: 0.68 }, { x: -1.30, z: 0.80 },
+  { x: -1.36, z: 0.66 }, { x: -1.33, z: 0.78 },
 ];
 /* who it turns to watch at each spot */
 const PB_WATCH = [1.15, 0.72, 1.58, 0.95];
@@ -389,7 +389,7 @@ const Z1_LOW = [0.70, 1.90, -1.00, 0.06, 0];
 const Z1_HIGH = [1.10, 1.90, -1.40, 0.08, 0];
 const Z1_FACE = 0.78;
 const Z1_A = Z1_FACE - 0.22, Z1_B = Z1_FACE + 0.22;
-const Z1_AT = { x: 1.40, z: 0.60 }, Z1_YAW = -0.75;
+const Z1_AT = { x: 1.66, z: 0.60 }, Z1_YAW = -0.75;
 const Z1_RISE = 1.1;
 export const Z1_GRASP_U = 0.24, Z1_RELEASE_U = 0.66;
 

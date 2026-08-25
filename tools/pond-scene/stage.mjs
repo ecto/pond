@@ -9,7 +9,29 @@ const TAN_HALF = Math.tan((FOV * Math.PI) / 180 / 2);
    roughly comparable size regardless of the robots' true scale; pond-bot and
    the Z1 are trimmed below the rest because both are far wider than they are
    tall and would otherwise hog the edge bands they live in. */
-export const HEIGHT = { pondbot: 0.36, go2: 0.62, t1: 1.02, z1: 0.44 };
+export const HEIGHT = { pondbot: 0.44, go2: 0.88, t1: 1.12, z1: 0.70 };
+
+/* Allowed crop budget.
+   The old PNG layout got big characters by letting them run off the edges, and
+   a cropped dog hindquarter or arm base reads as intentional staging. A
+   half-cropped humanoid just reads broken, so T1 and pond-bot stay whole.
+   Each named character may run up to CROP_MAX of its own swept width off the
+   named OUTER edge; every other edge still needs a full margin, and the copy
+   keep-out stays at zero tolerance. */
+export const OUTER = { go2: 'left', z1: 'right' };
+export const CROP_MAX = 0.10;
+
+/** the margin each edge must clear, given a character's swept width */
+export function edgeAllowance(key, sweptWidth) {
+  const side = OUTER[key];
+  const crop = -CROP_MAX * sweptWidth;
+  return {
+    left: side === 'left' ? crop : MARGIN_FRAC,
+    right: side === 'right' ? crop : MARGIN_FRAC,
+    top: MARGIN_FRAC,
+    bottom: MARGIN_FRAC,
+  };
+}
 
 /* ---------------- the text keep-out ----------------
 
