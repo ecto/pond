@@ -6,18 +6,22 @@
    way out, and hands back a plain state object.
 
    Adding a character: import it, add it to CHARACTERS, give it a roam box in
-   its own module, and add its ground links. Nothing else here is per-character. */
+   its own module, and add its ground links. Nothing else here is per-character.
 
-import pondbot from './pondbot.mjs';
+   The cast is a size gradient — Z1 0.51, Go2 0.46, K1 0.94, H2 1.83 — and the
+   H2 is the host. ORDER is the payload order too, so changing it re-packs
+   mesh-data.js. */
+
+import h2 from './h2.mjs';
+import k1 from './k1.mjs';
 import go2 from './go2.mjs';
-import t1 from './t1.mjs';
 import z1 from './z1.mjs';
 import { createContext, boundsExcursion } from './context.mjs';
 import { legIK } from './kinematics.mjs';
 import { NO_POINTER } from './pointer.mjs';
 
-export const CHARACTERS = { pondbot, go2, t1, z1 };
-export const ORDER = ['pondbot', 'go2', 't1', 'z1'];
+export const CHARACTERS = { h2, k1, go2, z1 };
+export const ORDER = ['h2', 'k1', 'go2', 'z1'];
 
 /**
  * Evaluate one character at time t.
@@ -94,11 +98,13 @@ for (const k of ORDER) for (const r of REACTIONS_BY_KEY[k]) REACTIONS[r.name] = 
 /* ---------------- gait constants the selftest re-derives from the URDFs ---- */
 const GAIT_LINKS = {
   go2: { hipLink: 'FL_thigh', footLink: 'FL_foot', hipJoint: 'FL_thigh_joint', kneeJoint: 'FL_calf_joint', kneeSign: -1 },
-  t1: { hipLink: 'Hip_Pitch_Left', footLink: 'left_foot_link', hipJoint: 'Left_Hip_Pitch', kneeJoint: 'Left_Knee_Pitch', kneeSign: +1 },
+  h2: { hipLink: 'left_hip_yaw_link', footLink: 'left_ankle_pitch_link', hipJoint: 'left_hip_pitch_joint', kneeJoint: 'left_knee_joint', kneeSign: +1 },
+  k1: { hipLink: 'Left_Hip_Yaw', footLink: 'left_foot_link', hipJoint: 'Left_Hip_Pitch', kneeJoint: 'Left_Knee_Pitch', kneeSign: +1 },
 };
 export const GAIT = {
   go2: { L1: go2.params.L, L2: go2.params.L, advance: go2.params.advance, stand: go2.params.stand, ...GAIT_LINKS.go2 },
-  t1: { L1: t1.params.L1, L2: t1.params.L2, advance: t1.params.advance, stand: t1.params.stand, ...GAIT_LINKS.t1 },
+  h2: { L1: h2.params.L1, L2: h2.params.L2, advance: h2.params.advance, stand: h2.params.stand, ...GAIT_LINKS.h2 },
+  k1: { L1: k1.params.L1, L2: k1.params.L2, advance: k1.params.advance, stand: k1.params.stand, ...GAIT_LINKS.k1 },
 };
 
 export { legIK, boundsExcursion };

@@ -93,7 +93,7 @@ const SIDE = { FL: 1, RL: 1, FR: -1, RR: -1 };
    distance, and everything below still drives its gait phase from distance,
    never from the clock, so the anti-skate invariant is untouched. */
 const OFFSTAGE = { x: -3.60, z: -0.64 };
-const LOAD = STATIONS.go2Load, HAND = STATIONS.handoff, POST = STATIONS.go2Patrol;
+const LOAD = STATIONS.go2Load, HAND = STATIONS.h2Handoff, POST = STATIONS.go2Patrol;
 
 /* `yaw` on a wait PINS the facing. It matters at the loading bay: the arm has
    one target for the cube on this dog's back, so the dog has to present its
@@ -107,19 +107,28 @@ const LOAD = STATIONS.go2Load, HAND = STATIONS.handoff, POST = STATIONS.go2Patro
    by 200mm between the two. Perpendicular, it moves sideways instead, which
    costs the arm almost nothing and is what "presenting your back" means. */
 const LOAD_YAW = 0.695;
-/* Same reasoning at the transfer point: the frog has one place to leap to, so
-   the back has to be presented the same way whether the dog arrived from the
-   bay or from its patrol post. Without this the two visits differ by 185mm —
-   twice the carry offset — because the dog is facing opposite ways. It pivots
-   its trunk over planted feet to get there, which the foot compensation
-   downstairs already knows how to do. */
+/* Same reasoning at the transfer point, and it matters more now: the H2 bends
+   to ONE place, so the back has to be presented the same way whether the dog
+   arrived from the bay or from its patrol post. Without this the two visits
+   differ by 185mm — twice the carry offset — because the dog is facing
+   opposite ways. It pivots its trunk over planted feet to get there, which the
+   foot compensation downstairs already knows how to do. */
 const HAND_YAW = -1.471;
+/* Retimed to the conveyor score. The dog is loaded by the arm at the bay
+   (0..16), carries the cube to the flagship's station (16..22), holds still and
+   low while the H2 lifts it off (22..34), goes back on patrol while the belt
+   does the crossing (34..76), comes back to be re-loaded by the H2 (76..87) and
+   carries it home (87..96). */
 const ROUTE = makeRoute([
-  { t: 0, ...LOAD, yaw: LOAD_YAW }, { t: 19, ...LOAD, yaw: LOAD_YAW },
-  { t: 23, ...HAND, yaw: HAND_YAW }, { t: 42, ...HAND, yaw: HAND_YAW },
-  { t: 49, ...POST }, { t: 68, ...POST },
-  { t: 76, ...HAND, yaw: HAND_YAW }, { t: 87, ...HAND, yaw: HAND_YAW },
-  { t: 90, ...LOAD, yaw: LOAD_YAW }, { t: 96, ...LOAD, yaw: LOAD_YAW },
+  /* It must still be STANDING STILL at 18, when the arm lets go of the cube on
+     its back — a dog that has already taken its first step has moved the target
+     150mm. So the hold runs a beat past the ownership change and the walk
+     starts after it. */
+  { t: 0, ...LOAD, yaw: LOAD_YAW }, { t: 19.5, ...LOAD, yaw: LOAD_YAW },
+  { t: 22.5, ...HAND, yaw: HAND_YAW }, { t: 36, ...HAND, yaw: HAND_YAW },
+  { t: 42, ...POST }, { t: 70, ...POST },
+  { t: 76, ...HAND, yaw: HAND_YAW }, { t: 88, ...HAND, yaw: HAND_YAW },
+  { t: 92, ...LOAD, yaw: LOAD_YAW }, { t: 96, ...LOAD, yaw: LOAD_YAW },
 ]);
 
 /* How low it gets. Standing, its back is 0.49 off the deck; a frog at the top
@@ -129,7 +138,7 @@ const ROUTE = makeRoute([
    have to actually touch, and it only works because the dog gives way. */
 const STAND_TALL = params.stand;   // 0.335 — walking
 const STAND_MID = 0.185;           // being loaded by the arm
-const STAND_LOW = 0.135;           // lying down for the frog — and this is near the
+const STAND_LOW = 0.175;           // folded flat for the flagship — see below
                                    // FLOOR: by 0.100 the calf joint is at
                                    // -2.665 of its -2.72 limit and the thigh is
                                    // near the top of its range. A real Go2
@@ -153,16 +162,24 @@ function window(t, at, a, b, c, d) {
 
 /** 0..1 how far into a crouch it is — patrol flourishes fade out against this */
 function crouchWeight(t) {
-  const low = Math.max(window(t, 0, 26, 30, 40, 43), window(t, 0, 79, 82, 86, 88));
-  const mid = window(t, 90, 0, 1.5, 25, 27);
+  const low = Math.max(window(t, 0, 22, 25, 34, 36), window(t, 0, 76, 79, 87, 88));
+  const mid = window(t, 86, 0, 2, 28, 30);
   return Math.max(0, Math.min(1, Math.max(low, mid * 0.55)));
 }
 
 function standAt(t) {
-  // lying down for the frog, twice: it takes the cube at 36 and returns it at 78
-  const low = Math.max(window(t, 0, 26, 30, 40, 43), window(t, 0, 79, 82, 86, 88));
-  // and the loading crouch, which wraps the master boundary (81 .. 19)
-  const mid = window(t, 90, 0, 1.5, 25, 27);
+  /* Lying down for the FLAGSHIP, twice: the H2 lifts the cube off its back at
+     26..34 and puts it back at 80..87. It is the same fold the frog used to ask
+     for, and for the same reason — the thing reaching for the cube cannot get
+     that low on its own, so the dog gives way. A 1.83m humanoid folded over a
+     dog folded flat is the size story of the whole scene in one picture. */
+  const low = Math.max(window(t, 0, 22, 25, 34, 36), window(t, 0, 76, 79, 87, 88));
+  /* and the loading crouch for the arm, which WRAPS the master boundary. It has
+     to be down at 92, when the arm takes the cube off the back, and still down
+     at 18, when the arm puts the next one on — one hold spanning 86..20, not
+     two. Getting this window wrong does not look wrong; it just moves the back
+     by 150mm between the two visits and the handoff assertion fails. */
+  const mid = window(t, 86, 0, 2, 28, 30);
   const wm = mid * (1 - low);
   return STAND_TALL + (STAND_LOW - STAND_TALL) * low + (STAND_MID - STAND_TALL) * wm;
 }

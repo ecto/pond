@@ -106,10 +106,20 @@ function checkIK(WORK) {
     if (Math.abs(ref.height - R.height) > 1e-3) throw new Error(`${name}: height ${ref.height} vs ${R.height}`);
     for (let k = 0; k < 3; k++) if (Math.abs(ref.pivot[k] - R.pivot[k]) > 1e-3) throw new Error(`${name}: pivot mismatch`);
 
+    /* Clamp exactly as the runtime does. scene.js applies each joint's URDF
+       limit before writing it, and so does preview.js's fk(), so the node graph
+       has to as well or the two disagree wherever a pose reaches past a limit —
+       which shows up here as a whopping FK mismatch and points at the graph
+       when the real fault is the POSE. Pose legality is a separate check, and
+       it lives further down; this one is only about the two graphs agreeing. */
+    const lim = {};
+    for (const j of R.joints) if (j.lim) lim[j.n] = j.lim;
+    const clamp = (n, v) => { const L = lim[n]; return !L ? v : (v < L[0] ? L[0] : v > L[1] ? L[1] : v); };
+
     const tmpQ = new THREE.Quaternion();
     for (const pose of poses) {
       for (const j of skel.joints) {
-        const q = pose[j.name] || 0;
+        const q = clamp(j.name, pose[j.name] || 0);
         if (j.prismatic) j.node.position.copy(j.basePos).addScaledVector(j.axis, q);
         else j.node.quaternion.copy(j.originQuat).multiply(tmpQ.setFromAxisAngle(j.axis, q));
       }
@@ -137,7 +147,7 @@ function checkIK(WORK) {
 
   // no skating: while a foot is planted, its speed over the ground must match
   // the body's speed. Measured on the stage, in stage units per second.
-  for (const key of ['go2', 't1']) {
+  for (const key of ['go2', 'h2', 'k1']) {
     const c = byKey[key];
     const slip = footSlip(c, WORK);
     console.log(`${key.padEnd(9)} planted-foot slip while walking: ${(slip.rel * 100).toFixed(2)}% of body speed `
@@ -357,6 +367,12 @@ async function checkHandoffs(cast) {
   };
   const cubeAt = (t) => {
     const h = W.holderAt(t);
+    /* the belt is a party to two handoffs like any character, but it is a prop:
+       its position is a pure function of the score, with no transform chain */
+    if (h === 'belt') {
+      const p = W.beltPoint(W.beltProgress(t));
+      return new THREE.Vector3(p.x, p.y, p.z);
+    }
     if (h) return carryPoint(h, t);
     const p = W.parkedCube(t);
     return new THREE.Vector3(p.x, p.y, p.z);
@@ -424,11 +440,15 @@ async function checkWorldTask() {
     if (!seen.includes(L.beat)) seen.push(L.beat);
   }
   // and the holder is always either null or a real character
-  const KEYS = ['pondbot', 'go2', 't1', 'z1'];
+  const KEYS = ['h2', 'k1', 'go2', 'z1'];
+  /* the belt owns the cube for two of the thirteen legs, exactly the way a
+     character does — it is a party to two of the handoffs and it has a
+     position, so it is a legal holder */
+  const HOLDERS = KEYS.concat(['belt']);
   for (let i = 0; i <= 2000; i++) {
     const t = (i / 2000) * W.MASTER;
     const h = W.holderAt(t);
-    if (h !== null && !KEYS.includes(h)) { console.error(`  world: bogus holder ${h} at t=${t.toFixed(2)}`); bad++; break; }
+    if (h !== null && !HOLDERS.includes(h)) { console.error(`  world: bogus holder ${h} at t=${t.toFixed(2)}`); bad++; break; }
     if (h === null && !W.STATIONS[W.parkAt(t)]) { console.error(`  world: cube parked nowhere at t=${t.toFixed(2)}`); bad++; break; }
   }
 
@@ -449,10 +469,9 @@ async function checkWorldTask() {
   for (const k of KEYS) HW[k] = (await import('./anim/index.mjs')).ROAM[k].halfWidth;
   const BODY = [
     ['z1', 'left', ['z1']],
-    ['go2', 'left', ['go2Load', 'go2Patrol', 'handoff']],
-    ['pondbot', 'left', ['frogHome']],
-    ['pondbot', 'right', ['frogDeliver']],
-    ['t1', 'right', ['t1', 't1Reach']],
+    ['go2', 'left', ['go2Load', 'go2Patrol', 'h2Handoff']],
+    ['h2', 'left', ['h2']],
+    ['k1', 'right', ['k1', 'k1Reach']],
   ];
   for (const [key, side, names] of BODY) {
     for (const n of names) {
@@ -466,7 +485,7 @@ async function checkWorldTask() {
     }
   }
   // the pallets are props, so they answer to the cube's size, not a body's
-  for (const [n, side] of [['z1Pallet', 'left'], ['t1Pallet', 'right']]) {
+  for (const [n, side] of [['z1Pallet', 'left'], ['k1Bench', 'right']]) {
     const st = W.STATIONS[n];
     const [lo, hi] = S.feasibleX('prop', side, W.CUBE, st.z);
     if (st.x < lo - 1e-9 || st.x > hi + 1e-9) {
@@ -496,105 +515,95 @@ async function checkWorldTask() {
     + 'all stations inside their feasible bands, pulse continuous)');
 }
 
-/* ---- the frog is the right way up, absolutely ------------------------------
-   Not "upright relative to its rest pose" — the rest pose itself was the bug.
-   The pond-bot GLB is a Z-up CAD export that build.js used to import as Y-up,
-   so the character's BASE transform laid it on its back. Grounding only pushes
-   the lowest point onto the deck, so lying on its back is a perfectly stable
-   solution and nothing complained. A relative check cannot catch that; this one
-   is geometric and absolute.
+/* ---- everybody is the right way up, absolutely ------------------------------
+   Not "upright relative to its rest pose" — the rest pose itself was the bug,
+   last time. The pond-bot GLB was a Z-up CAD export imported as Y-up, so the
+   character's BASE transform laid it on its back, and since grounding only
+   pushes the lowest point onto the deck, lying on its back was a perfectly
+   stable solution that nothing complained about. A relative check cannot catch
+   that; this one is geometric and absolute.
 
-   The marker is semantic, so it survives any change of frame convention: the
-   pond-bot's two eye pupils are the two big symmetric accent clusters (2880
-   verts each), while the chest disc is a third, much smaller one (384) sitting
-   on the mid-plane. Find the axis the accent geometry spreads along, throw away
-   everything near its middle, and what is left is the eyes. Then push them
-   through the real runtime transform chain and check they come out at the TOP
-   of the body in world space.
+   The frog is gone, and with it the eye-pupil trick that used to anchor this
+   check. What replaces it generalises to the whole cast and needs no per-robot
+   knowledge beyond one link name: for each character, take a link that is
+   structurally near the TOP of the body (a head, or a trunk) and one near the
+   BOTTOM (a foot, or the base), push both through the real runtime transform
+   chain, and require the top one to actually come out above the bottom one —
+   by a healthy fraction of the body's own height, at every moment of the loop
+   and at both ends of every reaction.
 
-   Reactions are checked at their ends only: the backflip legitimately puts the
-   frog upside down in the middle, which is the entire point of a backflip. */
+   Reactions are checked at their ends only: the K1's spin legitimately puts it
+   through a whole turn in the middle, which is the point of a spin. */
 async function checkBaseOrientation(cast, WORK) {
-  const char = cast.find((c) => c.key === 'pondbot');
-  if (!char) { console.log('base orientation: no pond-bot in the cast'); return; }
   const { placeMatrix } = require('./preview');
-  const geo = char.links.body;
-  if (!geo) throw new Error('pondbot: no body link');
+  /* [top link, bottom link, minimum separation as a fraction of body height].
+     The bar is per-robot because the bodies are different shapes: the Z1 is an
+     arm whose "top" swings through its own work envelope, so it gets a looser
+     one than a biped standing on two feet. */
+  /* The bar is per-robot because the bodies are different shapes, and it is set
+     to catch INVERSION, not to police posture. A character laid on its back or
+     its head puts the top marker at or below the bottom one, i.e. a fraction
+     near zero or negative; these bars sit well above that and well below the
+     tightest legitimate pose each body reaches.
 
-  // accent verts (palette slot 2)
-  const acc = [];
-  for (let i = 0; i < geo.matId.length; i++) {
-    if (geo.matId[i] === 2) acc.push(i);
-  }
-  if (acc.length < 100) throw new Error('pondbot: could not find the accent geometry');
-
-  // the axis the pupils separate along = the widest spread of the accent set
-  let axis = 0, best = -1;
-  for (let c = 0; c < 3; c++) {
-    let lo = Infinity, hi = -Infinity;
-    for (const i of acc) { const v = geo.positions[i * 3 + c]; if (v < lo) lo = v; if (v > hi) hi = v; }
-    if (hi - lo > best) { best = hi - lo; axis = c; }
-  }
-  let lo = Infinity, hi = -Infinity;
-  for (const i of acc) { const v = geo.positions[i * 3 + axis]; if (v < lo) lo = v; if (v > hi) hi = v; }
-  const mid = (lo + hi) / 2, half = (hi - lo) / 2;
-  // drop the middle: that is the chest disc, what remains is the two pupils
-  const eyes = acc.filter((i) => Math.abs(geo.positions[i * 3 + axis] - mid) > 0.4 * half);
-  if (eyes.length < 100) throw new Error('pondbot: could not isolate the eye pupils');
+     The two humanoids keep their heads high through everything they do, so
+     they get a stricter bar than the dog — but not a tight one, because both
+     of them FOLD: the H2's belt pose puts its head over its knees and the K1's
+     lunge to the belt tail drops its head to 37% of its own swept height. Those
+     are the poses the scene is built around, so the bar sits below them.
+     The Go2's trunk drops to a third of its swept height
+     when it folds flat to be loaded, and its swept height includes a hop, so it
+     gets a loose one. The Z1 is EXCLUDED rather than given a loose bar: it is
+     an arm, "up" is not a property it has, and link03 legitimately passes below
+     its own base every time it reaches down to the pallet. A check that cannot
+     fail for a good reason is worse than no check. */
+  const MARK = {
+    h2: ['head_yaw_link', 'left_ankle_pitch_link', 0.42],
+    k1: ['Head_2', 'left_foot_link', 0.28],
+    go2: ['base', 'FL_foot', 0.12],
+  };
 
   const V = new THREE.Vector3();
-  const worldY = (M, W, idx) => {
-    let sum = 0;
-    for (const i of idx) {
-      V.set(geo.positions[i * 3], geo.positions[i * 3 + 1], geo.positions[i * 3 + 2])
-        .applyMatrix4(W).applyMatrix4(M);
-      sum += V.y;
-    }
-    return sum / idx.length;
-  };
-  const bodyBox = (M, W) => {
-    let bl = Infinity, bh = -Infinity;
-    for (let i = 0; i < geo.positions.length; i += 3) {
-      V.set(geo.positions[i], geo.positions[i + 1], geo.positions[i + 2]).applyMatrix4(W).applyMatrix4(M);
-      if (V.y < bl) bl = V.y;
-      if (V.y > bh) bh = V.y;
-    }
-    return [bl, bh];
-  };
+  let bad = 0, worst = 1, worstWho = '';
+  const skipped = [];
 
-  /* where in the body's own vertical span the eyes sit: 1 = crown, 0 = soles.
-     On the reference render the pupils are up in the head domes, so anything
-     below the top third means the character is tipped or inverted. */
-  const MIN_FRACTION = 0.62;
-  let worst = 1, worstAt = '';
-  const sample = (t, label, react) => {
-    const pm = placeMatrix(char, t, react ? { react } : undefined);
-    const W = pm.world.body;
-    const [bl, bh] = bodyBox(pm.M, W);
-    const ey = worldY(pm.M, W, eyes);
-    const f = bh - bl < 1e-9 ? 1 : (ey - bl) / (bh - bl);
-    if (f < worst) { worst = f; worstAt = label; }
-  };
+  for (const char of cast) {
+    const M = MARK[char.key];
+    if (!M) { skipped.push(char.key); continue; }
+    const [topLink, botLink, bar] = M;
 
-  for (let i = 0; i <= 300; i++) {
-    const t = (i / 300) * (char.entryEnd + char.period);
-    sample(t, `t=${t.toFixed(2)}`);
-  }
-  for (const R of (WORK.REACTIONS_BY_KEY.pondbot || [])) {
-    for (const dir of [-1, 1]) {
-      for (const u of [0, 1]) {
-        sample(char.entryEnd + 0.25 * char.period, `${R.name} dir${dir} t=${u}`, { R, t: u, dir });
+    const sample = (t, label, react) => {
+      const pm = placeMatrix(char, t, react ? { react } : undefined);
+      const Wt = pm.world[topLink], Wb = pm.world[botLink];
+      if (!Wt || !Wb) { console.error(`  ${char.key}: missing link ${topLink}/${botLink}`); bad++; return; }
+      const top = V.clone().setFromMatrixPosition(Wt).applyMatrix4(pm.M).y;
+      const bot = V.clone().setFromMatrixPosition(Wb).applyMatrix4(pm.M).y;
+      const f = (top - bot) / char.height;
+      if (f < worst) { worst = f; worstWho = `${char.key} ${label}`; }
+      if (f < bar) {
+        console.error(`  ${char.key}: ${topLink} sits only ${(f * 100).toFixed(0)}% of body height above `
+          + `${botLink} (${label}) — the character is tipped or inverted; check the base transform in build.js`);
+        bad++;
+      }
+    };
+
+    for (let i = 0; i <= 240; i++) {
+      const t = (i / 240) * (char.entryEnd + char.period);
+      sample(t, `t=${t.toFixed(2)}`);
+    }
+    for (const R of (WORK.REACTIONS_BY_KEY[char.key] || [])) {
+      for (const dir of [-1, 1]) {
+        for (const u of [0, 1]) {
+          sample(char.entryEnd + 0.25 * char.period, `${R.name} dir${dir} t=${u}`, { R, t: u, dir });
+        }
       }
     }
   }
 
-  if (worst < MIN_FRACTION) {
-    console.error(`  pond-bot eyes sit at ${(worst * 100).toFixed(0)}% of body height (${worstAt}) — `
-      + 'the character is tipped or inverted; check the base transform in build.js');
-    console.error('BASE ORIENTATION WRONG');
-    process.exit(1);
-  }
-  console.log(`pond-bot base orientation upright (eyes never below ${(worst * 100).toFixed(0)}% of body height)`);
+  if (bad) { console.error('BASE ORIENTATION WRONG'); process.exit(1); }
+  console.log(`every character upright through its whole loop `
+    + `(tightest top-over-bottom ${(worst * 100).toFixed(0)}% of body height, ${worstWho}`
+    + `${skipped.length ? '; no meaningful "up" for ' + skipped.join(', ') : ''})`);
 }
 
 /* Sample a walking stretch and compare how fast the planted foot moves across

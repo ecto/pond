@@ -23,8 +23,8 @@ const PALETTE = {
   red: [0xcf, 0x33, 0x1e],
   amber: [0xf0, 0xad, 0x00],
 };
-const ACCENT = { pondbot: 'blue', go2: 'green', t1: 'red', z1: 'amber' };
-const ORDER = ['pondbot', 'go2', 't1', 'z1'];
+const ACCENT = { h2: 'blue', k1: 'red', go2: 'green', z1: 'amber' };
+const ORDER = ['h2', 'k1', 'go2', 'z1'];
 /* stage.mjs's HEIGHT, cached at buildStage time. The runtime scales a
    reaction's posY by the character's stage height, so the preview needs it
    outside the async builder. */
@@ -120,7 +120,9 @@ function carryNodeMatrix(char, world, C) {
   if (!L || !R) return null;
   const a = new THREE.Vector3().setFromMatrixPosition(L);
   const b = new THREE.Vector3().setFromMatrixPosition(R);
-  const M = new THREE.Matrix4().copy(world.Trunk || new THREE.Matrix4());
+  // the midpoint has a position but no rotation of its own, so it borrows the
+  // torso's — and the two humanoids call that link different things (C.frame)
+  const M = new THREE.Matrix4().copy(world[C.frame] || world.Trunk || new THREE.Matrix4());
   return M.setPosition(a.add(b).multiplyScalar(0.5));
 }
 
@@ -130,6 +132,13 @@ function carryNodeMatrix(char, world, C) {
 const _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3();
 function cubeMatrix(cast, t) {
   const h = W_.holderAt(t);
+  /* the belt owns the cube exactly like a character does, but it is a prop
+     rather than a body: its position is a pure function of the score, with no
+     transform chain and no grounding involved. */
+  if (h === 'belt') {
+    const p = W_.beltPoint(W_.beltProgress(t));
+    return new THREE.Matrix4().makeTranslation(p.x, p.y, p.z);
+  }
   const char = h && cast.find((c) => c.key === h);
   const C = h && W_.CARRY[h];
   if (!char || !C) {

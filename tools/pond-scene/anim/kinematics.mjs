@@ -29,6 +29,46 @@ export function legIK(fx, fz, L1, L2, kneeSign) {
 }
 
 /**
+ * CANTED HIPS.
+ *
+ * The two-link solve above assumes the hip and knee turn about the same
+ * sagittal axis. On the Unitree H2 they do not: the hip-pitch joint's origin
+ * carries a 30 degree roll (-0.5236 on the left, +0.5236 on the right), so its
+ * axis is (0, 0.866, -0.5) and driving it alone swings the leg diagonally
+ * outward instead of forward. The hip-roll joint's origin then rolls the same
+ * 30 degrees back, so with both at zero the leg hangs straight and the cant is
+ * invisible — which is exactly why it is so easy to miss. Fitting the planar
+ * model to the H2's real kinematics leaves 70mm of residual, and driving the
+ * gait through it put 20% of foot slip into the walk.
+ *
+ * The fix is to stop treating hip-pitch as the sagittal joint and instead ask
+ * the whole three-joint hip for a pure sagittal rotation of `theta`. With the
+ * origin roll `cant` (the URDF's rpy[0] on the pitch joint), the chain from the
+ * pelvis to the thigh is
+ *
+ *     Rx(cant) . Ry(pitch) . Rx(-cant) . Rx(roll) . Rz(yaw)
+ *
+ * and setting that equal to Ry(theta) is a Y-X-Z Euler decomposition of
+ * Rx(-cant).Ry(theta), which is closed form. The leg then behaves exactly like
+ * an uncanted one and the planar model above becomes exact again.
+ *
+ * Returns the three joint values to write. `roll` and `yaw` come back nonzero
+ * for any nonzero theta — that is the point, and they are what a naive gait
+ * leaves on the table.
+ */
+export function cantedHip(theta, cant) {
+  const C = -cant;
+  const sC = Math.sin(C), cC = Math.cos(C);
+  const sT = Math.sin(theta), cT = Math.cos(theta);
+  const beta = Math.asin(Math.max(-1, Math.min(1, sC * cT)));
+  return {
+    pitch: Math.atan2(sT, cC * cT),
+    roll: beta - C,
+    yaw: Math.atan2(sC * sT, cC),
+  };
+}
+
+/**
  * One stance/swing foot trajectory, in the hip frame, in the robot's metres.
  *   phase   0..1 within this leg's own cycle
  *   duty    fraction of the cycle the foot is planted

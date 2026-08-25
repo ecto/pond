@@ -51,17 +51,20 @@ const SPECS = {
     weightFor: w([[/^torso_link$/, 2.0], [/^head_/, 1.9], [/^pelvis$/, 1.7],
       [/knee|hip_yaw/, 1.3], [/shoulder|elbow/, 1.2], [/ankle|hand_link|wrist/, 0.75]]),
     tris: 92000,
-    /* Rest: standing tall and easy, arms down and a little forward, head level.
-       The zero pose has the upper arms hanging but the FOREARMS out horizontally
-       in front (left_hand_link sits at x = +0.31 of the elbow), so the elbows
-       have to be driven negative to bring the hands down to the sides. */
+    /* Rest: standing tall and easy, arms down, head level.
+
+       The elbow sign is measured, not guessed (node probe.js h2). At the zero
+       pose the upper arms hang but the FOREARMS stick straight out in front —
+       left_hand_link sits at x = +0.310 of the elbow. The elbow axis is +y, so
+       POSITIVE rotation swings the forearm from +x down toward -z: at +1.57 the
+       hand hangs directly under the elbow. +1.05 is that, relaxed. */
     rest: {
       left_hip_pitch_joint: -0.14, right_hip_pitch_joint: -0.14,
       left_knee_joint: 0.30, right_knee_joint: 0.30,
       left_ankle_pitch_joint: -0.16, right_ankle_pitch_joint: -0.16,
-      left_shoulder_pitch_joint: -0.16, right_shoulder_pitch_joint: -0.16,
-      left_shoulder_roll_joint: 0.10, right_shoulder_roll_joint: -0.10,
-      left_elbow_joint: -0.55, right_elbow_joint: -0.55,
+      left_shoulder_pitch_joint: -0.10, right_shoulder_pitch_joint: -0.10,
+      left_shoulder_roll_joint: 0.12, right_shoulder_roll_joint: -0.12,
+      left_elbow_joint: 1.05, right_elbow_joint: 1.05,
       waist_pitch_joint: 0.04, head_pitch_joint: 0.06,
     },
   },

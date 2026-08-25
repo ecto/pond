@@ -33,21 +33,27 @@ const PULSE_LO = 0.02, PULSE_HI = 0.15;
    per-character FROZEN_U did) would scatter the cast across the score and leave
    the cube floating beside whoever was supposed to be holding it.
 
-   Master 63 is inside the dwell: the cube is parked on the humanoid's bench,
-   the humanoid is standing over it, the dog is at its patrol post, the arm is
-   at rest and the frog is watching from underfoot. Everybody at a station,
-   nobody mid-stride, and the thing they are all doing is on the table.
+   Master 57 is the middle of the dwell (54..60): the cube is parked on the
+   K1's bench, the K1 is standing over it having just put it there, the H2 is at
+   its station watching from across the shop, the dog is at its patrol post and
+   the arm is at rest. Everybody at a station, nobody mid-stride, nobody
+   mid-fold, and the one thing they are all doing is sitting on the bench in
+   plain sight.
+
+   The belt is stopped at 57 too, which matters: beltVelocity() runs the line a
+   little either side of each crossing, and freezing on a moment when it was
+   still turning would show a stationary belt with its surface mid-slide.
 
    Offset by a whole period so every character is past its entrance. */
-const FROZEN_MASTER = 63.0;
+const FROZEN_MASTER = 57.0;
 const FROZEN_AT = FROZEN_MASTER + MASTER;
 
 /* Pond's four mark colours, one per character, over the shared bone/ink base */
 const BONE = 0xefece2, INK = 0x212327;
 const CAST = [
-  { key: 'pondbot', accent: 0x0000ff },
+  { key: 'h2', accent: 0x0000ff },     // the host takes the blue the frog wore
+  { key: 'k1', accent: 0xcf331e },     // and the kid takes the T1's red
   { key: 'go2', accent: 0x2aa13f },
-  { key: 't1', accent: 0xcf331e },
   { key: 'z1', accent: 0xf0ad00 },
 ];
 
