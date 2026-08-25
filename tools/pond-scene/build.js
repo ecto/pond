@@ -12,7 +12,8 @@ const REPO = path.resolve(__dirname, '../..');           // .../pond
 const ROBOTS = path.join(__dirname, 'robots');           // untracked clones
 const GO2 = path.join(ROBOTS, 'unitree_ros/robots/go2_description') + '/';
 const Z1 = path.join(ROBOTS, 'unitree_ros/robots/z1_description') + '/';
-const T1 = path.join(ROBOTS, 'booster_gym/resources/T1') + '/';
+const H2 = path.join(ROBOTS, 'unitree_ros/robots/h2_description') + '/';
+const K1 = path.join(ROBOTS, 'booster_assets/robots/K1') + '/';
 
 /* material ids are palette SLOTS, not colours: 0 bone, 1 ink, 2 accent.
    Each robot picks its own accent at runtime (blue/green/red/amber). */
@@ -25,12 +26,74 @@ const w = (rules, dflt = 1) => (name) => {
 };
 
 const SPECS = {
-  pondbot: {
-    kind: 'glb',
-    file: path.join(REPO, 'assets/pond-bot.glb'),
-    matForPrim: (name, i) => [BONE, INK, ACCENT][i] ?? BONE,
-    tris: 32000,   // source is only ~32k: effectively lossless
-    zUpCad: true,  // CAD export: +Z up, +Y forward. See the glb branch below.
+  /* Unitree H2 — the flagship, and the scene's host. 1.82m, 31 movable joints,
+     the tallest thing on the stage by half a metre; it is what the framing is
+     now solved around.
+
+     Palette: the head carries the BLUE accent (the host's face is the thing a
+     visitor looks at, and blue is the mark colour the frog used to wear). Ink
+     goes on the distal links — the parts that read as joints and rubber — and
+     bone on the big structural panels, where the gradient across a surface is
+     what makes it look like a material at all. */
+  h2: {
+    kind: 'urdf',
+    /* H2.urdf, the STL variant — NOT H2_dae.urdf. The DAE files next to them
+       load to zero triangles through our Collada reader, silently, and a
+       silently empty link just disappears from the payload. The STLs carry the
+       same geometry (34 links, 267k source triangles) and the palette here is
+       mapped by LINK NAME rather than by material, so nothing is lost by not
+       reading the DAEs' materials. assemble.js now warns on an empty load so
+       this cannot go quiet again. */
+    urdfFile: H2 + 'H2.urdf',
+    meshRoots: { h2_description: H2, '': H2 },
+    materialFor: (n) => (/^head_/.test(n) ? ACCENT
+      : /hip_|knee|ankle|wrist|hand_link/.test(n) ? INK : BONE),
+    weightFor: w([[/^torso_link$/, 2.0], [/^head_/, 1.9], [/^pelvis$/, 1.7],
+      [/knee|hip_yaw/, 1.3], [/shoulder|elbow/, 1.2], [/ankle|hand_link|wrist/, 0.75]]),
+    tris: 92000,
+    /* Rest: standing tall and easy, arms down and a little forward, head level.
+       The zero pose has the upper arms hanging but the FOREARMS out horizontally
+       in front (left_hand_link sits at x = +0.31 of the elbow), so the elbows
+       have to be driven negative to bring the hands down to the sides. */
+    rest: {
+      left_hip_pitch_joint: -0.14, right_hip_pitch_joint: -0.14,
+      left_knee_joint: 0.30, right_knee_joint: 0.30,
+      left_ankle_pitch_joint: -0.16, right_ankle_pitch_joint: -0.16,
+      left_shoulder_pitch_joint: -0.16, right_shoulder_pitch_joint: -0.16,
+      left_shoulder_roll_joint: 0.10, right_shoulder_roll_joint: -0.10,
+      left_elbow_joint: -0.55, right_elbow_joint: -0.55,
+      waist_pitch_joint: 0.04, head_pitch_joint: 0.06,
+    },
+  },
+
+  /* Booster K1 — the kid of the shop, at the far end of the belt. 0.95m.
+     Red, inherited from the T1 it replaces.
+
+     The STLs carry no materials, so every palette decision here is made by
+     name. The Trunk ships as two meshes — Trunk.STL plus K1logo.STL — and the
+     logo is the accent, the same trick the Go2's base logo gets. */
+  k1: {
+    kind: 'urdf',
+    urdfFile: K1 + 'K1_22dof.urdf',
+    meshRoots: { K1, '': K1 },
+    materialFor: (n, mtl, file) => {
+      if (file && /logo/i.test(file)) return ACCENT;
+      if (/^Head_2$/.test(n)) return ACCENT;
+      return /Hip_|Ankle_|foot_link|hand_link|Shank/.test(n) ? INK : BONE;
+    },
+    weightFor: w([[/^Trunk$/, 2.0], [/^Head_[12]$/, 1.9], [/Shank|Hip_Pitch/, 1.3],
+      [/^(Left|Right)_Arm_[123]$/, 1.2], [/foot_link|Ankle_Cross/, 0.75]]),
+    tris: 56000,
+    // eager and upright: knees barely bent, arms ready rather than loaded
+    rest: {
+      Left_Hip_Pitch: -0.22, Right_Hip_Pitch: -0.22,
+      Left_Knee_Pitch: 0.46, Right_Knee_Pitch: 0.46,
+      Left_Ankle_Pitch: -0.24, Right_Ankle_Pitch: -0.24,
+      ALeft_Shoulder_Pitch: -0.30, ARight_Shoulder_Pitch: -0.30,
+      Left_Shoulder_Roll: -1.28, Right_Shoulder_Roll: 1.28,
+      Left_Elbow_Pitch: -0.34, Right_Elbow_Pitch: -0.34,
+      AAHead_yaw: 0.06, Head_pitch: 0.10,
+    },
   },
 
   go2: {
@@ -50,28 +113,6 @@ const SPECS = {
       FL_hip_joint: 0.04, RL_hip_joint: 0.04, FR_hip_joint: -0.04, RR_hip_joint: -0.04,
       FL_thigh_joint: 0.62, FR_thigh_joint: 0.62, RL_thigh_joint: 0.72, RR_thigh_joint: 0.72,
       FL_calf_joint: -1.3, FR_calf_joint: -1.3, RL_calf_joint: -1.42, RR_calf_joint: -1.42,
-    },
-  },
-
-  t1: {
-    kind: 'urdf',
-    urdfFile: T1 + 'T1_serial.urdf',
-    meshRoots: { T1, '': T1 },
-    // red worker: the head shell carries the accent
-    materialFor: (n) => (/^H2$/.test(n) ? ACCENT
-      : /Hip_|Ankle_|foot_link|hand_link|Shank/.test(n) ? INK : BONE),
-    weightFor: w([[/^Trunk$/, 2.0], [/^H[12]$/, 1.9], [/Shank|Hip_Pitch/, 1.3], [/^A[LR][123]$/, 1.2], [/foot_link|Ankle_Cross/, 0.75]]),
-    tris: 92000,
-    // carrying: soft knees, arms forward and in as if holding a crate
-    rest: {
-      Left_Hip_Pitch: -0.30, Right_Hip_Pitch: -0.30,
-      Left_Knee_Pitch: 0.60, Right_Knee_Pitch: 0.60,
-      Left_Ankle_Pitch: -0.30, Right_Ankle_Pitch: -0.30,
-      Left_Shoulder_Pitch: -1.00, Right_Shoulder_Pitch: -1.00,
-      Left_Shoulder_Roll: -1.15, Right_Shoulder_Roll: 1.15,
-      Left_Elbow_Pitch: -0.40, Right_Elbow_Pitch: -0.40,
-      Left_Elbow_Yaw: 0.20, Right_Elbow_Yaw: -0.20,
-      AAHead_yaw: 0.10, Head_pitch: 0.12,
     },
   },
 

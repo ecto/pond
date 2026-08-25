@@ -22,28 +22,35 @@ const TAN_HALF = Math.tan((FOV * Math.PI) / 180 / 2);
 
    Measured rest/swept heights, for reference (metres):
 
-     pond-bot  0.097   (the GLB is 85 x 97 x 120 mm)
-     Go2       0.461   (~0.40 at the shoulder, plus the back)
-     Z1        0.508   in its work sweep; 0.74 at full reach
-     T1        1.129   crouched at rest; ~1.19 standing tall
+     Go2   0.461   (~0.40 at the shoulder, plus the back)
+     Z1    0.508   in its work sweep; 0.74 at full reach
+     K1    0.940   the kid-size humanoid
+     H2    1.830   the flagship, and the tallest thing on the stage
 
-   So the frog is a twelfth of the T1's height. It is genuinely tiny, and it
-   stays legible by standing DOWNSTAGE, close to the camera, where perspective
-   gives it back most of what true scale takes away. */
-export const MODEL_SCALE = { pondbot: 0.001, go2: 1, t1: 1, z1: 1 };
+   The size story is now a GRADIENT rather than a stunt: 0.46, 0.51, 0.94,
+   1.83 — each body roughly double the one below it, and the relay is built so
+   that each does the part only its size can do. Every source is a URDF in
+   metres, so MODEL_SCALE is 1 across the board and there is no per-character
+   taste number left in the conversion at all. */
+export const MODEL_SCALE = { h2: 1, k1: 1, go2: 1, z1: 1 };
 
 /* True height in metres, used for the things that scale with a body: the
    contact patch, and a reaction's posY (authored in body heights). */
-export const HEIGHT = { pondbot: 0.097, go2: 0.461, t1: 1.129, z1: 0.508 };
+export const HEIGHT = { h2: 1.830, k1: 0.940, go2: 0.461, z1: 0.508 };
 
 /* Allowed crop budget.
    The old PNG layout got big characters by letting them run off the edges, and
    a cropped dog hindquarter or arm base reads as intentional staging. A
-   half-cropped humanoid just reads broken, so T1 and pond-bot stay whole.
+   half-cropped humanoid just reads broken, so H2 and K1 stay whole.
    Each named character may run up to CROP_MAX of its own swept width off the
    named OUTER edge; every other edge still needs a full margin, and the copy
-   keep-out stays at zero tolerance. */
-export const OUTER = { go2: 'left', z1: 'right' };
+   keep-out stays at zero tolerance.
+
+   Both croppers are on the LEFT now: that is the crowded band, holding the arm,
+   the dog and the flagship, while the K1 has the right band to itself. They sit
+   at different depths, so two characters sharing one edge allowance costs
+   nothing. */
+export const OUTER = { go2: 'left', z1: 'left' };
 export const CROP_MAX = 0.10;
 
 /** the margin each edge must clear, given a character's swept width */
@@ -122,7 +129,18 @@ export function keepOut(vwPx, vhPx) {
 
    VH_MIN keeps very short/wide viewports from pulling the camera in so close
    that perspective across the stage's depth gets silly. */
-export const VW_BASE = 4.55;
+/* Re-solved for the H2. At 1.83m the flagship is what pins the frame now — it
+   is half a metre taller than anything the layout has had to hold before, and
+   at the old 4.55 its head margin at 1280x700 was 0.5% at z=0 and NEGATIVE by
+   z=0.4, i.e. it walked out of the top of the frame as soon as it moved
+   downstage at all.
+
+   5.00 is the smallest zoom-out that fixes it without letting the cast drift
+   back toward the middle, which is the failure mode this layout exists to
+   prevent. Measured head margins for the H2: 7.1% at z=0, 3.4% at z=0.4 —
+   inside the 3-6% target band at its working depth, with room to walk in from
+   upstage. Going wider only buys margin nobody needs and shrinks everyone. */
+export const VW_BASE = 5.00;
 export const VH_MIN = 2.30;
 /* The stage-centre floor line, up from the bottom of the frame.
 

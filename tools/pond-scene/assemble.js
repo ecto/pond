@@ -69,12 +69,24 @@ function assembleLinks({ urdfFile, meshRoots, materialFor }) {
   for (const link of Object.values(model.links)) {
     if (!link.visuals.length) continue;
     const pos = [], mid = [];
-    const fallback = materialFor ? materialFor(link.name) : 0;
     for (const vis of link.visuals) {
       const file = resolveMesh(vis.filename, meshRoots);
       if (!file) { console.warn('  ! missing mesh', vis.filename); continue; }
+      /* Per VISUAL, not per link: one link often carries several meshes, and
+         which mesh it is can be the only thing that distinguishes a badge from
+         the shell it is stuck to. The K1's Trunk is Trunk.STL plus K1logo.STL,
+         and the logo is the accent — exactly like the Go2's, which gets picked
+         out of a DAE material name instead. STL carries no materials at all,
+         so for those robots the filename is the ONLY signal available. */
+      const fallback = materialFor ? materialFor(link.name, null, vis.filename) : 0;
       let tri;
       try { tri = loadMesh(file); } catch (e) { console.warn('  ! ' + e.message); continue; }
+      /* A loader that returns nothing is worse than one that throws: the link
+         just vanishes from the payload and the only symptom is a character
+         missing a limb, or — as happened with the H2's DAEs, where EVERY link
+         loaded empty — a build that fails much later with "expected 1 root
+         link, got ". Say so at the point of failure instead. */
+      if (!tri || !tri.length) { console.warn(`  ! ${file} loaded 0 triangles`); continue; }
       const L = mat(vis.xyz, vis.rpy);
       if (vis.scale && (vis.scale[0] !== 1 || vis.scale[1] !== 1 || vis.scale[2] !== 1)) {
         L.multiply(new THREE.Matrix4().makeScale(vis.scale[0], vis.scale[1], vis.scale[2]));
@@ -82,7 +94,7 @@ function assembleLinks({ urdfFile, meshRoots, materialFor }) {
       const groups = tri.groups;
       const matAt = (vi) => {
         if (!groups) return fallback;
-        for (const g of groups) if (vi >= g.start && vi < g.start + g.count) return materialFor(link.name, g.material);
+        for (const g of groups) if (vi >= g.start && vi < g.start + g.count) return materialFor(link.name, g.material, vis.filename);
         return fallback;
       };
       for (let i = 0; i < tri.length; i += 3) {
