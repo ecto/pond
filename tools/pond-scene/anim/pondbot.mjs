@@ -51,12 +51,17 @@ const ring = (s, w, k) => (s <= 0 ? 0 : Math.exp(-k * s) * Math.cos(w * s));
 const wrapPi = (a) => a - TAU * Math.round(a / TAU);
 
 /* ---------------------------------------------------- where it looks ------
-   The pond-bot mesh faces the stage's +z, a quarter turn off the URDF forward
-   the other three characters use, so its heading toward (dx, dz) is
-   atan2(dx, dz) rather than INTERFACE.md's atan2(-dz, dx). Verified with a yaw
-   sweep in the preview: at the home spot, yaw 0.20 looks straight down the
-   lens. Everything below is derived, so moving a coworker moves the gaze. */
-const heading = (dx, dz) => Math.atan2(dx, dz);
+   Standard heading, same as the other three: INTERFACE.md's atan2(-dz, dx).
+
+   This used to be atan2(dx, dz) — "the pond-bot mesh faces stage +z, a quarter
+   turn off the URDF forward". That quarter turn was not a property of the
+   model, it was the symptom of a broken base transform: the GLB was being
+   imported as Y-up when it is a Z-up CAD export, which laid the frog on its
+   back AND left its forward axis a quarter turn out. build.js now bakes the
+   frame straight, so the special case is gone and every character in the cast
+   uses one heading rule. Everything below is derived, so moving a coworker
+   moves the gaze. */
+const heading = (dx, dz) => Math.atan2(-dz, dx);
 
 const HOME = { x: -1.36, z: 0.73 };
 /* the rest of the cast, plus the camera and a patch of open water downstage */
@@ -145,8 +150,8 @@ const LOOP = route(BEATS, SPOT.a, LOOK.camera);
    in rather than showing the viewer its back for three seconds. */
 const OFFSTAGE = { x: -1.33, z: 2.36 };
 const ENTRY = route([
-  { at: { x: -1.38, z: 1.80 }, yaw: 1.05, load: 0.18, fly: 0.44, arc: 0.80, dwell: 0.30 },
-  { at: { x: -1.31, z: 1.22 }, yaw: 0.72, load: 0.14, fly: 0.46, arc: 0.92, dwell: 0.26 },
+  { at: { x: -1.38, z: 1.80 }, yaw: 1.05 - Math.PI / 2, load: 0.18, fly: 0.44, arc: 0.80, dwell: 0.30 },
+  { at: { x: -1.31, z: 1.22 }, yaw: 0.72 - Math.PI / 2, load: 0.14, fly: 0.46, arc: 0.92, dwell: 0.26 },
   // the big one: lands home, overshoots the turn, then settles onto the visitor
   { at: SPOT.a, yaw: LOOK.camera, load: 0.28, fly: 0.66, arc: 1.70, dwell: 1.05,
     glances: [[0.02, -0.34, 0.62]] },

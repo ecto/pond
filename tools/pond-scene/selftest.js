@@ -208,6 +208,7 @@ function checkIK(WORK) {
   if (outOfLimit) process.exit(1);
 
   await checkUpright(cast, WORK);
+  await checkBaseOrientation(cast, WORK);
 
   console.log('selftest OK');
 /* ---- a reaction must hand the body back upright ----------------------------
@@ -307,6 +308,108 @@ async function checkUpright(cast, WORK) {
     ? `REACTIONS DO NOT RETURN THE BODY UPRIGHT: ${bad} failure${bad === 1 ? '' : 's'}`
     : `reactions hand the body back upright (${n} reactions, worst end-of-reaction lean ${worstEnd.toFixed(2)}deg)`);
   if (bad) process.exit(1);
+}
+
+
+/* ---- the frog is the right way up, absolutely ------------------------------
+   Not "upright relative to its rest pose" — the rest pose itself was the bug.
+   The pond-bot GLB is a Z-up CAD export that build.js used to import as Y-up,
+   so the character's BASE transform laid it on its back. Grounding only pushes
+   the lowest point onto the deck, so lying on its back is a perfectly stable
+   solution and nothing complained. A relative check cannot catch that; this one
+   is geometric and absolute.
+
+   The marker is semantic, so it survives any change of frame convention: the
+   pond-bot's two eye pupils are the two big symmetric accent clusters (2880
+   verts each), while the chest disc is a third, much smaller one (384) sitting
+   on the mid-plane. Find the axis the accent geometry spreads along, throw away
+   everything near its middle, and what is left is the eyes. Then push them
+   through the real runtime transform chain and check they come out at the TOP
+   of the body in world space.
+
+   Reactions are checked at their ends only: the backflip legitimately puts the
+   frog upside down in the middle, which is the entire point of a backflip. */
+async function checkBaseOrientation(cast, WORK) {
+  const char = cast.find((c) => c.key === 'pondbot');
+  if (!char) { console.log('base orientation: no pond-bot in the cast'); return; }
+  const { placeMatrix } = require('./preview');
+  const geo = char.links.body;
+  if (!geo) throw new Error('pondbot: no body link');
+
+  // accent verts (palette slot 2)
+  const acc = [];
+  for (let i = 0; i < geo.matId.length; i++) {
+    if (geo.matId[i] === 2) acc.push(i);
+  }
+  if (acc.length < 100) throw new Error('pondbot: could not find the accent geometry');
+
+  // the axis the pupils separate along = the widest spread of the accent set
+  let axis = 0, best = -1;
+  for (let c = 0; c < 3; c++) {
+    let lo = Infinity, hi = -Infinity;
+    for (const i of acc) { const v = geo.positions[i * 3 + c]; if (v < lo) lo = v; if (v > hi) hi = v; }
+    if (hi - lo > best) { best = hi - lo; axis = c; }
+  }
+  let lo = Infinity, hi = -Infinity;
+  for (const i of acc) { const v = geo.positions[i * 3 + axis]; if (v < lo) lo = v; if (v > hi) hi = v; }
+  const mid = (lo + hi) / 2, half = (hi - lo) / 2;
+  // drop the middle: that is the chest disc, what remains is the two pupils
+  const eyes = acc.filter((i) => Math.abs(geo.positions[i * 3 + axis] - mid) > 0.4 * half);
+  if (eyes.length < 100) throw new Error('pondbot: could not isolate the eye pupils');
+
+  const V = new THREE.Vector3();
+  const worldY = (M, W, idx) => {
+    let sum = 0;
+    for (const i of idx) {
+      V.set(geo.positions[i * 3], geo.positions[i * 3 + 1], geo.positions[i * 3 + 2])
+        .applyMatrix4(W).applyMatrix4(M);
+      sum += V.y;
+    }
+    return sum / idx.length;
+  };
+  const bodyBox = (M, W) => {
+    let bl = Infinity, bh = -Infinity;
+    for (let i = 0; i < geo.positions.length; i += 3) {
+      V.set(geo.positions[i], geo.positions[i + 1], geo.positions[i + 2]).applyMatrix4(W).applyMatrix4(M);
+      if (V.y < bl) bl = V.y;
+      if (V.y > bh) bh = V.y;
+    }
+    return [bl, bh];
+  };
+
+  /* where in the body's own vertical span the eyes sit: 1 = crown, 0 = soles.
+     On the reference render the pupils are up in the head domes, so anything
+     below the top third means the character is tipped or inverted. */
+  const MIN_FRACTION = 0.62;
+  let worst = 1, worstAt = '';
+  const sample = (t, label, react) => {
+    const pm = placeMatrix(char, t, react ? { react } : undefined);
+    const W = pm.world.body;
+    const [bl, bh] = bodyBox(pm.M, W);
+    const ey = worldY(pm.M, W, eyes);
+    const f = bh - bl < 1e-9 ? 1 : (ey - bl) / (bh - bl);
+    if (f < worst) { worst = f; worstAt = label; }
+  };
+
+  for (let i = 0; i <= 300; i++) {
+    const t = (i / 300) * (char.entryEnd + char.period);
+    sample(t, `t=${t.toFixed(2)}`);
+  }
+  for (const R of (WORK.REACTIONS_BY_KEY.pondbot || [])) {
+    for (const dir of [-1, 1]) {
+      for (const u of [0, 1]) {
+        sample(char.entryEnd + 0.25 * char.period, `${R.name} dir${dir} t=${u}`, { R, t: u, dir });
+      }
+    }
+  }
+
+  if (worst < MIN_FRACTION) {
+    console.error(`  pond-bot eyes sit at ${(worst * 100).toFixed(0)}% of body height (${worstAt}) — `
+      + 'the character is tipped or inverted; check the base transform in build.js');
+    console.error('BASE ORIENTATION WRONG');
+    process.exit(1);
+  }
+  console.log(`pond-bot base orientation upright (eyes never below ${(worst * 100).toFixed(0)}% of body height)`);
 }
 
 /* Sample a walking stretch and compare how fast the planted foot moves across

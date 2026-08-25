@@ -30,6 +30,7 @@ const SPECS = {
     file: path.join(REPO, 'assets/pond-bot.glb'),
     matForPrim: (name, i) => [BONE, INK, ACCENT][i] ?? BONE,
     tris: 32000,   // source is only ~32k: effectively lossless
+    zUpCad: true,  // CAD export: +Z up, +Y forward. See the glb branch below.
   },
 
   go2: {
@@ -146,15 +147,43 @@ function build(name) {
   if (s.kind === 'glb') {
     const soup = assembleGLB(s.file, s.matForPrim);
     const srcTris = soup.positions.length / 9;
+
+    /* The pond-bot GLB is a CAD export, and CAD is Z-up: measured, its bounds
+       are 120 x 85.1 x 97 with min.z = 0 (it stands ON the z=0 plane), and its
+       eye pupils sit at z = 86 of 97 while the chest disc sits at z = 36. So
+       +Z is up and +Y is forward, exactly like the three URDFs.
+
+       It used to be flagged `yUp: true` — "already Y-up, no fix needed" — which
+       skipped the runtime's -90 X rotation. That laid the frog on its back with
+       its face to the sky, and since the grounding only pushes the lowest
+       point onto the deck, it grounded happily in that attitude and stayed
+       there. It also meant `height` was measuring the 85mm DEPTH rather than
+       the 97mm height, so the whole character was normalised off the wrong
+       dimension.
+
+       Bake a -90 Z rotation so +Y forward becomes +X forward. That puts the
+       pond-bot in the same frame as everything else (URDF: +x forward, +z up),
+       so it obeys INTERFACE.md's heading rule instead of needing its own. */
+    if (s.zUpCad) {
+      const p = soup.positions;
+      for (let i = 0; i < p.length; i += 3) {
+        const x = p[i], y = p[i + 1];
+        p[i] = y; p[i + 1] = -x;        // Rz(-90): (x,y,z) -> (y,-x,z)
+      }
+    }
+
     const geo = decimate(soup, s.tris);
+    // bounds in the Y-up frame the runtime will see, same as the URDF path
     const box = new THREE.Box3();
+    const v = new THREE.Vector3();
     for (let i = 0; i < geo.positions.length; i += 3) {
-      box.expandByPoint(new THREE.Vector3(geo.positions[i], geo.positions[i + 1], geo.positions[i + 2]));
+      v.set(geo.positions[i], geo.positions[i + 1], geo.positions[i + 2]);
+      box.expandByPoint(s.zUpCad ? new THREE.Vector3(v.x, v.z, -v.y) : v.clone());
     }
     const c = box.getCenter(new THREE.Vector3());
     const out = {
       links: { body: geo }, joints: [], root: 'body',
-      yUp: true,                       // GLB is already Y-up: no Z-up fix at runtime
+      yUp: !s.zUpCad,
       pivot: [c.x, box.min.y, c.z],
       height: box.max.y - box.min.y,
       rest: {},
