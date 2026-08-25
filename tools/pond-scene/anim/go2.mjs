@@ -12,6 +12,7 @@
 
 import { legIK } from './kinematics.mjs';
 import { plan, follow, clamp01, smooth, track, TAU, EASE } from './schedule.mjs';
+import { MASTER, STATIONS, makeRoute, routeAt, masterPhase } from './world.mjs';
 
 export const params = {
   L: 0.2130,          // both leg links, metres
@@ -69,31 +70,145 @@ const SIDE = { FL: 1, RL: 1, FR: -1, RR: -1 };
 /* waypoints, in the left band. Shallow and mostly in depth: the screen-x of a
    world point drifts with viewport aspect through its depth, so a deep patrol
    would make the horizontal composition move between viewports. */
-const A = { x: -1.90, z: -0.64 }, B = { x: -1.74, z: -0.40 };
-const C = { x: -1.88, z: -0.58 }, D = { x: -1.79, z: -0.46 };
-const OFFSTAGE = { x: -3.60, z: -0.64 };
+/* ---------------------------------------------------------------- the beat --
+   This dog now works to the score (anim/world.mjs) rather than to a private
+   patrol. It is the stage's only long-haul carrier: the arm can reach 0.74m and
+   the frog can carry something 50mm, but moving a load a metre and a half
+   across the floor is what a quadruped with a flat back is FOR.
 
+   Its round, in master seconds:
+
+      0..19   crouched at the loading bay while the arm works over it (arm
+              releases onto its back at 18)
+     19..23   walks out to the transfer point, cube on its back
+     23..42   lies right down and waits — a 97mm frog cannot reach a back that
+              is 400mm up, so the dog has to come to it (frog takes at 36)
+     42..49   back to its patrol post
+     49..68   its own beats: scan, sniff, watch
+     68..87   out to the transfer point again, and down (frog gives back at 85)
+     87..96   carries it home to the loading bay for the arm (arm takes at 92)
+
+   The waypoints carry ARRIVAL TIMES, not a speed — the score sets deadlines and
+   the walk has to fit them. routeAt() turns that into position AND cumulative
+   distance, and everything below still drives its gait phase from distance,
+   never from the clock, so the anti-skate invariant is untouched. */
+const OFFSTAGE = { x: -3.60, z: -0.64 };
+const LOAD = STATIONS.go2Load, HAND = STATIONS.handoff, POST = STATIONS.go2Patrol;
+
+/* `yaw` on a wait PINS the facing. It matters at the loading bay: the arm has
+   one target for the cube on this dog's back, so the dog has to present its
+   back the same way on both visits — otherwise arriving from the patrol rather
+   than from the transfer point rotates the target by most of a right angle and
+   the handoff misses by 110mm. Both visits also leave a settled second either
+   side of the moment the arm actually touches the cube. */
+/* Broadside to the arm — its back square to the reach, not its nose. The carry
+   point rides 0.10 forward of the body centre, so facing the arm head-on or
+   away from it swings that 0.10 straight along the reach and moves the target
+   by 200mm between the two. Perpendicular, it moves sideways instead, which
+   costs the arm almost nothing and is what "presenting your back" means. */
+const LOAD_YAW = 0.695;
+/* Same reasoning at the transfer point: the frog has one place to leap to, so
+   the back has to be presented the same way whether the dog arrived from the
+   bay or from its patrol post. Without this the two visits differ by 185mm —
+   twice the carry offset — because the dog is facing opposite ways. It pivots
+   its trunk over planted feet to get there, which the foot compensation
+   downstairs already knows how to do. */
+const HAND_YAW = -1.471;
+const ROUTE = makeRoute([
+  { t: 0, ...LOAD, yaw: LOAD_YAW }, { t: 19, ...LOAD, yaw: LOAD_YAW },
+  { t: 23, ...HAND, yaw: HAND_YAW }, { t: 42, ...HAND, yaw: HAND_YAW },
+  { t: 49, ...POST }, { t: 68, ...POST },
+  { t: 76, ...HAND, yaw: HAND_YAW }, { t: 87, ...HAND, yaw: HAND_YAW },
+  { t: 90, ...LOAD, yaw: LOAD_YAW }, { t: 96, ...LOAD, yaw: LOAD_YAW },
+]);
+
+/* How low it gets. Standing, its back is 0.49 off the deck; a frog at the top
+   of its hop reaches about 0.22. So "crouch" here means LIE DOWN — hip over
+   foot drops from 0.335 to 0.075, which puts the trunk on the deck and the back
+   within a frog's leap. This is the one moment the two scales in this scene
+   have to actually touch, and it only works because the dog gives way. */
+const STAND_TALL = params.stand;   // 0.335 — walking
+const STAND_MID = 0.185;           // being loaded by the arm
+const STAND_LOW = 0.135;           // lying down for the frog — and this is near the
+                                   // FLOOR: by 0.100 the calf joint is at
+                                   // -2.665 of its -2.72 limit and the thigh is
+                                   // near the top of its range. A real Go2
+                                   // cannot fold flatter than this, so the frog
+                                   // has to make up the difference with its
+                                   // leap, which is the right way round anyway.
+
+/* Two different amounts of giving way, and both are forced by reach, not taste.
+
+   For the arm: the Z1's wrist can only get (L1+L2)*0.965 from its shoulder, and
+   a back standing 0.50 up and 0.53 out is outside that — the IK clamps and the
+   gripper stops 46mm short, which is a miss. Dropping to 0.23 brings the back
+   to 0.42 and the whole reach inside the envelope.
+
+   For the frog: 97mm tall, hopping. Nothing short of lying down is reachable. */
+/** ramp up over [a,b], hold, ramp down over [c,d], on a clock rebased to `at` */
+function window(t, at, a, b, c, d) {
+  const m = masterPhase(t - at);
+  return Math.max(0, Math.min(smooth(clamp01((m - a) / (b - a))), 1 - smooth(clamp01((m - c) / (d - c)))));
+}
+
+/** 0..1 how far into a crouch it is — patrol flourishes fade out against this */
+function crouchWeight(t) {
+  const low = Math.max(window(t, 0, 26, 30, 40, 43), window(t, 0, 79, 82, 86, 88));
+  const mid = window(t, 90, 0, 1.5, 25, 27);
+  return Math.max(0, Math.min(1, Math.max(low, mid * 0.55)));
+}
+
+function standAt(t) {
+  // lying down for the frog, twice: it takes the cube at 36 and returns it at 78
+  const low = Math.max(window(t, 0, 26, 30, 40, 43), window(t, 0, 79, 82, 86, 88));
+  // and the loading crouch, which wraps the master boundary (81 .. 19)
+  const mid = window(t, 90, 0, 1.5, 25, 27);
+  const wm = mid * (1 - low);
+  return STAND_TALL + (STAND_LOW - STAND_TALL) * low + (STAND_MID - STAND_TALL) * wm;
+}
+
+/* the entrance is still a real walk on, straight to the loading bay */
 const sched = plan(
-  [{ from: OFFSTAGE, to: A, speed: params.entrySpeed }, { hold: params.hold, at: A }],
-  [
-    { from: A, to: B }, { hold: params.hold, at: B },
-    { from: B, to: C }, { hold: params.hold, at: C },
-    { from: C, to: D }, { hold: params.hold, at: D },
-    { from: D, to: A }, { hold: params.hold, at: A },
-  ], params.speed);
+  [{ from: OFFSTAGE, to: LOAD, speed: params.entrySpeed }, { hold: 1.0, at: LOAD }],
+  [{ from: LOAD, to: LOAD }], params.speed);
+
+/** follow(), but reading the score instead of a private schedule */
+function path(t) {
+  if (t < sched.entry.dur) return follow(sched, t);
+  const a = routeAt(ROUTE, t);
+  // heading: the direction of the leg being walked, held through the waits
+  const P = ROUTE.pts, mm = masterPhase(t);
+  let h = 0, cur = 0;
+  for (let i = 0; i < P.length - 1; i++) if (mm >= P[i].t) cur = i;
+  if (P[cur].yaw != null && Math.hypot(P[cur + 1].x - P[cur].x, P[cur + 1].z - P[cur].z) < 1e-4) {
+    h = P[cur].yaw;                       // a pinned wait
+  } else {
+    for (let i = P.length - 1; i >= 0; i--) {
+      const b = P[Math.min(i + 1, P.length - 1)];
+      const dx = b.x - P[i].x, dz = b.z - P[i].z;
+      if (Math.hypot(dx, dz) > 1e-4 && mm >= P[i].t) { h = Math.atan2(-dz, dx); break; }
+    }
+  }
+  // `u` is progress within the current leg or wait — the patrol beats read it
+  const P2 = ROUTE.pts; const m2 = masterPhase(t);
+  let i2 = 0;
+  for (let i = 0; i < P2.length - 1; i++) if (m2 >= P2[i].t) i2 = i;
+  const span = P2[i2 + 1].t - P2[i2].t;
+  const u = span <= 0 ? 0 : clamp01((m2 - P2[i2].t) / span);
+  return { x: a.x, z: a.z, s: a.s + sched.entry.dist, heading: h, moving: a.moving, u };
+}
 
 /* Roam region. Shared code clamps ctx.moveTo() into this, so a waypoint moved
-   outside it simply does not take effect. It is deliberately tight: the layout
-   currently has almost no horizontal slack (see INTERFACE.md, "Moving a
-   character"). Tune motion freely; relocating needs the composition owner. */
+   outside it simply does not take effect. Every station it visits was solved
+   against the composition — see the assertion in selftest.js. */
 export const roam = {
   side: 'left',
-  halfWidth: 0.40,            // true swept half-extent, metres            // widest horizontal half-extent, world units
-  work: { x: [-1.90, -1.74], z: [-0.64, -0.40] },
-  entry: { x: [-3.70, -1.74], z: [-0.64, -0.40] },
+  halfWidth: 0.35,            // true swept half-extent, metres
+  work: { x: [-1.90, -1.36], z: [-0.40, 1.10] },
+  entry: { x: [-3.70, -1.36], z: [-0.64, 1.10] },
 };
 export const ground = ['FL_foot', 'FR_foot', 'RL_foot', 'RR_foot'];
-export const period = sched.loop.dur;
+export const period = MASTER;          // phase-locked to the world task
 export const entryEnd = sched.entry.dur;
 
 /* ---------------------------------------------------------------- helpers */
@@ -112,19 +227,11 @@ const win = (x, a, b) => (x <= a || x >= b ? 0 : (x - a) / (b - a));
 /* Where we are in the schedule, plus which leg of it and which lap — the lap
    number is what makes the patrol beats vary instead of metronome. */
 function locate(t) {
-  const tt = Math.max(0, t);
-  let phase = sched.entry, local = tt, lap = 0;
-  if (tt >= sched.entry.dur) {
-    phase = sched.loop;
-    lap = Math.floor((tt - sched.entry.dur) / sched.loop.dur);
-    local = (tt - sched.entry.dur) - lap * sched.loop.dur;
-    lap += 1;
-  }
-  let idx = phase.legs.length - 1;
-  for (let i = 0; i < phase.legs.length; i++) {
-    if (local <= phase.legs[i].t1) { idx = i; break; }
-  }
-  return { idx, lap, entering: phase === sched.entry };
+  if (t < sched.entry.dur) return { idx: 0, lap: 0, entering: true };
+  const m = masterPhase(t);
+  let idx = 0;
+  for (let i = 0; i < ROUTE.pts.length - 1; i++) if (m >= ROUTE.pts[i].t) idx = i;
+  return { idx, lap: Math.floor(t / MASTER) + 1, entering: false };
 }
 
 /* Speed and acceleration along the path, by re-sampling the shared schedule.
@@ -134,7 +241,7 @@ function locate(t) {
 function dynamics(t) {
   const h = 1 / 24;
   if (t < h) return { v: 0, a: 0 };
-  const s0 = follow(sched, t - h).s, s1 = follow(sched, t).s, s2 = follow(sched, t + h).s;
+  const s0 = path(t - h).s, s1 = path(t).s, s2 = path(t + h).s;
   return { v: (s2 - s0) / (2 * h), a: (s2 - 2 * s1 + s0) / (h * h) };
 }
 
@@ -153,7 +260,7 @@ function heading(t, raw) {
   let sx = 0, sz = 0;
   for (let i = -n; i <= n; i++) {
     const k = 1 - Math.abs(i) / (n + 1);                // triangular weight
-    const h = follow(sched, Math.max(0, t + (i / n) * w)).heading || 0;
+    const h = path(Math.max(0, t + (i / n) * w)).heading || 0;
     sx += Math.cos(h) * k; sz += Math.sin(h) * k;
   }
   const smoothed = Math.atan2(sz, sx);
@@ -261,7 +368,7 @@ function beats(u, seed) {
    Order of business: where the schedule says we are, what the legs are doing,
    what the trunk is doing about it, then the pointer overlay on top. */
 function body(ctx, t) {
-  const p = follow(sched, t);
+  const p = path(t);
   const loc = locate(t);
   const seed = loc.lap * 17 + loc.idx * 5 + 1;
 
@@ -271,7 +378,7 @@ function body(ctx, t) {
      constant, which is exactly what "prefers-reduced-motion" is asking for. */
   if (ctx.reducedMotion) {
     for (const [leg] of LEGS) {
-      const ik = legIK(leg[0] === 'F' ? 0.010 : -0.010, -params.stand, params.L, params.L, -1);
+      const ik = legIK(leg[0] === 'F' ? 0.010 : -0.010, -standAt(t), params.L, params.L, -1);
       ctx.set(leg + '_thigh_joint', ik.hip);
       ctx.set(leg + '_calf_joint', ik.knee);
       ctx.set(leg + '_hip_joint', HIP[leg]);
@@ -286,7 +393,20 @@ function body(ctx, t) {
   const phi = (p.s * ctx.mps) / params.advance;   // gait phase, driven by distance
   const dyn = dynamics(t);
   // the patrol beats belong to a waypoint hold; while walking, the job is walking
-  const parked = p.moving ? { yaw: 0, drop: 0, frontDrop: 0, pitch: 0 } : beats(p.u, seed);
+  /* The patrol beats — the settle, the weight rock, the sniff that folds the
+     front elbows — are flourishes ON TOP of a normal stance. Run them while the
+     dog is already folded flat and they drive the calf past its -2.72 limit and
+     the thigh past 3.49: the runtime clamps, the pose stops matching the
+     reference FK, and the leg visibly locks. They belong to the patrol post, so
+     they fade out against the crouch. */
+  const crouched = crouchWeight(t);
+  const raw = p.moving ? { yaw: 0, drop: 0, frontDrop: 0, pitch: 0 } : beats(p.u, seed);
+  const parked = {
+    yaw: raw.yaw * (1 - crouched),
+    drop: raw.drop * (1 - crouched),
+    frontDrop: raw.frontDrop * (1 - crouched),
+    pitch: raw.pitch * (1 - crouched),
+  };
 
   /* ---- what the trunk is pointing at ----------------------------------
      No neck joint on this robot: the trunk IS the head. Which means two
@@ -391,7 +511,7 @@ function body(ctx, t) {
       const q = (phi + off) % 1;
       if (q < params.duty) {                        // stance: the foot tracks the ground
         fx = params.stance * (0.5 - q / params.duty);
-        fz = -params.stand;
+        fz = -standAt(t);
       } else {
         /* swing. On the last stretch into a waypoint the foot is carried lower
            and set down softer: a gather, not a freeze. Note what is NOT done
@@ -403,7 +523,7 @@ function body(ctx, t) {
         const g = smooth(gather);
         const sw = swing(b, params.stance, params.duty, params.lift * (1 - 0.38 * g));
         fx = sw.fx;
-        fz = -params.stand + sw.fz;
+        fz = -standAt(t) + sw.fz;
       }
       fz += params.bob * Math.sin(phi * TAU * 2);   // a little vertical life
     } else {
@@ -411,7 +531,7 @@ function body(ctx, t) {
       // then — the small correction a real dog makes without thinking about it
       const s = Math.sin(p.u * TAU);
       fx = (leg[0] === 'F' ? 0.012 : -0.012) + 0.010 * s;
-      fz = -params.stand + SIDE[leg] * 0.006 * s + parked.drop;
+      fz = -standAt(t) + SIDE[leg] * 0.006 * s + parked.drop;
       const stepAt = { FL: 0.30 + hash(seed) * 0.06, RR: 0.62 + hash(seed + 2) * 0.06 }[leg];
       if (stepAt != null) {
         const b = win(p.u, stepAt, stepAt + 0.10);
@@ -432,7 +552,7 @@ function body(ctx, t) {
     const ik = legIK(cx - at.x, fz, params.L, params.L, -1);
     ctx.set(leg + '_thigh_joint', ik.hip);
     ctx.set(leg + '_calf_joint', ik.knee);
-    ctx.set(leg + '_hip_joint', HIP[leg] + clamp((cy - at.y) / params.stand, -0.30, 0.30));
+    ctx.set(leg + '_hip_joint', HIP[leg] + clamp((cy - at.y) / standAt(t), -0.30, 0.30));
   }
   roll = -swingSide * params.rollStance * (p.moving ? 1 : 0);
 

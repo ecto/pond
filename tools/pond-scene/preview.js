@@ -29,15 +29,14 @@ const ORDER = ['pondbot', 'go2', 't1', 'z1'];
    reaction's posY by the character's stage height, so the preview needs it
    outside the async builder. */
 const STAGE_HEIGHT = {};
+/* anim/world.mjs — the score. Loaded by buildStage(), which is async; every
+   consumer of the cube runs after it. */
+let W_ = null;
 const VIEWPORTS = [[1280, 700], [1280, 1000], [1440, 1300], [1280, 1400]];
 
-/* props: cheap primitives that make the work legible. Sizes are in the robot's
-   own metres, in its own frame. Kept in sync with scene.js. */
-const PROPS = {
-  z1: { attach: 'link06', offset: [0.015, 0, 0], size: [0.07, 0.07, 0.07], mat: 0 },
-  t1: { attach: 'hands', offset: [0.16, 0, -0.253], size: [0.18, 0.30, 0.50], mat: 1 },
-};
-
+/* THE CUBE. One prop for the whole cast; its owner is a function of the master
+   clock (anim/world.mjs). Kept in sync with scene.js by construction — both
+   read CARRY from the same module and place the cube the same way. */
 function boxSoup(size, matId) {
   const g = new THREE.BoxGeometry(size[0], size[1], size[2]);
   return {
@@ -112,25 +111,55 @@ function groundOffset(char, world, names) {
   return lo === Infinity ? 0 : -lo;
 }
 
-function attachMatrix(char, P, world) {
-  const off = new THREE.Matrix4().makeTranslation(P.offset[0], P.offset[1], P.offset[2]);
-  if (P.attach === 'hands') {
-    const L = world.left_hand_link, R = world.right_hand_link;
-    if (!L || !R) return null;
-    const a = new THREE.Vector3().setFromMatrixPosition(L);
-    const b = new THREE.Vector3().setFromMatrixPosition(R);
-    const M = new THREE.Matrix4().copy(world.Trunk || new THREE.Matrix4());
-    M.setPosition(a.add(b).multiplyScalar(0.5));
-    return M.multiply(off);
+/** the world matrix of the node the cube rides on, in the character's own frame */
+function carryNodeMatrix(char, world, C) {
+  if (C.node !== 'hands') return world[C.node] || null;
+  // the T1's carry node is the midpoint of its two hand links, in the trunk's
+  // orientation — exactly what scene.js pins every frame
+  const L = world.left_hand_link, R = world.right_hand_link;
+  if (!L || !R) return null;
+  const a = new THREE.Vector3().setFromMatrixPosition(L);
+  const b = new THREE.Vector3().setFromMatrixPosition(R);
+  const M = new THREE.Matrix4().copy(world.Trunk || new THREE.Matrix4());
+  return M.setPosition(a.add(b).multiplyScalar(0.5));
+}
+
+/** the cube's stage matrix at time t: on its owner, or parked on a pallet.
+    Mirrors scene.js placeCube() — decompose the attach node's world matrix,
+    DROP its scale (the pond-bot's is 0.001), apply the offset in metres. */
+const _cp = new THREE.Vector3(), _cq = new THREE.Quaternion(), _cs = new THREE.Vector3();
+function cubeMatrix(cast, t) {
+  const h = W_.holderAt(t);
+  const char = h && cast.find((c) => c.key === h);
+  const C = h && W_.CARRY[h];
+  if (!char || !C) {
+    const p = W_.parkedCube(t);
+    return new THREE.Matrix4().makeTranslation(p.x, p.y, p.z);
   }
-  const W = world[P.attach];
-  return W ? new THREE.Matrix4().multiplyMatrices(W, off) : null;
+  const pm = placeMatrix(char, t);
+  const nodeM = carryNodeMatrix(char, pm.world, C);
+  if (!nodeM) return null;
+  new THREE.Matrix4().multiplyMatrices(pm.M, nodeM).decompose(_cp, _cq, _cs);
+  const off = new THREE.Vector3(C.offset[0], C.offset[1], C.offset[2]).applyQuaternion(_cq);
+  return new THREE.Matrix4().compose(_cp.clone().add(off), _cq.clone(), new THREE.Vector3(1, 1, 1));
+}
+
+/** the cube's eight corners at time t, pushed through `fn` */
+function cubeCorners(cast, t, fn) {
+  const M = cubeMatrix(cast, t);
+  if (!M) return;
+  const v = new THREE.Vector3(), h = W_.CUBE / 2;
+  for (const c of CORNERS) {
+    v.set(c[0] === 'max' ? h : -h, c[1] === 'max' ? h : -h, c[2] === 'max' ? h : -h).applyMatrix4(M);
+    fn(v);
+  }
 }
 
 /* ---------------- the stage ---------------- */
 async function buildStage(names) {
   const W = await import('./anim/index.mjs');
   const S = await import('./stage.mjs');
+  W_ = await import('./anim/world.mjs');
   const cast = [];
   for (const key of (names || ORDER)) {
     const char = build(key);
@@ -175,71 +204,9 @@ async function buildStage(names) {
     char.mps = 1 / char.stageScale;          // metres per stage unit
     char.ctx = { mps: char.mps };
 
-    /* Parked prop positions. Captured at the frame the character actually
-       lets go — scanned for, not guessed from a phase constant. Guessing was
-       wrong: a character's internal cycle phase need not line up with
-       entryEnd + u*period, and the Z1's cube was being frozen mid-lift, so it
-       hung in the air instead of sitting on the deck. */
-    const P = PROPS[key];
-    if (P) {
-      char.parked = {};
-      /* A release is recorded in the character's `shift` frame — the frame
-         scene.js parks the prop into (`shift.attach(prop)`), which sits ABOVE
-         the grounding node. That is what makes a set-down crate stay on the
-         deck while the body re-grounds under it.
-
-         Recording it in the model frame with the release-time dy folded in was
-         wrong: placeMatrix applies the CURRENT dy again on the way out, so the
-         prop was lifted twice and rode up as the character stood. */
-      const grab = (t) => {
-        const pm = placeMatrix(char, t);
-        const A = attachMatrix(char, P, pm.world);
-        if (!A) return null;
-        return shiftToModel(char, pm.dy).multiply(A);
-      };
-      // two periods: characters whose cycle alternates (the Z1's cube
-       // ping-pongs between two spots) only reveal one park label per period
-      /* Two periods, because a cycle that alternates (the Z1's cube
-         ping-pongs) only shows one of its spots per period. Releases are kept
-         as an ordered timeline rather than named slots: the prop is wherever it
-         was most recently put down, which is the actual rule and needs no
-         labels to be right. */
-      const N = 1800;
-      let prev = null;
-      char.releases = [];
-      for (let i = 0; i <= N; i++) {
-        const t = char.entryEnd + (i / N) * char.period * 2;
-        const st = char.act(t, char.ctx);
-        const held = !!(st.prop && st.prop.held);
-        if (prev && prev.held && !held) {
-          const M = grab(prev.t);
-          if (M) char.releases.push({ t: prev.t, M });
-        }
-        prev = { t, held };
-      }
-      if (!char.releases.length) {
-        const M = grab(char.entryEnd);
-        if (M) char.releases.push({ t: char.entryEnd, M });
-      }
-    }
     cast.push(char);
   }
   return { cast, W, S };
-}
-
-/** where a released prop is sitting at time t: wherever it was last put down */
-function parkedAt(char, t) {
-  const rel = char.releases;
-  if (!rel || !rel.length) return null;
-  const span = char.period * 2;
-  let best = rel[rel.length - 1];
-  for (const r of rel) {
-    if (r.t <= t) best = r;
-  }
-  // before the first release in the sampled window, fall back to the last one
-  // of the previous pass — the prop has been on the deck since then
-  if (t < rel[0].t) best = rel[rel.length - 1];
-  return best.M;
 }
 
 /** shift-frame -> model frame: the grounding push plus the Z-up rotation.
@@ -248,20 +215,6 @@ function shiftToModel(char, dy) {
   const M = new THREE.Matrix4().makeTranslation(0, dy, 0);
   if (!char.yUp) M.multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
   return M;
-}
-
-/** the stage matrix for a character's prop at time t, held or parked.
-    Held: it rides the attach node, so the full model matrix applies. Parked:
-    it hangs off `shift`, ABOVE the grounding, exactly as in scene.js — so the
-    current dy must NOT be applied to it. */
-function propMatrix(char, P, a, world, pm, t) {
-  if (!P || !a.prop) return null;
-  if (a.prop.held) {
-    const A = attachMatrix(char, P, world);
-    return A ? new THREE.Matrix4().multiplyMatrices(pm.M, A) : null;
-  }
-  const L = parkedAt(char, t);
-  return L ? new THREE.Matrix4().multiplyMatrices(pm.Mshift, L) : null;
 }
 
 /* The runtime's per-frame body channel, reproduced exactly (scene.js render()).
@@ -329,6 +282,16 @@ function stageSoup(cast, t, opts = {}) {
   // the payload only carries three palette slots per robot, so on a shared
   // stage each robot's accent is remapped to its own slot
   const slotOf = (char, m) => (m === 2 ? 2 + ORDER.indexOf(char.key) : m);
+
+  /* one cube for the cast, wherever the score says it is, plus the two pallets
+     it rests on. Drawn once for the stage rather than once per character. */
+  const CM = cubeMatrix(cast, t);
+  // Pond blue: the same slot the pond-bot's accent maps to
+  if (CM) push(boxSoup([W_.CUBE, W_.CUBE, W_.CUBE], 2), CM, 2 + ORDER.indexOf('pondbot'));
+  for (const [n, D] of [['z1Pallet', W_.PALLET], ['t1Pallet', W_.BENCH]]) {
+    const st = W_.STATIONS[n];
+    push(boxSoup([D.w, D.h, D.d], 0), new THREE.Matrix4().makeTranslation(st.x, D.h / 2, st.z), 0);
+  }
   for (const char of cast) {
     const pm = placeMatrix(char, t);
     const { M, a, world } = pm;
@@ -342,14 +305,9 @@ function stageSoup(cast, t, opts = {}) {
       }
       for (let i = 0; i < geo.index.length; i++) idx.push(geo.index[i] + base);
     }
-    const P = PROPS[char.key];
-    if (P && a.prop) {
-      const X = propMatrix(char, P, a, world, pm, t);
-      if (X) push(boxSoup(P.size, P.mat), X, slotOf(char, P.mat));
-    }
     // contact blob on the shared floor
     if (opts.blobs !== false) {
-      const r = 0.95 * (char.halfWidth || 0.3);   // footprint, not height
+      const r = 0.75 * (char.halfWidth || 0.3);   // footprint, not height
       const g = new THREE.CircleGeometry(r, 18);
       const flat = new THREE.Matrix4().makeRotationX(-Math.PI / 2)
         .premultiply(new THREE.Matrix4().makeTranslation(a.place.x, 0.002, a.place.z));
@@ -448,18 +406,8 @@ function roamBoxExtent(char, cam, S, roam, samples = 48) {
         const L = new THREE.Matrix4().multiplyMatrices(M, world[n]);
         for (const q of pts) { v.copy(q).applyMatrix4(L); add(v); }
       }
-      const P = PROPS[char.key];
-      if (P && a.prop) {
-        const L = propMatrix(char, P, a, world, pm, t);
-        if (L) {
-          for (const c of CORNERS) {
-            v.set(c[0] === 'max' ? P.size[0] / 2 : -P.size[0] / 2,
-              c[1] === 'max' ? P.size[1] / 2 : -P.size[1] / 2,
-              c[2] === 'max' ? P.size[2] / 2 : -P.size[2] / 2).applyMatrix4(L);
-            add(v);
-          }
-        }
-      }
+      // whoever is holding the cube sweeps it too
+      if (W_.holderAt(t) === char.key) cubeCorners([char], t, add);
     }
   }
   return ext;
@@ -485,20 +433,52 @@ function sweptExtent(char, cam, S, samples = 160) {
       const L = new THREE.Matrix4().multiplyMatrices(M, world[n]);
       for (const q of pts) { v.copy(q).applyMatrix4(L); add(v); }
     }
-    const P = PROPS[char.key];
-    if (P && a.prop) {
-      const L = propMatrix(char, P, a, world, pm, t);
-      if (L) {
-        for (const c of CORNERS) {
-          v.set(c[0] === 'max' ? P.size[0] / 2 : -P.size[0] / 2,
-            c[1] === 'max' ? P.size[1] / 2 : -P.size[1] / 2,
-            c[2] === 'max' ? P.size[2] / 2 : -P.size[2] / 2).applyMatrix4(L);
-          add(v);
-        }
-      }
-    }
+    if (W_.holderAt(t) === char.key) cubeCorners([char], t, add);
   }
   return ext;
+}
+
+/* The copy keep-out, tested PER FRAME rather than against the swept box.
+
+   The swept AABB is the right tool for the frame edges — a character must never
+   leave the frame at any moment, and the union of every moment answers that
+   exactly. It is the wrong tool for the copy column once a character
+   TRAVERSES. The pond-bot is high in the frame when it is up at the humanoid's
+   bench, and it is horizontally inside the column when it is down in the
+   corridor, and those are different seconds; union them into one box and the
+   box straddles the copy even though the character never does.
+
+   So this walks the loop and asks the question the constraint actually asks:
+   at this instant, does this character's silhouette touch the copy? For a
+   character that stands still the answer is identical to the swept test. For
+   the one that crosses under the words it is the difference between a false
+   failure and the truth. */
+function copyHit(char, cam, S, K, samples = 400) {
+  const hull = linkHull(char);
+  const v = new THREE.Vector3();
+  let worst = 0;
+  for (let i = 0; i <= samples; i++) {
+    const t = char.entryEnd + (i / samples) * char.period;
+    const pm = placeMatrix(char, t);
+    const e = { x0: Infinity, x1: -Infinity, y0: Infinity, y1: -Infinity };
+    const add = (p) => {
+      const q = S.project(p, cam);
+      if (q.x < e.x0) e.x0 = q.x;
+      if (q.x > e.x1) e.x1 = q.x;
+      if (q.y < e.y0) e.y0 = q.y;
+      if (q.y > e.y1) e.y1 = q.y;
+    };
+    for (const [n, pts] of Object.entries(hull)) {
+      const L = new THREE.Matrix4().multiplyMatrices(pm.M, pm.world[n]);
+      for (const q of pts) { v.copy(q).applyMatrix4(L); add(v); }
+    }
+    if (W_.holderAt(t) === char.key) cubeCorners([char], t, add);
+    const ow = Math.min(e.x1, K[2]) - Math.max(e.x0, K[0]);
+    const oh = Math.min(e.y1, K[3]) - Math.max(e.y0, K[1]);
+    const hit = (ow > 0 && oh > 0) ? Math.min(ow, oh) : 0;
+    if (hit > worst) worst = hit;
+  }
+  return worst;
 }
 
 /* Solve the constants stage.mjs needs.
@@ -531,18 +511,7 @@ async function solveConstants() {
         const L = new THREE.Matrix4().multiplyMatrices(M, world[n]);
         for (const q of pts) { v.copy(q).applyMatrix4(L); consider(v); }
       }
-      const P = PROPS[char.key];
-      if (P && a.prop) {
-        const L = propMatrix(char, P, a, world, pm, t);
-        if (L) {
-          for (const c of CORNERS) {
-            v.set(c[0] === 'max' ? P.size[0] / 2 : -P.size[0] / 2,
-              c[1] === 'max' ? P.size[1] / 2 : -P.size[1] / 2,
-              c[2] === 'max' ? P.size[2] / 2 : -P.size[2] / 2).applyMatrix4(L);
-            consider(v);
-          }
-        }
-      }
+      if (W_.holderAt(t) === char.key) cubeCorners([char], t, consider);
     }
   }
   const m = S.MARGIN_FRAC;
@@ -658,10 +627,9 @@ async function character(name, outDir) {
     };
     const world2 = world;   // placeMatrix already folded the reaction's joints in
     for (const [ln, geo] of Object.entries(char.links)) push(geo, new THREE.Matrix4().multiplyMatrices(local, world2[ln]));
-    const P = PROPS[name];
-    if (P && a.prop) {
-      const lm = propMatrix(char, P, a, world2, pm, t);
-      if (lm) push(boxSoup(P.size, P.mat), strip.clone().multiply(lm), P.mat);
+    if (W_.holderAt(t) === name) {
+      const lm = cubeMatrix([char], t);
+      if (lm) push(boxSoup([W_.CUBE, W_.CUBE, W_.CUBE], 2), strip.clone().multiply(lm), 2);
     }
     const g = new THREE.PlaneGeometry(3, 3);
     const flat = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
@@ -692,7 +660,11 @@ async function stageSheets() {
   const { cast, S } = await buildStage();
   fs.mkdirSync(path.join(__dirname, 'preview'), { recursive: true });
   // times chosen to catch the roam extremes, where cropping would reappear
-  const TIMES = [1.2, 9, 17, 26, 38, 52];
+  /* The ten moments the whole thing turns on: one frame either side of each
+     handoff is what a reader needs to believe the cube changed hands. Sampled
+     on the third circuit so every entrance is finished. */
+  const TIMES = (process.env.PONDTIMES ? JSON.parse(process.env.PONDTIMES)
+    : [1.2, 9, 17, 26, 38, 52]);
   const SC = 0.36;                            // render at a fraction of real pixels
   for (const [vw, vh] of VIEWPORTS) {
     const cam = S.cameraFor(vw / vh);
@@ -755,7 +727,7 @@ async function extents() {
       const slack = Math.min(e.x0 - A.left, (1 - e.x1) - A.right, e.y0 - A.top, (1 - e.y1) - A.bottom);
       const off = Math.max(0, -e.x0) + Math.max(0, e.x1 - 1);
       const cropPct = W > 0 ? off / W : 0;
-      const hit = keepOutOverlap(e, K);
+      const hit = copyHit(char, cam, S, K);
       if (slack < worstEdge) { worstEdge = slack; worstWho = `${char.key} @ ${vw}x${vh}`; }
       if (hit > worstHit) { worstHit = hit; hitWho = `${char.key} @ ${vw}x${vh}`; }
       console.log(`  ${char.key.padEnd(9)} ${(e.x0 * 100).toFixed(1).padStart(6)} ${((1 - e.x1) * 100).toFixed(1).padStart(6)} `
@@ -803,12 +775,9 @@ async function solo(only) {
         for (let k = 0; k < soup.index.length; k++) idx.push(soup.index[k] + base);
       };
       for (const [ln, geo] of Object.entries(char.links)) push(geo, new THREE.Matrix4().multiplyMatrices(local, world[ln]));
-      const P = PROPS[char.key];
-      if (P && a.prop) {
-        // (was `world2` here — undefined in this scope; no reaction is layered
-        // in the solo sheet, so the work-loop FK is the right frame)
-        const lm = propMatrix(char, P, a, world, pm, t);
-        if (lm) push(boxSoup(P.size, P.mat), strip.clone().multiply(lm), P.mat);
+      if (W_.holderAt(t) === char.key) {
+        const lm = cubeMatrix([char], t);
+        if (lm) push(boxSoup([W_.CUBE, W_.CUBE, W_.CUBE], 2), strip.clone().multiply(lm), 2);
       }
       const g = new THREE.PlaneGeometry(3, 3);
       const flat = new THREE.Matrix4().makeRotationX(-Math.PI / 2);
@@ -839,4 +808,4 @@ if (require.main === module) {
   run.catch((e) => { console.error(e); process.exit(1); });
 }
 
-module.exports = { fk, clampPose, groundOffset, attachMatrix, buildStage, stageSoup, placeMatrix, sweptExtent, roamBoxExtent, PALETTE, ACCENT, PROPS, VIEWPORTS };
+module.exports = { fk, clampPose, groundOffset, buildStage, stageSoup, placeMatrix, cubeMatrix, sweptExtent, copyHit, roamBoxExtent, PALETTE, ACCENT, VIEWPORTS };

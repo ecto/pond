@@ -104,6 +104,6 @@ export const GAIT = {
 export { legIK, boundsExcursion };
 export { createPointerState, updatePointer, pointerFor, NO_POINTER } from './pointer.mjs';
 
-/* prop timing a couple of tools need in order to freeze parked props */
-export { GRASP_U as Z1_GRASP_U, RELEASE_U as Z1_RELEASE_U } from './z1.mjs';
-export { RELEASE_U as T1_RELEASE_U, REGRASP_U as T1_REGRASP_U } from './t1.mjs';
+/* Prop timing used to be exported per character, because each one owned its
+   own prop. There is one cube now and the score owns it: see anim/world.mjs. */
+export * as world from './world.mjs';

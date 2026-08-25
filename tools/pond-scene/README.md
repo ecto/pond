@@ -288,12 +288,22 @@ against one global cell size so surface detail density stays uniform.
 a role for each character at every moment. It is a pure function of time, so the
 offline tools and the browser agree by construction.
 
-> **Status.** The score is written and asserted, and the shared heartbeat below
-> is live in the shipped bundle. The cast has **not** learned the relay yet: the
-> four modules still run their own independent loops from their own roam
-> regions, and the cube is still the Z1's private prop. The stations describe
-> where the cast needs to stand, not where it stands today. The remaining steps
-> are listed at the top of `anim/world.mjs`.
+One cube. One circuit. 96 seconds. All four characters are phase-locked to it,
+and the cube's owner is a pure function of the clock:
+
+| master | leg | who has the cube |
+| --- | --- | --- |
+| 0–18 | the arm lifts it off its pallet and loads the dog | Z1 |
+| 18–36 | the dog carries it downstage and lies down | Go2 |
+| 36–52 | the frog leaps for it and crosses **under the copy** | pond-bot |
+| 52–66 | the humanoid squats, takes it, sets it on its bench, looks at it | T1 |
+| 66–85 | the same road back | pond-bot → Go2 |
+| 85–96 | the dog carries it home, the arm re-stows it | Go2 → Z1 |
+
+Each body does what only it can. The arm has precision and 0.74m of reach. The
+dog has range and a flat back. The humanoid has hands and height, and a squat
+deep enough to pick a 50mm cube off a 97mm frog. The frog fits where nothing
+else does.
 
 The circuit is shaped by a measured fact, not a preference. Ask which characters
 can physically stand *under* the copy column — floor still on screen, own height
@@ -318,6 +328,29 @@ Stations are solved against `feasibleX` at their own depth, not eyeballed, and
 the selftest asserts it: the usable band narrows fast downstage, and at true
 scale the Z1 has no lateral room at all past z=0.5, the Go2 past z=1.2, the T1
 past z=0.5, while the 75mm-half-width frog still has 330mm at z=2.0.
+
+### The handoffs
+
+Ten of them, and each one is an instant: ownership flips on a single frame and
+the cube's position is a pure function of whoever owns it. If the giver and the
+taker are not in the same place at that instant, the cube teleports. So the
+selftest samples the cube a frame either side of every transfer, through the
+real transform chain, and requires continuity — worst measured **21mm on a 50mm
+cube**.
+
+That assertion is also what pins the handful of constants the circuit is built
+on (`BACK_AT_BAY`, `BACK_AT_HANDOFF`, `HAND_AT_REACH`, the crouch depths, the
+frog's leap heights). None is derivable in closed form — they depend on stance
+heights, on the grounding solve, on headings — so all of them were measured
+through this chain. Change a route or a crouch and the assertion says so, in
+millimetres.
+
+Two of those numbers are worth knowing because they are physical limits, not
+choices. The Go2 cannot fold flatter than a 0.135m hip height — by 0.10 its calf
+joint is at −2.665 of its −2.72 limit — so the frog has to make up the last
+140mm with its leap. And the Z1 cannot reach a standing dog's back at all: at
+0.50m up and 0.53m out the IK clamps and the gripper stops 46mm short, which is
+why the dog crouches to be loaded as well as to be unloaded.
 
 ### One mind
 

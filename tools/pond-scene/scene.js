@@ -10,15 +10,15 @@
    the landing frame is absent. */
 import {
   Scene, PerspectiveCamera, WebGLRenderer, Group, Object3D, Mesh,
-  MeshBasicMaterial, BufferGeometry, BufferAttribute, BoxGeometry,
-  Raycaster, Vector2, Vector3, Quaternion, CircleGeometry, CanvasTexture,
+  MeshBasicMaterial, MeshStandardMaterial, BufferGeometry, BufferAttribute, BoxGeometry,
+  Raycaster, Vector2, Vector3, Quaternion, CircleGeometry, CanvasTexture, Color,
 } from 'three';
 import { MESH_B64 } from './mesh-data.js';
 import { WORK, PERIOD, ENTRY_END, REACTIONS_BY_KEY, CHARACTERS,
   createPointerState, updatePointer, pointerFor } from './anim/index.mjs';
 import { HEIGHT, MODEL_SCALE, cameraFor } from './stage.mjs';
 import { makeClock, beginReaction, phaseOf, isExpired, bodyChannel } from './anim/reaction.mjs';
-import { pulse as worldPulse } from './anim/world.mjs';
+import { pulse as worldPulse, holderAt, parkedCube, CARRY, CUBE, PALLET, BENCH, STATIONS, MASTER } from './anim/world.mjs';
 import { isDarkPage, themeSettings, setupRenderer, buildEnvironment, buildLights,
   buildShadowCatcher, makeMaterials } from './studio.js';
 
@@ -26,6 +26,21 @@ import { isDarkPage, themeSettings, setupRenderer, buildEnvironment, buildLights
    the accents are saturated brand colours on small parts, and anything more
    than a hint reads as a blinking LED rather than as breathing. */
 const PULSE_LO = 0.02, PULSE_HI = 0.15;
+
+/* Reduced motion freezes the whole scene at ONE moment of the master clock —
+   the same moment for all four, which is the entire point now that they share a
+   task. Freezing each character at its own phase (which is what the old
+   per-character FROZEN_U did) would scatter the cast across the score and leave
+   the cube floating beside whoever was supposed to be holding it.
+
+   Master 63 is inside the dwell: the cube is parked on the humanoid's bench,
+   the humanoid is standing over it, the dog is at its patrol post, the arm is
+   at rest and the frog is watching from underfoot. Everybody at a station,
+   nobody mid-stride, and the thing they are all doing is on the table.
+
+   Offset by a whole period so every character is past its entrance. */
+const FROZEN_MASTER = 63.0;
+const FROZEN_AT = FROZEN_MASTER + MASTER;
 
 /* Pond's four mark colours, one per character, over the shared bone/ink base */
 const BONE = 0xefece2, INK = 0x212327;
@@ -39,14 +54,14 @@ const CAST = [
 /* Props: cheap primitives, but they are what make the work legible. Sizes and
    offsets are in the robot's own metres, in its own frame. Kept in sync with
    preview.js. */
-const PROPS = {
-  z1: { attach: 'link06', offset: [0.015, 0, 0], size: [0.07, 0.07, 0.07], color: BONE },
-  t1: { attach: 'hands', offset: [0.16, 0, -0.253], size: [0.18, 0.30, 0.50], color: INK },
-};
+/* THE CUBE. One prop for the whole cast, not one each — see anim/world.mjs.
+   Its owner is a function of the master clock, and it is never a child of a
+   character: the pond-bot's subtree is scaled by 0.001 and a cube parented into
+   that would render at 50 microns. It lives at the scene root and is placed
+   every frame from its owner's attach node. */
 
 /* where in its loop a frozen (reduced-motion) character sits: mid-work, on the
    deck, after its entrance has finished */
-const FROZEN_U = { pondbot: 0.42, go2: 0.12, t1: 0.16, z1: 0.45 };
 
 /* ---------------- payload decode ----------------
    [u32 header length][JSON header][per-link geometry records] */
@@ -182,6 +197,7 @@ function start(frame) {
 
   const blobTex = blobTexture();
   const actors = [];
+  const byKey = {};
 
   for (const spec of CAST) {
     const robot = robots[spec.key];
@@ -216,7 +232,7 @@ function start(frame) {
       /* sized off the FOOTPRINT, not the height. At true scale the Go2 is
          0.46 tall but 0.7 long, so a height-derived patch sat under its belly
          and left the feet visually unsupported. */
-      new CircleGeometry(0.95 * (CHARACTERS[spec.key].roam.halfWidth || 0.3), 20),
+      new CircleGeometry(0.75 * (CHARACTERS[spec.key].roam.halfWidth || 0.3), 20),
       // a tight contact darkening under the feet. The cast shadow does the
       // big grounding; this does the last centimetre, where a shadow map is
       // always too coarse and where the eye actually looks for contact.
@@ -227,26 +243,20 @@ function start(frame) {
     blob.position.y = 0.002;
     scene.add(blob);
 
-    let prop = null, carry = null;
-    const P = PROPS[spec.key];
-    if (P) {
-      // the crate and the cube are part of the shot: same materials as the
-      // robots handling them, so they sit in the same light
-      const pm = P.color === INK ? mats[1] : mats[0];
-      prop = new Mesh(new BoxGeometry(P.size[0], P.size[1], P.size[2]), pm);
-      prop.castShadow = true;
-      prop.receiveShadow = true;
-      carry = P.attach === 'hands'
+    /* the node the cube rides on when this character is carrying it. For the
+       T1 that is a node pinned every frame to the midpoint of its two hands;
+       for everyone else it is a real link. */
+    const C = CARRY[spec.key];
+    const carry = !C ? null
+      : C.node === 'hands'
         ? (() => { const o = new Object3D(); (skel.nodes.Trunk || skel.root).add(o); return o; })()
-        : (skel.nodes[P.attach] || skel.root);
-      prop.position.set(P.offset[0], P.offset[1], P.offset[2]);
-      carry.add(prop);
-    }
+        : (skel.nodes[C.node] || skel.root);
 
+    byKey[spec.key] = null;
     actors.push({
       spec, robot, root, tilt, squash, norm, shift, gnd, zup, skel, blob,
       groundNodes: (robot.ground || []).map((n) => skel.nodes[n]).filter(Boolean),
-      prop, carry, propHeld: true, propCfg: P,
+      carry, carryCfg: C,
       hands: [skel.nodes.left_hand_link, skel.nodes.right_hand_link],
       act: WORK[spec.key],
       reactions: REACTIONS_BY_KEY[spec.key] || [],
@@ -350,6 +360,57 @@ function start(frame) {
   const onScheme = () => applyTheme(isDarkPage());
   if (colorScheme.addEventListener) colorScheme.addEventListener('change', onScheme);
 
+  /* ---- the cube, and the two pallets it rests on ----
+     One prop, owned by whoever the score says is holding it. Placed from the
+     owner's attach node every frame rather than parented to it, so the
+     pond-bot's 0.001 subtree scale never reaches it. */
+  for (const a of actors) byKey[a.spec.key] = a;
+  /* The cube is the protagonist — it is what the whole cast is doing — so it
+     gets Pond's primary blue rather than a base tone, and it breathes on the
+     same heartbeat as the four accents. One object, one mind, one job. It also
+     has to be findable on BOTH page themes: a bone cube disappears on white and
+     an ink one disappears on black, while a saturated blue holds against
+     either. */
+  const CUBE_BLUE = 0x0000ff;
+  const cubeMat = new MeshStandardMaterial({
+    color: new Color(CUBE_BLUE), roughness: 0.34, metalness: 0.0,
+    emissive: new Color(CUBE_BLUE), emissiveIntensity: 0,
+  });
+  const cube = new Mesh(new BoxGeometry(CUBE, CUBE, CUBE), cubeMat);
+  cube.castShadow = true; cube.receiveShadow = true;
+  scene.add(cube);
+  for (const [n, D] of [['z1Pallet', PALLET], ['t1Pallet', BENCH]]) {
+    const st = STATIONS[n];
+    const m = new Mesh(new BoxGeometry(D.w, D.h, D.d),
+      new MeshStandardMaterial({ color: new Color(BONE), roughness: 0.7, metalness: 0 }));
+    m.position.set(st.x, D.h / 2, st.z);
+    m.castShadow = true; m.receiveShadow = true;
+    scene.add(m);
+  }
+
+  const cubePos = new Vector3(), cubeQuat = new Quaternion(), cubeScl = new Vector3();
+  const cubeOff = new Vector3();
+  /** put the cube where the score says it is, at scene time `now` */
+  function placeCube(now) {
+    const h = holderAt(now);
+    const a = h && byKey[h];
+    const C = a && a.carryCfg;
+    const node = a && a.carry;
+    if (!a || !C || !node) {
+      const p = parkedCube(now);
+      cube.position.set(p.x, p.y, p.z);
+      cube.quaternion.identity();
+      return;
+    }
+    node.updateWorldMatrix(true, false);
+    node.matrixWorld.decompose(cubePos, cubeQuat, cubeScl);
+    // the offset is in metres in the node's own frame; the node's scale is the
+    // character's model scale, which the cube must NOT inherit
+    cubeOff.set(C.offset[0], C.offset[1], C.offset[2]).applyQuaternion(cubeQuat);
+    cube.position.copy(cubePos).add(cubeOff);
+    cube.quaternion.copy(cubeQuat);
+  }
+
   /* ONE clock for the whole scene: seconds since it started. The frame loop and
      the click handler both read time from here, and they must — a reaction's
      phase is the difference between the two, so a mismatched origin does not
@@ -418,8 +479,8 @@ function start(frame) {
       if (lo !== Infinity) a.gnd.position.y = -lo;
     }
 
-    // the T1's crate rides a node pinned to the midpoint of its two hands
-    if (a.carry && a.propCfg && a.propCfg.attach === 'hands' && a.hands[0] && a.hands[1]) {
+    // the T1's carry node rides the midpoint of its two hands
+    if (a.carry && a.carryCfg && a.carryCfg.node === 'hands' && a.hands[0] && a.hands[1]) {
       a.root.updateMatrixWorld(true);
       const trunk = a.carry.parent;
       a.hands[0].getWorldPosition(tmpV);
@@ -429,17 +490,6 @@ function start(frame) {
       a.carry.position.copy(midV);
     }
 
-    // grasp / release: attach() keeps the world transform, so a released prop
-    // simply stays where the character put it. Parking into `shift` rather than
-    // the character's own frame means it stays put while the body re-grounds.
-    if (a.prop && w.prop) {
-      const want = !!w.prop.held;
-      if (want !== a.propHeld) {
-        (want ? a.carry : a.shift).attach(a.prop);
-        if (want) a.prop.position.set(a.propCfg.offset[0], a.propCfg.offset[1], a.propCfg.offset[2]);
-        a.propHeld = want;
-      }
-    }
     return w;
   }
 
@@ -466,7 +516,7 @@ function start(frame) {
     for (const m of accentMats) m.emissiveIntensity = emissive;
 
     for (const a of actors) {
-      const t = reduced ? a.entryEnd + FROZEN_U[a.spec.key] * a.period : now;
+      const t = reduced ? FROZEN_AT : now;
       // reduced motion neutralises the pointer overlay for everyone
       a.ctx.pointer = reduced ? undefined
         : pointerFor(pointer, { x: a.at.x, z: a.at.z, key: a.spec.key, vicinity: a.vicinity }, now, dtMs);
@@ -492,6 +542,8 @@ function start(frame) {
       a.blob.visible = rise > 0.02;
       a.root.visible = rise > 0.02;
     }
+    placeCube(reduced ? FROZEN_AT : now);
+    cubeMat.emissiveIntensity = emissive;
     renderer.render(scene, camera);
   }
 

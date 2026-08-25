@@ -145,7 +145,7 @@ function checkIK(WORK) {
     if (slip.rel > 0.05) { console.error('FOOT SKATE'); process.exit(1); }
   }
   // composition: nothing cropped at the frame edges, nothing under the copy
-  const { sweptExtent, VIEWPORTS } = require('./preview');
+  const { sweptExtent, copyHit, VIEWPORTS } = require('./preview');
   const S = await import('./stage.mjs');
   let tightest = Infinity, tightestWho = '', overlap = 0, overlapWho = '';
   for (const [vw, vh] of VIEWPORTS) {
@@ -156,9 +156,10 @@ function checkIK(WORK) {
       const A = S.edgeAllowance(c.key, e.x1 - e.x0);
       const m = Math.min(e.x0 - A.left, (1 - e.x1) - A.right, e.y0 - A.top, (1 - e.y1) - A.bottom);
       if (m < tightest) { tightest = m; tightestWho = `${c.key} @ ${vw}x${vh}`; }
-      const ow = Math.min(e.x1, K[2]) - Math.max(e.x0, K[0]);
-      const oh = Math.min(e.y1, K[3]) - Math.max(e.y0, K[1]);
-      const hit = (ow > 0 && oh > 0) ? Math.min(ow, oh) : 0;
+      /* per FRAME, not against the swept box: the courier is high in the frame
+         and inside the column at different seconds, and unioning them into one
+         box fails a character that never actually touches the copy */
+      const hit = copyHit(c, cam, S, K);
       if (hit > overlap) { overlap = hit; overlapWho = `${c.key} @ ${vw}x${vh}`; }
     }
   }
@@ -210,6 +211,7 @@ function checkIK(WORK) {
   await checkUpright(cast, WORK);
   await checkBaseOrientation(cast, WORK);
   await checkWorldTask();
+  await checkHandoffs(cast);
 
   console.log('selftest OK');
 /* ---- a reaction must hand the body back upright ----------------------------
@@ -312,6 +314,90 @@ async function checkUpright(cast, WORK) {
 }
 
 
+
+
+/* ---- the cube never teleports ----------------------------------------------
+   The whole relay turns on ten instants where the cube changes hands. Ownership
+   flips on a single frame, and the cube's position is a pure function of whoever
+   owns it — so if the giver and the taker are not in the same place at that
+   instant, the cube jumps. A jump is the one failure this design cannot absorb:
+   everything else about a handoff can be a little loose and still read, but a
+   cube that is in two places on consecutive frames reads as a bug.
+
+   So: sample the cube a frame either side of every ownership change, through
+   the REAL transform chain — the same placeMatrix, the same carry offsets, the
+   same grounding solve the renderers use — and require continuity.
+
+   This is also what pins the measured constants the circuit is built on
+   (BACK_AT_BAY, BACK_AT_HANDOFF, HAND_AT_REACH, the Z1's reach envelope, the
+   frog's leap heights). None of them is derivable in closed form; all of them
+   were measured through this chain. If someone changes a route, a crouch depth
+   or a stance height, this is the test that says so, and it says so with the
+   miss distance in millimetres. */
+async function checkHandoffs(cast) {
+  const W = await import('./anim/world.mjs');
+  const { placeMatrix } = require('./preview');
+  const by = Object.fromEntries(cast.map((c) => [c.key, c]));
+  const V = new THREE.Vector3(), Q = new THREE.Quaternion(), S3 = new THREE.Vector3();
+
+  const carryPoint = (key, t) => {
+    const c = by[key], C = W.CARRY[key];
+    if (!c || !C) return null;
+    const pm = placeMatrix(c, t);
+    let NM;
+    if (C.node === 'hands') {
+      const a = new THREE.Vector3().setFromMatrixPosition(pm.world.left_hand_link);
+      const b = new THREE.Vector3().setFromMatrixPosition(pm.world.right_hand_link);
+      NM = new THREE.Matrix4().copy(pm.world.Trunk || new THREE.Matrix4())
+        .setPosition(a.add(b).multiplyScalar(0.5));
+    } else NM = pm.world[C.node];
+    if (!NM) return null;
+    new THREE.Matrix4().multiplyMatrices(pm.M, NM).decompose(V, Q, S3);
+    return V.clone().add(new THREE.Vector3(C.offset[0], C.offset[1], C.offset[2]).applyQuaternion(Q));
+  };
+  const cubeAt = (t) => {
+    const h = W.holderAt(t);
+    if (h) return carryPoint(h, t);
+    const p = W.parkedCube(t);
+    return new THREE.Vector3(p.x, p.y, p.z);
+  };
+
+  /* sample the THIRD circuit, so every character's entrance is long finished
+     and the score is in its steady state */
+  const LAP = W.MASTER * 2;
+  const TOL = 0.040;               // under one cube-width, 50mm
+  let worst = 0, worstAt = '', bad = 0;
+
+  for (const H of W.HANDOFFS) {
+    const t = H.t + LAP;
+    const a = cubeAt(t - 0.02), b = cubeAt(t + 0.02);
+    if (!a || !b) { console.error(`  handoff ${H.beat}: no cube position`); bad++; continue; }
+    const d = a.distanceTo(b);
+    if (d > worst) { worst = d; worstAt = H.beat; }
+    if (d > TOL) {
+      console.error(`  handoff ${H.beat} (t=${H.t}, ${H.from} -> ${H.to}): the cube jumps `
+        + `${(d * 1000).toFixed(0)}mm — from (${a.x.toFixed(3)}, ${a.y.toFixed(3)}, ${a.z.toFixed(3)}) `
+        + `to (${b.x.toFixed(3)}, ${b.y.toFixed(3)}, ${b.z.toFixed(3)}). The giver and the taker `
+        + 'are not in the same place at that instant.');
+      bad++;
+    }
+  }
+
+  /* and it never goes through the floor or leaves the world in between */
+  let low = Infinity;
+  for (let i = 0; i <= 2000; i++) {
+    const t = LAP + (i / 2000) * W.MASTER;
+    const p = cubeAt(t);
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y)) { console.error(`  cube is not finite at master ${(t - LAP).toFixed(1)}`); bad++; break; }
+    if (p.y < low) low = p.y;
+  }
+  if (low < -0.01) { console.error(`  the cube goes ${(-low * 1000).toFixed(0)}mm under the deck`); bad++; }
+
+  if (bad) { console.error(`HANDOFFS BROKEN: ${bad}`); process.exit(1); }
+  console.log(`cube continuous across all ${W.HANDOFFS.length} handoffs `
+    + `(worst ${(worst * 1000).toFixed(0)}mm at ${worstAt}, cube is ${(W.CUBE * 1000).toFixed(0)}mm; `
+    + `never below ${(low * 1000).toFixed(0)}mm)`);
+}
 
 /* ---- the world task holds together -----------------------------------------
    anim/world.mjs is the score the whole cast reads from, and it is a pure

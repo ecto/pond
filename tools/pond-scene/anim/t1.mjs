@@ -24,6 +24,7 @@
 
 import { legIK } from './kinematics.mjs';
 import { plan, follow, track, clamp01, smooth, mix, TAU, arc } from './schedule.mjs';
+import { MASTER, STATIONS, BENCH, CUBE, makeRoute, routeAt, masterPhase, parkHeight } from './world.mjs';
 
 export const params = {
   L1: 0.2363, L2: 0.2920,   // hip->knee, knee->foot, metres
@@ -32,7 +33,13 @@ export const params = {
                             //   This is the tallest pose in the loop, and the swept
                             //   height is what the stage normalises the character by
                             //   — going higher would silently shrink T1 on the page.
-  place: 0.3335,            // hip height that puts the crate exactly on the deck
+  bench: 0.400,             // hip height that puts the cube on its 0.42m bench
+  reach: 0.260,             // hip height for the deep squat out at the transfer
+                            //   spot. Both measured through the real chain: at
+                            //   0.400 with the SET arms the carry point is
+                            //   0.448 (the bench wants 0.445) and at 0.260 with
+                            //   the arms hanging it is 0.294, which is where
+                            //   the frog leaps to.
 
   stance: 0.125,            // ground per stance — short steps, because it is loaded
   duty: 0.80,               // long double support: it is carrying something
@@ -66,26 +73,92 @@ const EFFORT = 0.815;               // the lift is slow for its first fifth
    keeps swaying would drag the crate along the floor with it. */
 export const RELEASE_U = 0.40, REGRASP_U = 0.76;
 
-const P1 = { x: 1.63, z: -0.44 }, P2 = { x: 1.72, z: -0.30 };
 const OFFSTAGE = { x: 3.60, z: -0.44 };
-const YAW1 = -1.90, YAW2 = -1.30;
+const BENCH_AT = STATIONS.t1, REACH_AT = STATIONS.t1Reach;
+/* Facings. At the bench it works square to its own bench; stepping out to meet
+   the frog it turns downstage-left, toward where the frog comes up from the
+   corridor, so the exchange happens in front of its chest and not behind it. */
+const YAW_BENCH = -1.90, YAW_REACH = -2.522;
 
+/* This character's part of the world task (anim/world.mjs). It has the shortest
+   walk of the cast and the deepest bend — it is the only one that can pick a
+   50mm cube off a 97mm frog without lying down, because it has hands and a
+   squat. It steps out to meet the frog, takes the cube, puts it on its bench,
+   looks it over, and hands it back.
+
+     49  takes the cube off the frog's back      (deep squat, out at the reach)
+     55  sets it on the bench                    (standing, bench height)
+     55..59  the dwell: the whole cast is still and this is what they look at
+     59  picks it back up
+     64  hands it back down to the frog          (deep squat again)  */
+const ROUTE = makeRoute([
+  { t: 0, ...BENCH_AT, yaw: YAW_BENCH }, { t: 46, ...BENCH_AT, yaw: YAW_BENCH },
+  { t: 49, ...REACH_AT, yaw: YAW_REACH }, { t: 55.5, ...REACH_AT, yaw: YAW_REACH },
+  { t: 57.5, ...BENCH_AT, yaw: YAW_BENCH }, { t: 68.7, ...BENCH_AT, yaw: YAW_BENCH },
+  { t: 70.5, ...REACH_AT, yaw: YAW_REACH }, { t: 78, ...REACH_AT, yaw: YAW_REACH },
+  { t: 82, ...BENCH_AT, yaw: YAW_BENCH }, { t: 96, ...BENCH_AT, yaw: YAW_BENCH },
+]);
+
+/* Which of its two jobs a hold is for, and how far through it we are. The
+   character has exactly two gestures now and they are quite different animals:
+
+     BENCH  the crate cycle it already knew — square up, descend, set down,
+            stand up and breathe, address, take the weight, lift. Re-aimed from
+            the deck to a 0.42m bench, which is what a person actually works at.
+     REACH  a deep squat out at the transfer spot, to take a 50mm cube off the
+            back of a 97mm frog. It has no torso pitch, so a squat is the only
+            way down (INTERFACE.md 7) — this is that trap turned into the
+            character's signature move. */
+/* The bench window is sized so the cycle's OWN beats land on the score's
+   moments: RELEASE_U (0.40) has to be master 62 and REGRASP_U (0.76) master 66,
+   which fixes the span at 4 / (0.76 - 0.40) = 11.11s starting at 57.56. Fitting
+   the window to the performance rather than squeezing the performance into a
+   window is what keeps the authored proportions — the slow arrival, the breath
+   at the top, the effort onset — exactly as they were. */
+const BENCH_T0 = 62 - RELEASE_U * (4 / (REGRASP_U - RELEASE_U));
+const BENCH_SPAN = 4 / (REGRASP_U - RELEASE_U);
+
+function job(t) {
+  const m = masterPhase(t);
+  if (m >= BENCH_T0 && m < BENCH_T0 + BENCH_SPAN) return { kind: 'bench', u: (m - BENCH_T0) / BENCH_SPAN };
+  if (m >= 49 && m < 55.5) return { kind: 'reach', u: (m - 49) / 6.5, take: (52 - 49) / 6.5 };
+  if (m >= 70.5 && m < 78) return { kind: 'reach', u: (m - 70.5) / 7.5, take: (74 - 70.5) / 7.5 };
+  return { kind: 'idle', u: 0 };
+}
+
+/* the entrance is unchanged: it clocks in from offstage right, to the bench */
 const sched = plan(
-  [{ from: OFFSTAGE, to: P1, speed: params.entrySpeed }, { hold: params.workDur, at: P1, yaw: YAW1 }],
-  [
-    { from: P1, to: P2 }, { hold: params.workDur, at: P2, yaw: YAW2 },
-    { from: P2, to: P1 }, { hold: params.workDur, at: P1, yaw: YAW1 },
-  ], params.speed);
+  [{ from: OFFSTAGE, to: BENCH_AT, speed: params.entrySpeed },
+    { hold: 2.0, at: BENCH_AT, yaw: YAW_BENCH }],
+  [{ from: BENCH_AT, to: BENCH_AT }], params.speed);
+
+/** follow(), reading the score once the entrance is done */
+function path(t) {
+  if (t < sched.entry.dur) return follow(sched, t);
+  const a = routeAt(ROUTE, t);
+  const P = ROUTE.pts, m = masterPhase(t);
+  let i = 0;
+  for (let k = 0; k < P.length - 1; k++) if (m >= P[k].t) i = k;
+  const b = P[i + 1];
+  const dx = b.x - P[i].x, dz = b.z - P[i].z;
+  const moving = Math.hypot(dx, dz) > 1e-4 && a.moving;
+  const span = b.t - P[i].t;
+  return {
+    x: a.x, z: a.z, s: a.s + sched.entry.dist, moving,
+    u: span <= 0 ? 0 : clamp01((m - P[i].t) / span),
+    heading: moving ? Math.atan2(-dz, dx) : (P[i].yaw != null ? P[i].yaw : YAW_BENCH),
+  };
+}
 
 /* Roam region — see INTERFACE.md, "Moving a character". */
 export const roam = {
   side: 'right',
   halfWidth: 0.50,            // true swept half-extent, metres
-  work: { x: [1.63, 1.72], z: [-0.44, -0.30] },
-  entry: { x: [1.63, 3.70], z: [-0.44, -0.30] },
+  work: { x: [1.50, 1.76], z: [-0.46, 0.38] },
+  entry: { x: [1.50, 3.70], z: [-0.46, 0.38] },
 };
 export const ground = ['left_foot_link', 'right_foot_link'];
-export const period = sched.loop.dur;
+export const period = MASTER;          // phase-locked to the world task
 export const entryEnd = sched.entry.dur;
 
 /* ---- arm poses ----------------------------------------------------------
@@ -170,7 +243,7 @@ function beatId(t) {
 /** the heading of the next walk, if one is coming up within `ahead` seconds */
 function upcoming(t, ahead) {
   for (let dt = 0.2; dt <= ahead; dt += 0.2) {
-    const q = follow(sched, t + dt);
+    const q = path(t + dt);
     if (q.moving) return { heading: q.heading, dt };
   }
   return null;
@@ -178,7 +251,7 @@ function upcoming(t, ahead) {
 /** the heading of the walk that just ended, if it ended within `back` seconds */
 function arriving(t, back) {
   for (let dt = 0.2; dt <= back; dt += 0.2) {
-    const q = follow(sched, t - dt);
+    const q = path(t - dt);
     if (q.moving) return q.heading;
   }
   return null;
@@ -266,42 +339,72 @@ function walking(ctx, t, p) {
 
 /* ================= parked: the crate cycle ================= */
 function working(ctx, t, p) {
-  const u = p.u;
   const id = beatId(t);
   const quiet = ctx.reducedMotion ? 0 : 1;
   // one hold in five is the long one: it stands all the way up and just looks
   // at the shop for a while. Rare on purpose — it only reads as a pause if the
   // other four are busy.
-  const survey = id % 5 === 3;
+  const survey = id % 5 === 3;      // kept: an occasional long look at the shop
 
-  /* --- hips: the whole story of the lift is in this track ---------------- */
-  const S = params.stand, C = params.place, T = params.standTall;
-  const hip = track(u, [
-    [0.00, { h: S }], [SCAN1, { h: S }],
-    [SQUARE, { h: S - 0.006 }],                       // settle before committing
-    [0.33, { h: mix(S, C, 0.62) }],                   // the fast middle of the descent
-    [RELEASE_U, { h: C }],                            // ...and a slow, careful arrival
-    [SETTLE, { h: C }],
-    [0.50, { h: mix(C, S, 0.55) }],
-    [TOP0, { h: T }], [TOP1, { h: T }],               // stand all the way up: a breath
-    [IDLE1, { h: survey ? T : S }],
-    [ADDRESS, { h: survey ? T : S - 0.008 }],         // anticipation: dip before reaching
-    [REGRASP_U, { h: C }],
-    [EFFORT, { h: C + 0.004 }],                       // effort onset — barely moves at first
-    [0.90, { h: mix(C, S, 0.80) }],
-    [0.955, { h: S + 0.004 }], [1.00, { h: S }],      // overshoot a hair, then settle
-  ]).h;
+  /* --- hips and arms: two jobs, two shapes -------------------------------
+     The bench cycle is the crate cycle this character already knew, re-aimed
+     from the deck to a 0.42m bench: square up, descend, set down, stand all the
+     way up and breathe, address, take the weight, lift. Every named beat below
+     is unchanged. What it sets down is now a 50mm cube instead of a 500mm
+     crate, so the descent is shallower and the arms do proportionally more of
+     it — but the shape of the performance, which is the part that was authored,
+     is the same.
 
-  const arms = track(u, [
-    [0.00, CARRY], [SQUARE, CARRY],
-    [0.34, { ...SET }],                               // arms arrive early; knees finish
-    [RELEASE_U, SET], [SETTLE, SET],
-    [0.50, READY],                                    // hands come off the rim
-    [TOP0, OFF], [IDLE1, OFF],
-    [ADDRESS, READY],                                 // hands set on the crate
-    [REGRASP_U, SET], [EFFORT, SET],
-    [0.92, CARRY], [1.00, CARRY],
-  ]);
+     The reach is new and is the other half of the character: a deep squat out
+     at the transfer spot to meet a frog. It has no torso pitch, so a squat is
+     the only way down — the trap in the joint table, turned into the move. */
+  const J = job(t);
+  const S = params.stand, T = params.standTall;
+  let hip, arms;
+
+  if (J.kind === 'bench') {
+    const u2 = J.u, C = params.bench;
+    hip = track(u2, [
+      [0.00, { h: S }], [SCAN1, { h: S }],
+      [SQUARE, { h: S - 0.006 }],                     // settle before committing
+      [0.33, { h: mix(S, C, 0.62) }],                 // the fast middle of the descent
+      [RELEASE_U, { h: C }],                          // ...and a slow, careful arrival
+      [SETTLE, { h: C }],
+      [0.50, { h: mix(C, S, 0.55) }],
+      [TOP0, { h: T }], [TOP1, { h: T }],             // stand all the way up: a breath
+      [IDLE1, { h: S }],
+      [ADDRESS, { h: S - 0.008 }],                    // anticipation: dip before reaching
+      [REGRASP_U, { h: C }],
+      [EFFORT, { h: C + 0.004 }],                     // effort onset — barely moves at first
+      [0.90, { h: mix(C, S, 0.80) }],
+      [0.955, { h: S + 0.004 }], [1.00, { h: S }],    // overshoot a hair, then settle
+    ]).h;
+    arms = track(u2, [
+      [0.00, CARRY], [SQUARE, CARRY],
+      [0.34, { ...SET }],                             // arms arrive early; knees finish
+      [RELEASE_U, SET], [SETTLE, SET],
+      [0.50, READY],                                  // hands come off the cube
+      [TOP0, OFF], [IDLE1, OFF],
+      [ADDRESS, READY],                               // hands set on the cube
+      [REGRASP_U, SET], [EFFORT, SET],
+      [0.92, CARRY], [1.00, CARRY],
+    ]);
+  } else if (J.kind === 'reach') {
+    /* All the way down, hold while the frog arrives, all the way back up. The
+       hold is wide on purpose: the frog is aiming at these hands at the top of
+       a leap, and a moving target would be a miss. */
+    const u2 = J.u, k = J.take;
+    const down = clamp01((u2 - 0.04) / (k - 0.14));
+    const up = clamp01((u2 - (k + 0.16)) / (1 - k - 0.22));
+    const w = Math.min(smooth(down), 1 - smooth(up));
+    hip = mix(S, params.reach, w) - 0.008 * win(u2, 0.02, k - 0.16, 0.04);
+    arms = track(w, [[0, CARRY], [0.45, { ...SET }], [1, { ...OFF }]]);
+  } else {
+    /* between jobs: standing at its bench, weight easy, arms down */
+    hip = S;
+    arms = OFF;
+  }
+  const u = J.kind === 'idle' ? (p.u || 0) : J.u;
 
   /* --- breath and weight shift ------------------------------------------
      Gated to zero across the whole free window: while the crate is on the
@@ -397,7 +500,6 @@ function working(ctx, t, p) {
   }
 
   const carrying = u < RELEASE_U || u >= REGRASP_U;
-  if (carrying) ctx.holdProp(); else ctx.dropProp('floor');
 
   /* --- reduced motion ---------------------------------------------------
      Shared code freezes time and hands out NO_POINTER, so the overlays above
@@ -415,7 +517,7 @@ function working(ctx, t, p) {
 }
 
 function body(ctx, t) {
-  const p = follow(sched, t);
+  const p = path(t);
   if (p.moving) walking(ctx, t, p); else working(ctx, t, p);
 }
 

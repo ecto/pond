@@ -22,6 +22,7 @@
    must not be edited from here. See INTERFACE.md. */
 
 import { clamp01, smooth, mix, TAU } from './schedule.mjs';
+import { MASTER, STATIONS, CARRY, BACK_AT_HANDOFF, HAND_AT_REACH, masterPhase } from './world.mjs';
 
 export const params = {
   arc: 0.095,       // nominal hop apex, metres — about one body height (0.097)
@@ -63,7 +64,7 @@ const wrapPi = (a) => a - TAU * Math.round(a / TAU);
    moves the gaze. */
 const heading = (dx, dz) => Math.atan2(-dz, dx);
 
-const HOME = { x: -0.95, z: 2.20 };
+const HOME = STATIONS.frogHome;
 /* the rest of the cast, plus the camera and a patch of open water downstage */
 const CAST = {
   camera: { x: 0.00, z: 7.60 },     // the visitor
@@ -93,59 +94,178 @@ const SPOT = {
    left over from when every character was normalised to a common size. A
    stale halfWidth makes feasibleX solve the wrong composition, which is the
    guard rail quietly lying. */
+/* The courier's region is the whole width of the stage, because its job is to
+   cross it. It is the only character allowed to be horizontally inside the copy
+   column, and that is legal ONLY because of its height and its depth: the
+   height-aware keep-out assertion in the selftest is what proves it, not this
+   box. halfWidth is its true swept half-extent, 75mm. */
 export const roam = {
   side: 'left',
   halfWidth: 0.075,
-  work: { x: [-1.05, -0.86], z: [2.05, 2.32] },
-  entry: { x: [-1.05, -0.86], z: [2.05, 3.40] },
+  work: { x: [-1.50, 1.40], z: [0.45, 2.40] },
+  entry: { x: [-1.50, 1.40], z: [0.45, 3.40] },
 };
 export const ground = [];              // it leaves the floor, so nothing is pinned
 
 /* ------------------------------------------------------------- the score --
-   A beat is one hop and the pause that follows it: load, flight, dwell. Every
-   dwell is a different length and no two flights match, which is what keeps
-   the loop from ticking. `look` is what it turns to watch on the way down;
-   `glances` are the small re-orients it makes while parked, in seconds after
-   touchdown, as [when, how far, how long]. */
-const BEATS = [
-  // it starts parked at 'a' facing the visitor, where the entrance left it
-  { to: 'b', look: 'z1', load: 0.17, fly: 0.44, arc: 0.78, dwell: 1.90,
-    glances: [[1.05, -0.20, 0.60]] },
-  { to: 'c', look: 't1', load: 0.22, fly: 0.58, arc: 1.30, dwell: 2.40,
-    glances: [[0.85, 0.16, 0.55], [1.80, -0.11, 0.45]] },
-  { to: 'd', look: 'camera', load: 0.19, fly: 0.47, arc: 0.90, dwell: 3.00,
-    glances: [[1.20, 0.22, 0.70], [2.30, -0.13, 0.50]] },
-  { to: 'e', look: 'go2', load: 0.16, fly: 0.42, arc: 0.72, dwell: 1.40,
-    glances: [] },
-  { to: 'c', look: 'water', load: 0.20, fly: 0.50, arc: 0.95, dwell: 1.70,
-    glances: [[0.75, 0.18, 0.55]] },
-  { to: 'a', look: 'camera', load: 0.23, fly: 0.60, arc: 1.35, dwell: 2.90,
-    glances: [[1.45, -0.24, 0.75]] },
-];
+   THE COURIER.
 
-/** turn a list of beats into hop records with absolute times and headings */
-function route(beats, start, startYaw) {
-  const hops = [];
-  let t = 0, from = start, yaw = startYaw;
-  for (const b of beats) {
-    const to = b.at || SPOT[b.to];
-    const yaw1 = b.yaw != null ? b.yaw : LOOK[b.look];
-    hops.push({
-      t0: t, t1: t + b.load + b.fly + b.dwell,
-      A: b.load, F: b.fly, D: b.dwell,
-      from, to, yaw0: yaw, yaw1,
-      h: params.arc * b.arc,
-      /* the bigger the hop, the harder it loads and the harder it lands */
-      pow: Math.min(1.35, 0.72 + 0.55 * b.arc),
-      glances: b.glances || [],
+   This is the only character in the cast that can cross the middle of the
+   frame. The landing copy is a 544px column the machines may never touch, and
+   at 1280x700 nothing taller than about 150mm fits underneath it — the Go2 and
+   the Z1 never clear it at any depth that is still on screen, and the T1 clears
+   it at only one viewport of four. A 97mm frog clears it from z = 1.32.
+
+   So the relay hands it the middle leg. The arm loads the dog, the dog carries
+   it as far as the copy, and then the frog takes it underneath and up the other
+   side to the humanoid. Nothing about that is a workaround; it is what a cast
+   at true scale is FOR.
+
+   Its round, in master seconds:
+
+      0..22   home, downstage left, watching the arm and the dog work
+     22..31   out to the transfer point
+     31..37   THE SNATCH — one big hop whose apex is exactly on master 34,
+              where the cube is sitting on the lying dog's back at 305mm. Its
+              own back is 124mm off the deck, so it has to leave the ground by
+              181mm to meet it: nearly two body heights, which is a modest leap
+              for a frog and the single most alive moment in the scene.
+     37..44   down into the corridor and across, UNDER the copy
+     44..49   up to the humanoid and present (T1 takes it at 49)
+     49..66   watches the humanoid work, from underfoot
+     66..77   the same road back, the long way, with the cube again
+     77..83   the return snatch, apex on master 77, onto the dog's back
+     83..88   home
+
+   The hop machinery below is untouched: three acts (load, ballistic flight,
+   landing rebound), the yaw spring that fires just after the feet leave, the
+   glances, the breath. Only the route is new, and it is generated from the
+   score rather than authored, because the score sets arrival SECONDS and a hop
+   list has to be made to fit them. */
+
+/** the frog's own carry point, metres above the deck when it is standing */
+const CARRY_H = CARRY.pondbot.offset[2];
+
+/* Hop sizing. A frog's jump is many times its body length; 0.34m is about
+   three and a half, which crosses the stage in a dozen unhurried hops rather
+   than forty frantic ones. */
+const HOP_LEN = 0.34;
+
+/** split a straight run into whole hops that fill [t0, t1] exactly */
+function hopsAlong(out, from, to, t0, t1, yaw1, arc) {
+  const d = Math.hypot(to.x - from.x, to.z - from.z);
+  const n = Math.max(1, Math.round(d / HOP_LEN));
+  const per = (t1 - t0) / n;
+  let prev = from;
+  for (let i = 0; i < n; i++) {
+    const k = (i + 1) / n;
+    const p = { x: mix(from.x, to.x, k), z: mix(from.z, to.z, k) };
+    const t = t0 + i * per;
+    const A = per * 0.26, F = per * 0.52, D = per - A - F;
+    out.push({
+      t0: t, t1: t + per, A, F, D, from: prev, to: p,
+      yaw0: 0, yaw1: yaw1 == null ? heading(p.x - prev.x, p.z - prev.z) : yaw1,
+      h: (arc == null ? params.arc : arc) * (0.7 + 0.5 * (d / n) / HOP_LEN),
+      pow: 1.0,
+      glances: [],
     });
-    t += b.load + b.fly + b.dwell;
-    from = to; yaw = yaw1;
+    prev = p;
   }
-  return { hops, dur: t };
+  return prev;
 }
 
-const LOOP = route(BEATS, SPOT.a, LOOK.camera);
+/** a beat spent in one place: small hops on the spot, or simply waiting */
+function dwellAt(out, at, t0, t1, look, hops) {
+  const n = hops || 1;
+  const per = (t1 - t0) / n;
+  for (let i = 0; i < n; i++) {
+    const t = t0 + i * per;
+    const jitter = { x: at.x + (i % 2 ? 0.045 : -0.03), z: at.z + (i % 2 ? -0.025 : 0.035) };
+    const to = i === n - 1 ? at : jitter;
+    out.push({
+      t0: t, t1: t + per, A: per * 0.16, F: per * 0.30, D: per * 0.54,
+      from: i === 0 ? at : out[out.length - 1].to, to,
+      yaw0: 0, yaw1: look, h: params.arc * 0.30, pow: 0.75,
+      glances: [[per * 0.62, (i % 2 ? 0.18 : -0.15), per * 0.30]],
+    });
+  }
+}
+
+/* the corridor: the depth it crosses at, and the two ends of the crossing */
+const CROSS_Z = STATIONS.frogCross.z;
+const SNATCH = { x: BACK_AT_HANDOFF.x, z: BACK_AT_HANDOFF.z };
+const DELIVER = STATIONS.frogDeliver;
+const WEST = { x: -1.10, z: CROSS_Z };
+const EAST = { x: 1.10, z: CROSS_Z };
+
+/* The snatch hop is built backwards from the moment it has to happen: apex on
+   the handoff second, at the cube, high enough that the frog's back meets it. */
+/* How high it has to leave the deck: the difference between the cube on the
+   dog's back and its own back. Less the 31mm of `perch` — the ride-up that
+   keeps a leaning body pivoting on its feet rather than through them — which is
+   already lifting it at the top of the arc. Measured through the real chain;
+   the handoff assertion is what keeps it honest. */
+const SNATCH_PERCH = 0.031;
+const SNATCH_H = BACK_AT_HANDOFF.y - CARRY_H - SNATCH_PERCH;
+/* the exchange with the humanoid is the same move, a little lower: its hands
+   come down to 0.294 rather than the dog's back at 0.305 */
+const HAND_H = HAND_AT_REACH.y - CARRY_H - SNATCH_PERCH;
+const SNATCH_F = 1.30;                             // seconds of flight
+const SNATCH_A = 0.34;
+const SNATCH_LEAD = SNATCH_A + SNATCH_F / 2;       // take-off to apex
+const SNATCH_DUR = SNATCH_A + SNATCH_F + 0.9;      // the whole hop
+function snatchHop(out, from, apexAt, yaw1, target, h) {
+  const A = SNATCH_A, F = SNATCH_F;
+  const T = target || SNATCH;
+  const t0 = apexAt - A - F / 2;                   // apex is halfway through flight
+  /* The apex is the MIDDLE of the flight, not the end of it, so the hop has to
+     straddle the cube rather than land on it: reflect the take-off point
+     through the target and the frog passes over the dog's back at the top of
+     its arc. Landing on it instead put the snatch 176mm past the cube. */
+  const to = { x: 2 * T.x - from.x, z: 2 * T.z - from.z };
+  out.push({
+    t0, t1: t0 + A + F + 0.9, A, F, D: 0.9,
+    from, to, yaw0: 0, yaw1, h: h == null ? SNATCH_H : h, pow: 1.35, glances: [],
+  });
+  return to;
+}
+
+/** the same leap, aimed at the humanoid's hands instead of the dog's back */
+const handOverHop = (out, from, apexAt, yaw1) =>
+  snatchHop(out, from, apexAt, yaw1, DELIVER, HAND_H);
+
+const LOOP = (() => {
+  const H = [];
+  const lookGo2 = heading(SNATCH.x - HOME.x, SNATCH.z - HOME.z);
+  /* a snatch's apex is A + F/2 into the hop, so whatever runs before it has to
+     finish exactly there. One number, used four times. */
+  const before = (apex) => apex - SNATCH_LEAD;
+  const after = (apex) => apex - SNATCH_LEAD + SNATCH_DUR;
+
+  dwellAt(H, HOME, 0, 24, LOOK.z1, 5);
+  /* Approach and depart along the dog's LENGTH, not across it. A snatch hop is
+     symmetric about its apex — it overshoots the target by exactly as far as it
+     came — so approaching from the side threw the frog 0.34m further left than
+     the cube, which at this depth is off the frame edge and into the copy's
+     keep-out. Coming up the z axis instead keeps its x pinned to the cube's. */
+  let p = hopsAlong(H, HOME, { x: SNATCH.x, z: SNATCH.z + 0.30 }, 24, before(36), null, params.arc);
+  p = snatchHop(H, p, 36, lookGo2);                              // takes it off the dog
+  p = hopsAlong(H, p, WEST, after(36), 41, null, params.arc);
+  p = hopsAlong(H, p, EAST, 41, 47, null, params.arc * 0.45);    // UNDER the copy: flat, and loaded
+  p = hopsAlong(H, p, { x: DELIVER.x, z: DELIVER.z + 0.26 }, 47, before(52), LOOK.t1, params.arc);
+  p = handOverHop(H, p, 52, LOOK.t1);                            // gives it to the T1
+  dwellAt(H, DELIVER, after(52), before(74), LOOK.t1, 4);
+  p = handOverHop(H, DELIVER, 74, LOOK.t1);                      // takes it back
+  p = hopsAlong(H, p, EAST, after(74), 79, null, params.arc);
+  p = hopsAlong(H, p, WEST, 79, 83, null, params.arc * 0.45);    // UNDER the copy: flat, and loaded
+  p = hopsAlong(H, p, { x: SNATCH.x, z: SNATCH.z + 0.28 }, 83, before(85), null, params.arc);
+  p = snatchHop(H, p, 85, lookGo2);                              // back onto the dog
+  hopsAlong(H, p, HOME, after(85), 96, LOOK.camera, params.arc);
+  // hand every hop the facing the one before ended on
+  for (let i = 1; i < H.length; i++) H[i].yaw0 = H[i - 1].yaw1;
+  H[0].yaw0 = LOOK.camera;
+  return { hops: H, dur: MASTER };
+})();
 
 /* ------------------------------------------------------------- entrance --
    Exuberant arrival: two quick eager hops in from below the frame, then a
@@ -153,15 +273,24 @@ const LOOP = route(BEATS, SPOT.a, LOOK.camera);
    It travels straight upstage, so it holds a three-quarter facing on the way
    in rather than showing the viewer its back for three seconds. */
 const OFFSTAGE = { x: -0.92, z: 3.30 };
-const ENTRY = route([
-  { at: { x: -0.98, z: 2.85 }, yaw: 1.05 - Math.PI / 2, load: 0.18, fly: 0.44, arc: 0.80, dwell: 0.30 },
-  { at: { x: -0.92, z: 2.50 }, yaw: 0.72 - Math.PI / 2, load: 0.14, fly: 0.46, arc: 0.92, dwell: 0.26 },
+const ENTRY = (() => {
+  const H = [];
+  const push = (from, to, t0, t1, yaw1, arc, dwell) => {
+    const A = (t1 - t0) * 0.24, F = (t1 - t0) * (dwell ? 0.46 : 0.62);
+    H.push({ t0, t1, A, F, D: (t1 - t0) - A - F, from, to, yaw0: 0, yaw1,
+      h: params.arc * arc, pow: Math.min(1.35, 0.72 + 0.55 * arc), glances: [] });
+  };
+  push(OFFSTAGE, { x: -0.98, z: 2.85 }, 0, 0.92, 1.05 - Math.PI / 2, 0.80, true);
+  push({ x: -0.98, z: 2.85 }, { x: -0.92, z: 2.50 }, 0.92, 1.78, 0.72 - Math.PI / 2, 0.92, true);
   // the big one: lands home, overshoots the turn, then settles onto the visitor
-  { at: SPOT.a, yaw: LOOK.camera, load: 0.28, fly: 0.66, arc: 1.70, dwell: 1.05,
-    glances: [[0.02, -0.34, 0.62]] },
-], OFFSTAGE, 1.30);
+  push({ x: -0.92, z: 2.50 }, HOME, 1.78, 3.80, LOOK.camera, 1.70, true);
+  H[H.length - 1].glances = [[0.02, -0.34, 0.62]];
+  for (let i = 1; i < H.length; i++) H[i].yaw0 = H[i - 1].yaw1;
+  H[0].yaw0 = 1.05 - Math.PI / 2;
+  return { hops: H, dur: 3.80 };
+})();
 
-export const period = LOOP.dur;
+export const period = MASTER;          // phase-locked to the world task
 export const entryEnd = ENTRY.dur;
 
 /* -------------------------------------------------------------- posing ---
@@ -325,8 +454,9 @@ export function entrance(ctx, t) {
 }
 
 export function work(ctx, t) {
-  const s = (t - entryEnd) % LOOP.dur;
-  const base = poseRoute(ctx, LOOP, s < 0 ? s + LOOP.dur : s, t);
+  /* the route is authored in MASTER seconds, not loop-local ones: the whole
+     point is that this character's clock is the same clock as everyone else's */
+  const base = poseRoute(ctx, LOOP, masterPhase(t), t);
   greet(ctx, base);
 }
 

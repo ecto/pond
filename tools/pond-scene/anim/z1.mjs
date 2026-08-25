@@ -49,6 +49,7 @@
    0. Solving instead of guessing is the durable fix for that class of bug. */
 
 import { clamp01, mix, smooth, EASE } from './schedule.mjs';
+import { MASTER, STATIONS, PALLET, CUBE, BACK_AT_BAY, masterPhase } from './world.mjs';
 
 export const params = {
   cycle: 11.0,      // seconds for one plain pick-and-place
@@ -160,147 +161,148 @@ const LEAD_TOOL = -0.27;
    The station: where the work happens
    --------------------------------------------------------------------------- */
 
-const R_WORK = 0.459;   // reach at which both spots sit — unchanged from the
-                        // hand-authored keyposes, so the silhouette's swept
-                        // width, which the frame-edge budget is solved around,
-                        // does not move
-/* The crate is 70 mm, so its centre at 0.0350 is geometrically "on the deck".
-   0.034349 instead, for a reason worth writing down.
+/* Where this arm works, and what it reaches for.
 
-   mesh-data.js stores this character's swept bounding box — height 0.508505,
-   floor -0.002051 — and the selftest compares the live sweep against it to the
-   millimetre. That box is a build artefact of whatever the loop used to do, so
-   it pins BOTH ends of this arm's vertical envelope until someone regenerates
-   the payload. The old loop's gripper went 2.051 mm under the deck at full
-   reach; this one reproduces that exactly, which is also what keeps the crate
-   parking where it always has (0.65 mm proud of nothing, invisible at any size
-   this scene is drawn). Rebuilding the payload would free both numbers; until
-   then, matching them is the honest thing and re-solving them by hand is not.  */
-const H_DECK = 0.034349;
-const H_HOVER = 0.122;  // lined up above the crate, one crate-height of air
-const H_CARRY = 0.212;  // travelling clear of the deck
-const R_HOME = 0.346;   // ready pose: drawn in and up, weight off the reach
+   It has MOVED BAND — it used to be bolted downstage right; the relay puts the
+   loading bay on the left, next to the Go2's route (see anim/world.mjs). The
+   arm itself is unchanged: same IK, same staggered leads, same line-ups. Only
+   the targets are new, and they are derived from the world stations rather than
+   authored as reach/yaw pairs, so moving a station moves the arm with it. */
+const AT = STATIONS.z1;
+
+/* Facing. The two things it reaches for — the pallet and the Go2's back — sit
+   at stage bearings -0.49 and -1.17; facing the average puts them at +-0.34 rad
+   of base yaw, a symmetric swing either side of straight ahead. */
+const YAW = -0.83;
+
+/** a stage station and a height -> this arm's own (base yaw, reach, height) */
+function aim(st, h) {
+  const dx = st.x - AT.x, dz = st.z - AT.z;
+  return { yaw: wrapPi(Math.atan2(-dz, dx) - YAW), r: Math.hypot(dx, dz), h };
+}
+const wrapPi = (a) => a - TAU * Math.round(a / TAU);
+
+/* Heights, all honest metres now. The old H_DECK was a millimetre-level fit
+   against a swept box baked into a payload that has since been rebuilt twice;
+   with true scale and a real pallet the number is just geometry: the pallet is
+   12 mm thick and the cube is 50 mm, so its centre rests at 37 mm. */
+const H_DECK = PALLET.h + CUBE / 2;          // 0.037, cube resting on the pallet
+const H_BACK = BACK_AT_BAY.y;                // cube centre on the Go2's back
+const HOVER = 0.085;                         // the air it lines up in
+const H_CARRY = 0.285;                       // travelling clear of everything
+const R_HOME = 0.346;                        // ready pose: drawn in and up
 const H_HOME = 0.304;
-const DOWN = PI / 2;    // tool straight down
+const DOWN = PI / 2;                         // tool straight down
 
-const AT = { x: 1.15, z: 0.60 }, YAW = -0.75;
+const PALLET_AIM = aim(STATIONS.z1Pallet, H_DECK);
+/* Aim at the cube's real resting place on the back, not at the dog's stance
+   centre. The two differ by 110mm — the carry point is forward of the body
+   centre and rotates with the dog's heading — and 110mm is a miss. */
+const BACK_AIM = aim(BACK_AT_BAY, H_BACK);
 
 /* Bolted down: the region is a point. See INTERFACE.md, "Moving a character". */
 export const roam = {
-  side: 'right',
-  halfWidth: 0.52,            // true swept half-extent, metres
-  work: { x: [1.15, 1.15], z: [0.60, 0.60] },
+  side: 'left',
+  halfWidth: 0.40,            // true swept half-extent, metres
+  work: { x: [AT.x, AT.x], z: [AT.z, AT.z] },
 };
 export const ground = ['link00'];
 
-/* Four cycles per loop: three plain, then the long one it shows off in. The
-   whole thing is `period` so the extent, keep-out and joint-limit checks all
-   sample the signature beat instead of only the workaday ones. */
-const CYCLES = 4;
-const SIGNATURE = 3;                        // which cycle gets the inspection
-export const period = params.cycle * CYCLES + params.inspect;
+/* Phase-locked to the world task. Every character's period is now the master
+   period, so the extent, keep-out and joint-limit sweeps cover one whole
+   circuit rather than one private loop, and the four can no longer drift out
+   of step with each other. */
+export const period = MASTER;
 export const entryEnd = params.rise;
+/* ---------------------------------------------------------------------------
+   The shift: this arm's part of the world task
+   ---------------------------------------------------------------------------
+   The score (anim/world.mjs) gives this arm both ends of the circuit and 66
+   seconds of nothing in between. Rather than scatter that across the master
+   clock, the whole of its work is one contiguous SHIFT on a shifted clock:
 
-/** which cycle we are in, and how far through it, given loop-local seconds */
-function cycleAt(tt) {
-  let s = tt % period;
-  for (let k = 0; k < CYCLES; k++) {
-    const dur = params.cycle + (k === SIGNATURE ? params.inspect : 0);
-    if (s < dur || k === CYCLES - 1) return { k, ct: s, extra: dur - params.cycle };
-    s -= dur;
-  }
-  return { k: 0, ct: 0, extra: 0 };
+     w = (master - 84) mod 96
+
+   which runs the two picks and two places back to back from w = 0 to w = 30,
+   and leaves w = 30..88 for the idle the arm already knew how to do.
+
+     w  0.0   reach out over where the Go2 is arriving
+     w  8.0   pressed onto its back        GRASP   (master 92: go2 -> z1)
+     w 12.0   set down on the pallet       RELEASE (master 96/0: z1 -> parked)
+     w 18.0   pressed onto the pallet      GRASP   (master 6: parked -> z1)
+     w 30.0   set down on the Go2's back   RELEASE (master 18: z1 -> go2)
+
+   The four grasp/release instants are the ONLY numbers shared with the score,
+   and they are asserted: the selftest samples the cube either side of every
+   ownership change and requires its world position to be continuous. If this
+   arm is not where the score says at those instants, the cube teleports and
+   the build fails. */
+const SHIFT0 = 84;                       // master second the shift begins at
+const SHIFT_LEN = 30;                    // and how long it runs
+const GRAB_BACK = 8.0, DROP_PALLET = 12.0, GRAB_PALLET = 18.0, DROP_BACK = 30.0;
+
+/** shift-local seconds, 0..88 (only 0..30 is work) */
+function shiftAt(t) {
+  const m = masterPhase(t - SHIFT0);
+  return m;
 }
 
-/* Where the inspection is spliced in. The base timeline FREEZES here for
-   `extra` seconds while the detour runs, then resumes exactly where it paused —
-   so the signature cycle is the plain cycle with a held breath inside it, not a
-   second timeline to keep in sync with the first. */
-const HOLD_AT = 4.60;
+/* The four channels, as keyframe tracks in SHIFT seconds. Same shape as before
+   — a station-to-station move is an arrival ABOVE the target, a line-up, a
+   descent that decelerates the whole way, a press, then a lift with
+   conviction. Only the targets changed. */
+const B = BACK_AIM, P = PALLET_AIM;
 
-/* ---------------------------------------------------------------------------
-   One plain cycle, 11 seconds, as four tracks
-   ---------------------------------------------------------------------------
-   The story: leave the ready pose, cross to the pick spot and arrive ABOVE it,
-   line up (three shrinking corrections), descend slowing all the way down,
-   press and grasp, lift away with conviction, carry across on a bowed path,
-   line up again, descend with the last three centimetres slowest of all,
-   settle, let go, back off and look at it, then go back to ready.           */
-
-/* Every track is deliberately FLAT for a third of a second either side of the
-   cycle boundary. The channels read the clock at different offsets, so a track
-   still moving at t=11.0 gets sampled by its lead as though the next cycle had
-   already started it — which shows up as a ~1 degree tick at the seam. Parking
-   each channel before the boundary is cheaper than special-casing the lead. */
-const yawTrack = (src, dst, mid) => [
-  [0.00, mid],
-  [0.24, mid],
-  [0.72, src, inOut],
-  [4.60, src],
-  [6.10, dst, inOut],      // the transfer: the base carries the move
-  [9.15, dst],
-  [9.75, dst - Math.sign(dst - src) * 0.05],   // lean off it while checking
-  [10.60, mid, inOut],
-  [11.0, mid],
+const yawTrack = [
+  [0.0, B.yaw], [6.0, B.yaw], [9.5, B.yaw],
+  [11.0, P.yaw, inOut], [12.0, P.yaw], [16.0, P.yaw], [18.0, P.yaw], [20.5, P.yaw],
+  [25.0, B.yaw, inOut], [28.0, B.yaw], [30.0, B.yaw], [33.0, B.yaw],
+  [36.0, 0], [SHIFT_LEN + 50, 0],
 ];
-
 const reachTrack = [
-  [0.00, R_HOME],
-  [1.55, R_WORK, inOut],   // arrive at the working radius BEFORE descending:
-  [8.55, R_WORK],          // approach from above, never in from the side
-  [9.30, R_WORK - 0.030, outQuad],   // retreat pulls back as well as up
-  [9.90, R_WORK - 0.036],
-  [10.60, R_HOME, inOut],
-  [11.0, R_HOME],
+  [0.0, R_HOME], [3.0, B.r, inOut], [6.0, B.r], [8.0, B.r], [9.5, B.r],
+  [11.0, P.r, inOut], [12.0, P.r], [13.5, P.r], [16.0, P.r], [18.0, P.r], [20.5, P.r],
+  [25.0, B.r, inOut], [28.0, B.r], [30.0, B.r], [33.0, B.r],
+  [36.0, R_HOME, inOut], [SHIFT_LEN + 50, R_HOME],
 ];
-
 const heightTrack = [
-  [0.00, H_HOME],
-  [1.95, H_HOVER, inOut],
-  [2.70, H_HOVER],                   // the line-up: flat, corrections on top
-  [3.55, H_DECK + 0.005, outQuint],  // descend, decelerating the whole way
-  [3.72, H_DECK, outQuad],           // the press: seat the jaws on the crate.
-                                     // It bottoms exactly ON the deck — a
-                                     // press that dips below it puts a visible
-                                     // corner of the crate through the floor
-  [3.90, H_DECK + 0.002, outQuad],
-  [4.42, H_CARRY + 0.014, inQuad],   // lift: gathers speed, then a hair over
-  [4.85, H_CARRY, outQuad],          // ...and settles back onto the carry line
-  [6.35, H_CARRY],
-  [6.95, H_HOVER, inOut],
-  [7.20, H_HOVER],                   // one correction over the drop spot
-  [7.75, H_DECK + 0.030, outQuad],   // down to three centimetres...
-  [8.30, H_DECK, outQuint],          // ...and the last three, slowest of all
-  [8.62, H_DECK],                    // settle
-  [8.80, H_DECK],                    // release happens in here
-  [9.30, H_HOVER + 0.020, outQuad],  // a short, unhurried retreat
-  [9.90, H_HOVER + 0.020],           // and a beat spent looking at it
-  [10.60, H_HOME, inOut],
-  [11.0, H_HOME],
+  [0.0, H_HOME],
+  [3.0, B.h + HOVER, inOut], [6.0, B.h + HOVER],      // lined up over the back
+  [7.4, B.h + 0.006, outQuint],                        // descend, decelerating
+  [8.0, B.h, outQuad],                                 // the press: GRASP
+  [8.4, B.h + 0.004, outQuad],
+  [9.6, H_CARRY, inQuad], [10.2, H_CARRY, outQuad],    // lift, then settle
+  [11.2, P.h + HOVER, inOut],
+  [11.7, P.h + 0.020, outQuad], [12.0, P.h, outQuint], // last centimetres slowest
+  [13.0, P.h],                                         // RELEASE happens in here
+  [13.8, P.h + HOVER, outQuad], [16.0, P.h + HOVER],   // back off and look at it
+  [17.4, P.h + 0.006, outQuint], [18.0, P.h, outQuad], // down again: GRASP
+  [18.4, P.h + 0.004, outQuad],
+  [20.0, H_CARRY, inQuad], [20.8, H_CARRY, outQuad],
+  [25.0, H_CARRY],
+  [27.0, B.h + HOVER, inOut], [28.0, B.h + HOVER],
+  [29.4, B.h + 0.020, outQuad], [30.0, B.h, outQuint], // set down: RELEASE
+  [31.0, B.h],
+  [32.5, B.h + HOVER, outQuad],
+  [36.0, H_HOME, inOut], [SHIFT_LEN + 50, H_HOME],
 ];
-
+/* Tool pitch. Straight down over the pallet — you set a thing on the floor from
+   above — but only 0.35 rad below horizontal over the Go2's back, and that is
+   geometry rather than taste. The back is 0.49 up and 0.44 out; with the tool
+   pointing down, TOOL (0.134) pushes the WRIST another 0.134 higher again and
+   the target falls outside (L1+L2)*0.965. Coming in shallower keeps the wrist
+   low enough to reach, and reads better anyway: you place onto a shelf from the
+   side, not by hovering over it. */
+const P_BACK = 0.35;
 const pitchTrack = [
-  [0.00, 1.30],
-  [1.75, DOWN, inOut],
-  [4.30, DOWN],
-  [4.95, DOWN - 0.11, inOut],        // carried tipped a touch toward itself
-  [6.30, DOWN - 0.11],
-  [7.00, DOWN, inOut],
-  [8.80, DOWN],
-  [9.85, DOWN - 0.24, inOut],        // tilt to look at what it just put down
-  [10.55, 1.30, inOut],
-  [11.0, 1.30],
+  [0.0, 1.30], [3.0, P_BACK, inOut], [9.0, P_BACK],
+  [11.5, DOWN, inOut], [13.0, DOWN], [18.5, DOWN], [20.5, DOWN],
+  [26.0, P_BACK, inOut], [30.0, P_BACK], [33.0, P_BACK],
+  [36.0, 1.30, inOut], [SHIFT_LEN + 50, 1.30],
 ];
 
-/* Grasp and release, as one 0..1 "the crate is mine" signal. The jaws close
-   over 3.62..3.86 and open over 8.66..8.86; preview.js scans for the frame the
-   prop is let go rather than trusting a phase constant, so these numbers are
-   the single source of truth for where the crate ends up. */
-const HOLD_ON = 3.74, HOLD_OFF = 8.76;
-
-/* Exported for tools that want the grasp phase as a fraction of the loop. The
-   loop is four cycles now, so these describe the FIRST pick-and-place. */
-export const GRASP_U = HOLD_ON / period, RELEASE_U = HOLD_OFF / period;
+/** is the arm holding the cube, at shift time w */
+const gripping = (w) => (w >= GRAB_BACK && w < DROP_PALLET) || (w >= GRAB_PALLET && w < DROP_BACK);
 
 /**
  * The line-up: two to three shrinking corrections, ~120 ms of motion each with
@@ -374,10 +376,8 @@ const ENV_MAX_H = 0.40;
 /** how much licence the work loop is willing to give the pointer, 0..1 */
 function freedom(ct, carrying) {
   if (carrying) return 0;                     // wrist-only; handled separately
-  // free while heading home and while at home, closed down over the work
-  const home = smooth(clamp01((ct - 9.95) / 0.9));
-  const leaving = 1 - smooth(clamp01((ct - 0.15) / 0.7));
-  return Math.max(home, leaving);
+  // dead steady over the work, free once the shift is done and before it starts
+  return smooth(clamp01((ct - 36) / 2.5));
 }
 
 /* ---------------------------------------------------------------------------
@@ -385,84 +385,69 @@ function freedom(ct, carrying) {
    --------------------------------------------------------------------------- */
 
 function workPose(ctx, t) {
-  const tt = Math.max(0, t - entryEnd);
-  const { k, ct: raw, extra } = cycleAt(tt);
+  const w = shiftAt(t);
 
-  /* Splice: hold the base timeline still while the inspection runs. */
-  const ins = extra > 0
-    ? clamp01((raw - HOLD_AT) / extra)          // 0..1 across the held window
-    : 0;
-  const ct = raw <= HOLD_AT ? raw
-    : raw < HOLD_AT + extra ? HOLD_AT
-      : raw - extra;
+  /* --- the four channels, each still reading the clock at its own lead --- */
+  let yaw = seq(w + LEAD_YAW, yawTrack);
+  let r = seq(w + LEAD_REACH, reachTrack);
+  let h = seq(w + LEAD_REACH, heightTrack);
+  let pitch = seq(w + LEAD_PITCH, pitchTrack);
 
-  /* The crate ping-pongs: each cycle runs the other way. */
-  const flip = k % 2 === 1;
-  const A = params.face - params.spread, B = params.face + params.spread;
-  const src = flip ? B : A, dst = flip ? A : B;
-  const mid = (src + dst) * 0.5;
-
-  /* --- the four channels, each on its own clock --- */
-  let yaw = seq(ct + LEAD_YAW, yawTrack(src, dst, mid));
-  let r = seq(ct + LEAD_REACH, reachTrack);
-  let h = seq(ct + LEAD_REACH, heightTrack);
-  let pitch = seq(ct + LEAD_PITCH, pitchTrack);
-
-  /* Bow the transfer. A planner's end-effector path between two stations is a
+  /* Bow the two transfers. A planner's end-effector path between stations is a
      shallow arc, not a chord: it swings a little wide and a little high. Two
      lines, and it is the difference between "moved" and "carried". */
-  const cross = Math.sin(PI * clamp01((ct - 4.60) / 1.75));
-  r += 0.008 * cross;                // mostly height: the reach budget is the
-  h += 0.024 * cross;                // one the frame-edge check is solved on
+  const bow = (a, b) => Math.sin(PI * clamp01((w - a) / (b - a)));
+  h += 0.030 * bow(9.6, 11.8);            // off the back, onto the pallet
+  h += 0.038 * bow(20.0, 27.5);           // off the pallet, across to the back
+  r += 0.010 * bow(20.0, 27.5);
 
-  /* Line-ups. Three over the pick (it is committing to a grip), one over the
-     place (it already knows where this goes). All the excursions are INBOARD:
-     the working radius is the widest the silhouette ever gets, and lining up
-     is not the beat to spend the frame-edge budget on. */
-  const up1 = lineUp(ct, 2.06, [[-0.026, 0.019], [0.012, -0.011], [-0.005, 0.004]]);
-  const up2 = lineUp(ct, 6.98, [[-0.014, 0.010]]);
-  r += up1.dr + up2.dr;
-  yaw += up1.dy + up2.dy;
+  /* Line-ups: shrinking corrections converging on zero, ~120ms of motion each
+     with a beat of stillness between. The craftsman squaring up to the work.
+     Three over a pick (it is committing to a grip), one over a place (it
+     already knows where this goes). All excursions INBOARD — the working
+     radius is the widest this silhouette ever gets. */
+  const up1 = lineUp(w, 5.60, [[-0.024, 0.017], [0.011, -0.010], [-0.005, 0.004]]);
+  const up2 = lineUp(w, 11.10, [[-0.013, 0.009]]);
+  const up3 = lineUp(w, 15.60, [[-0.024, 0.017], [0.011, -0.010], [-0.005, 0.004]]);
+  const up4 = lineUp(w, 26.90, [[-0.013, 0.009]]);
+  r += up1.dr + up2.dr + up3.dr + up4.dr;
+  yaw += up1.dy + up2.dy + up3.dy + up4.dy;
 
-  /* The settle. Having put the crate down it lets one small oscillation die
-     out of the wrist — the arm relaxing, not the arm wobbling. */
-  const st = clamp01((ct - 8.30) / 0.55);
-  if (st > 0 && st < 1) pitch += Math.sin(st * PI * 2.6) * 0.020 * (1 - st) * (1 - st);
+  /* The settle: having set something down it lets one small oscillation die out
+     of the wrist — the arm relaxing, not the arm wobbling. Once per place. */
+  for (const s0 of [12.0, 30.0]) {
+    const st = clamp01((w - s0) / 0.55);
+    if (st > 0 && st < 1) pitch += Math.sin(st * PI * 2.6) * 0.020 * (1 - st) * (1 - st);
+  }
 
-  /* --- the signature beat --- */
+  /* The signature beat, kept: on the long carry it brings the cube up toward
+     the lens and turns it over — the maker holding the work to the light. It
+     lives on the pallet-to-back leg, which is the only span long enough to
+     spend six seconds on a look without the handoff waiting for it. */
   let roll = 0, wristYaw = 0;
-  if (extra > 0 && ins > 0 && ins < 1) {
-    /* Up toward the camera and held, with a slow turn of the tool: the maker
-       holding the work to the light. Weight eases in and out of a base pose
-       that is frozen for the duration, so the detour cannot tear the loop. */
-    /* Ramp in, HOLD, ramp out — as smoothsteps, not as a sine raised to a
-       power. sin(x)^0.7 widens the hold but has an infinite slope at both
-       ends, which the tool path shows up as a snap into and out of the beat. */
-    const w = smooth(clamp01(ins / 0.24)) * (1 - smooth(clamp01((ins - 0.78) / 0.22)));
+  const ins = clamp01((w - 21.0) / 4.4);
+  if (ins > 0 && ins < 1) {
+    const g = smooth(clamp01(ins / 0.24)) * (1 - smooth(clamp01((ins - 0.78) / 0.22)));
     const held = smooth(clamp01((ins - 0.22) / 0.14)) * (1 - smooth(clamp01((ins - 0.68) / 0.16)));
-    /* 0.3205 is not a taste number, it is a fit. The character's swept height
-       is baked into mesh-data.js (0.508505 m) and the selftest compares the
-       live sweep against it, so the TALLEST moment in the loop is pinned to
-       the millimetre until someone rebuilds the payload. Better that the
-       moment spending that ceiling is the signature beat than an idle pose:
-       the inspection is now, by construction, the highest this arm ever
-       reaches. The ready pose sits ~8 mm below it, which is the separation
-       that makes the lift read as a lift.
-
-       The drama therefore comes from the reach drawing IN and the tool turning
-       over, not from altitude. That is the truer gesture anyway — you bring
-       work toward your eye, you do not hoist it. */
-    yaw = mix(yaw, 0.12, w);            // a partial turn toward the viewer, not
-    r = mix(r, 0.300, w);               // a full one: the frame is tight here
-    h = mix(h, 0.3205, w);
-    pitch = mix(pitch, 1.06, w);
-    roll += Math.sin(held * PI * 0.85) * 0.62 * held;        // turning it over
+    // the drama is the reach drawing IN and the tool turning over, not altitude:
+    // you bring work toward your eye, you do not hoist it
+    yaw = mix(yaw, mix(P.yaw, B.yaw, 0.5) + 0.10, g);
+    r = mix(r, 0.300, g);
+    h = mix(h, 0.330, g);
+    pitch = mix(pitch, 1.06, g);
+    roll += Math.sin(held * PI * 0.85) * 0.62 * held;
     wristYaw += Math.sin(held * PI) * 0.14;
   }
 
-  /* --- clamp into the envelope, solve, write --- */
-  r = clamp(r, 0.16, 0.48);
-  h = clamp(h, 0.028, 0.44);
+  /* --- clamp into the envelope, solve, write ---
+     The reach ceiling is the silhouette budget, not the arm's limit: the
+     working radius is the widest this character ever gets and the frame-edge
+     check is solved on it. 0.56 is what the Go2's back needs — it sits 0.525
+     out — and the extents tool is the thing that says whether that is
+     affordable. It was 0.50, which silently held the gripper 26mm short of the
+     back and turned the handoff into a miss. */
+  r = clamp(r, 0.16, 0.56);
+  h = clamp(h, 0.028, 0.52);
   const pose = armPose(yaw, r, h, pitch);
   ctx.setAll(pose);
   ctx.set('joint5', wristYaw);
@@ -472,10 +457,8 @@ function workPose(ctx, t) {
   ctx.face(YAW);
   ctx.tilt(0, 0);
 
-  const carrying = ct >= HOLD_ON && ct < HOLD_OFF;
-  if (carrying) ctx.holdProp(); else ctx.dropProp(ct < HOLD_ON ? 'src' : 'dst');
-
-  return { ct, carrying, r, h, yaw, pitch };
+  const carrying = gripping(w);
+  return { ct: w, carrying, r, h, yaw, pitch };
 }
 
 /* ---------------------------------------------------------------------------
@@ -507,9 +490,11 @@ function overlays(ctx, t, w) {
     /* A glance at the coworkers, on cycles the inspection does not own — the
        schedule already gives the fourth cycle a held beat, and two special
        moments in one cycle is one too many. */
-    const { k } = cycleAt(Math.max(0, t - entryEnd));
-    if (k % 2 === 0 && k !== SIGNATURE) {
-      const g = Math.sin(clamp01((ct - 9.9) / 1.0) * PI);
+    /* A glance at the coworkers, during the long idle rather than on a cycle
+       boundary — the shift is one block of work now, and the arm has 58
+       seconds afterwards in which looking up is the only thing it does. */
+    {
+      const g = Math.sin(clamp01((ct - 40) / 14) * PI);
       if (g > 0) {
         const L = toLocal(COWORKERS.x, 0.22, COWORKERS.z, ctx.mps);
         const want = Math.atan2(L.y, L.x);
@@ -627,7 +612,6 @@ export function entrance(ctx, t) {
   ctx.moveTo(AT.x, AT.z);
   ctx.face(YAW);
   ctx.tilt(0, 0);
-  ctx.dropProp('src');
 }
 
 export function work(ctx, t) {
