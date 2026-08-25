@@ -12,12 +12,24 @@ export const params = {
   vicinity: 1.20,   // pointer-attention radius, stage units
 };
 
-/* All three keyposes live on one "arm extended" manifold (elbow near 1.9 rad):
-   folding the elbow in instead drives link04 straight through link02. */
-const HOME = [1.30, 1.72, -1.30, 0.10, 0];
-const LOW = [0.70, 1.90, -1.00, 0.06, 0];
-const HIGH = [1.10, 1.90, -1.40, 0.08, 0];
-const AT = { x: 1.66, z: 0.60 }, YAW = -0.75;
+/* [joint2, joint3, joint4, joint5, joint6].
+   All three keyposes hold the ELBOW constant (joint3 = -1.56) and sweep the
+   shoulder, so interpolating between them moves monotonically along one arm
+   posture and never folds link04 back through link02.
+
+   joint3's limit is [-2.88, 0] — the elbow on this arm folds NEGATIVE. An
+   earlier version of these poses used +1.7..+1.9, which the runtime silently
+   clamped to 0: the offline preview drew a reaching arm while the browser drew
+   a straight one that never met its cube. preview.js now applies the same
+   limits the runtime does, and the selftest fails on out-of-limit authoring. */
+const ELBOW = -1.56;
+const HOME = [1.78, ELBOW, 1.05, 0.10, 0];   // tucked up and back, waiting
+const LOW = [2.50, ELBOW, 0.60, 0.06, 0];    // tool down at deck level
+const HIGH = [2.12, ELBOW, 0.75, 0.08, 0];   // carried clear of the deck
+/* Moved inboard from 1.66 when the elbow was fixed: a correctly-posed arm
+   actually extends ~0.46 world units, where the clamped-flat one barely left
+   its base, and the old spot put half the silhouette off the right edge. */
+const AT = { x: 1.15, z: 0.60 }, YAW = -0.75;
 
 export const GRASP_U = 0.24, RELEASE_U = 0.66;
 
@@ -25,7 +37,7 @@ export const GRASP_U = 0.24, RELEASE_U = 0.66;
 export const roam = {
   side: 'right',
   halfWidth: 0.73,
-  work: { x: [1.66, 1.66], z: [0.60, 0.60] },
+  work: { x: [1.15, 1.15], z: [0.60, 0.60] },
 };
 export const ground = ['link00'];
 export const period = params.cycle;

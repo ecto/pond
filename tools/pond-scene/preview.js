@@ -31,7 +31,7 @@ const VIEWPORTS = [[1280, 700], [1280, 1000], [1440, 1300], [1280, 1400]];
    own metres, in its own frame. Kept in sync with scene.js. */
 const PROPS = {
   z1: { attach: 'link06', offset: [0.015, 0, 0], size: [0.07, 0.07, 0.07], mat: 0 },
-  t1: { attach: 'hands', offset: [0.16, 0, -0.281], size: [0.18, 0.30, 0.50], mat: 1 },
+  t1: { attach: 'hands', offset: [0.16, 0, -0.253], size: [0.18, 0.30, 0.50], mat: 1 },
 };
 
 function boxSoup(size, matId) {
@@ -43,8 +43,31 @@ function boxSoup(size, matId) {
   };
 }
 
-/* ---------------- forward kinematics over the built joint table ---------- */
+/* ---------------- forward kinematics over the built joint table ----------
+   Joint limits are applied here exactly as scene.js applies them, so an offline
+   render can never show a pose the browser cannot actually reach. It could,
+   once: the Z1's keyposes were authored outside joint3's limit and every
+   preview happily drew an arm the runtime was quietly folding flat. */
+function clampPose(char, pose) {
+  if (!char._lim) {
+    char._lim = {};
+    for (const j of char.joints) if (j.limit) char._lim[j.name] = j.limit;
+  }
+  let out = pose;
+  for (const k of Object.keys(pose)) {
+    const L = char._lim[k];
+    if (!L) continue;
+    const v = pose[k];
+    if (v < L[0] || v > L[1]) {
+      if (out === pose) out = { ...pose };
+      out[k] = v < L[0] ? L[0] : L[1];
+    }
+  }
+  return out;
+}
+
 function fk(char, pose) {
+  pose = clampPose(char, pose);
   const byChild = {};
   for (const j of char.joints) byChild[j.child] = j;
   const world = {};
@@ -143,26 +166,66 @@ async function buildStage(names) {
     char.mps = 1 / char.stageScale;          // metres per stage unit
     char.ctx = { mps: char.mps };
 
-    // parked prop positions: captured in the character's own grounded frame,
-    // the same thing Object3D.attach() leaves behind at runtime
+    /* Parked prop positions. Captured at the frame the character actually
+       lets go — scanned for, not guessed from a phase constant. Guessing was
+       wrong: a character's internal cycle phase need not line up with
+       entryEnd + u*period, and the Z1's cube was being frozen mid-lift, so it
+       hung in the air instead of sitting on the deck. */
     const P = PROPS[key];
     if (P) {
       char.parked = {};
-      const at = (u) => {
-        const pose = char.act(char.entryEnd + u * char.period, char.ctx).j || {};
-        const world = fk(char, pose);
+      const grab = (t) => {
+        const pose = char.act(t, char.ctx);
+        const world = fk(char, pose.j || {});
         const M = attachMatrix(char, P, world);
         if (!M) return null;
         const dy = groundOffset(char, world, char.ground);
         const q = new THREE.Vector3().setFromMatrixPosition(M);
         return M.clone().setPosition(q.x, q.y, char.yUp ? q.z : q.z + dy);
       };
-      if (key === 'z1') { char.parked.src = at(W.Z1_GRASP_U - 0.001); char.parked.dst = at(W.Z1_RELEASE_U - 0.001); }
-      if (key === 't1') char.parked.floor = at(W.T1_RELEASE_U - 0.001);
+      // two periods: characters whose cycle alternates (the Z1's cube
+       // ping-pongs between two spots) only reveal one park label per period
+      /* Two periods, because a cycle that alternates (the Z1's cube
+         ping-pongs) only shows one of its spots per period. Releases are kept
+         as an ordered timeline rather than named slots: the prop is wherever it
+         was most recently put down, which is the actual rule and needs no
+         labels to be right. */
+      const N = 1800;
+      let prev = null;
+      char.releases = [];
+      for (let i = 0; i <= N; i++) {
+        const t = char.entryEnd + (i / N) * char.period * 2;
+        const st = char.act(t, char.ctx);
+        const held = !!(st.prop && st.prop.held);
+        if (prev && prev.held && !held) {
+          const M = grab(prev.t);
+          if (M) char.releases.push({ t: prev.t, M });
+        }
+        prev = { t, held };
+      }
+      if (!char.releases.length) {
+        const M = grab(char.entryEnd);
+        if (M) char.releases.push({ t: char.entryEnd, M });
+      }
     }
     cast.push(char);
   }
   return { cast, W, S };
+}
+
+/** where a released prop is sitting at time t: wherever it was last put down */
+function parkedAt(char, t) {
+  const rel = char.releases;
+  if (!rel || !rel.length) return null;
+  const span = char.period * 2;
+  let best = rel[rel.length - 1];
+  for (const r of rel) {
+    if (r.t <= t) best = r;
+  }
+  // before the first release in the sampled window, fall back to the last one
+  // of the previous pass — the prop has been on the deck since then
+  if (t < rel[0].t) best = rel[rel.length - 1];
+  return best.M;
 }
 
 /** the character's model-to-stage matrix at time t, plus its state.
@@ -219,7 +282,7 @@ function stageSoup(cast, t, opts = {}) {
     const P = PROPS[char.key];
     if (P && a.prop) {
       const local = a.prop.held ? attachMatrix(char, P, world)
-        : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
+        : parkedAt(char, t);
       if (local) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(M, local), slotOf(char, P.mat));
     }
     // contact blob on the shared floor
@@ -325,7 +388,7 @@ function roamBoxExtent(char, cam, S, roam, samples = 48) {
       const P = PROPS[char.key];
       if (P && a.prop) {
         const local = a.prop.held ? attachMatrix(char, P, world)
-          : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
+          : parkedAt(char, t);
         if (local) {
           const L = new THREE.Matrix4().multiplyMatrices(M, local);
           for (const c of CORNERS) {
@@ -363,7 +426,7 @@ function sweptExtent(char, cam, S, samples = 160) {
     const P = PROPS[char.key];
     if (P && a.prop) {
       const local = a.prop.held ? attachMatrix(char, P, world)
-        : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
+        : parkedAt(char, t);
       if (local) {
         const L = new THREE.Matrix4().multiplyMatrices(M, local);
         for (const c of CORNERS) {
@@ -409,7 +472,7 @@ async function solveConstants() {
       }
       const P = PROPS[char.key];
       if (P && a.prop) {
-        const local = a.prop.held ? attachMatrix(char, P, world) : (char.parked && char.parked[a.prop.park]) || null;
+        const local = a.prop.held ? attachMatrix(char, P, world) : parkedAt(char, t);
         if (local) {
           const L = new THREE.Matrix4().multiplyMatrices(M, local);
           for (const c of CORNERS) {
@@ -534,7 +597,7 @@ async function character(name, outDir) {
     const P = PROPS[name];
     if (P && a.prop) {
       const lm = a.prop.held ? attachMatrix(char, P, world2)
-        : (char.parked && (char.parked[a.prop.park] || char.parked.floor)) || null;
+        : parkedAt(char, t);
       if (lm) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(local, lm), P.mat);
     }
     const g = new THREE.PlaneGeometry(3, 3);
@@ -683,7 +746,7 @@ async function solo(only) {
       for (const [ln, geo] of Object.entries(char.links)) push(geo, new THREE.Matrix4().multiplyMatrices(local, world[ln]));
       const P = PROPS[char.key];
       if (P && a.prop) {
-        const lm = a.prop.held ? attachMatrix(char, P, world) : (char.parked && char.parked[a.prop.park]) || null;
+        const lm = a.prop.held ? attachMatrix(char, P, world2) : parkedAt(char, t);
         if (lm) push(boxSoup(P.size, P.mat), new THREE.Matrix4().multiplyMatrices(local, lm), P.mat);
       }
       const g = new THREE.PlaneGeometry(3, 3);
@@ -715,4 +778,4 @@ if (require.main === module) {
   run.catch((e) => { console.error(e); process.exit(1); });
 }
 
-module.exports = { fk, groundOffset, attachMatrix, buildStage, stageSoup, placeMatrix, sweptExtent, roamBoxExtent, PALETTE, ACCENT, PROPS, VIEWPORTS };
+module.exports = { fk, clampPose, groundOffset, attachMatrix, buildStage, stageSoup, placeMatrix, sweptExtent, roamBoxExtent, PALETTE, ACCENT, PROPS, VIEWPORTS };

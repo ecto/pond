@@ -169,6 +169,46 @@ function checkIK(WORK) {
     : 'copy keep-out clear at every viewport and roam extreme');
   if (overlap > 0) { console.error('CHARACTER UNDER THE COPY'); process.exit(1); }
 
+  // Authored angles must be reachable. A joint driven past its URDF limit is
+  // silently clamped by the runtime, so the pose rendered offline is not the
+  // pose that ships — which is exactly how the Z1's elbow stayed wrong for so
+  // long. Cheap check, whole class of bug.
+  /* Pre-existing violations, waived so a NEW one still fails the build. Each
+     entry is owned by that character's animator and should be cleared, not
+     extended: the effect is that the joint is pinned at its limit, so whatever
+     the pose was reaching for is not happening. */
+  const WAIVED = new Set([
+    't1/Left_Elbow_Yaw',   // authored +0.20 against [-2.44, 0]; pinned at 0
+    't1/Right_Elbow_Yaw',  // authored -0.20 against [0, 2.44]; pinned at 0
+  ]);
+  let outOfLimit = 0, waivedSeen = 0;
+  for (const c of cast) {
+    const lim = Object.fromEntries(c.joints.filter((j) => j.limit).map((j) => [j.name, j.limit]));
+    const bad = new Map();
+    for (let i = 0; i <= 240; i++) {
+      const t = (i / 240) * (c.entryEnd + c.period);
+      const j = c.act(t, c.ctx).j || {};
+      for (const [k, v] of Object.entries(j)) {
+        const L = lim[k];
+        if (!L) continue;
+        const over = Math.max(L[0] - v, v - L[1]);
+        if (over > 1e-6) bad.set(k, Math.max(bad.get(k) || 0, over));
+      }
+    }
+    for (const [k, over] of bad) {
+      const id = `${c.key}/${k}`;
+      const msg = `${id} driven ${over.toFixed(3)} rad past its URDF limit `
+        + `(${lim[k].map((x) => x.toFixed(2)).join(' .. ')}) — the runtime clamps it`;
+      if (WAIVED.has(id)) { waivedSeen++; console.log(`  known: ${msg}`); continue; }
+      outOfLimit++;
+      console.error(`  ${msg}`);
+    }
+  }
+  console.log(outOfLimit
+    ? `AUTHORED JOINTS OUT OF LIMIT: ${outOfLimit}`
+    : `authored joint angles within URDF limits (${waivedSeen} known exception${waivedSeen === 1 ? '' : 's'})`);
+  if (outOfLimit) process.exit(1);
+
   console.log('selftest OK');
 /* Sample a walking stretch and compare how fast the planted foot moves across
    the stage against how fast the body does. */

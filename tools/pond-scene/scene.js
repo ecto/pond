@@ -33,7 +33,7 @@ const CAST = [
    preview.js. */
 const PROPS = {
   z1: { attach: 'link06', offset: [0.015, 0, 0], size: [0.07, 0.07, 0.07], color: BONE },
-  t1: { attach: 'hands', offset: [0.16, 0, -0.281], size: [0.18, 0.30, 0.50], color: INK },
+  t1: { attach: 'hands', offset: [0.16, 0, -0.253], size: [0.18, 0.30, 0.50], color: INK },
 };
 
 /* where in its loop a frozen (reduced-motion) character sits: mid-work, on the

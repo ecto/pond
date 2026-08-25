@@ -9,7 +9,12 @@ const TAN_HALF = Math.tan((FOV * Math.PI) / 180 / 2);
    roughly comparable size regardless of the robots' true scale; pond-bot and
    the Z1 are trimmed below the rest because both are far wider than they are
    tall and would otherwise hog the edge bands they live in. */
-export const HEIGHT = { pondbot: 0.44, go2: 0.88, t1: 1.12, z1: 0.70 };
+/* T1 trimmed from 1.12 when preview.js started applying joint limits: its
+   Elbow_Yaw is authored at +-0.20 against one-sided limits and the runtime
+   clamps it, so the shipped silhouette is a shade wider than the renders used
+   to show and clipped the copy column by 0.3%. Corrected here rather than in
+   t1.mjs so the character module stays the animator's. */
+export const HEIGHT = { pondbot: 0.44, go2: 0.88, t1: 1.09, z1: 0.70 };
 
 /* Allowed crop budget.
    The old PNG layout got big characters by letting them run off the edges, and

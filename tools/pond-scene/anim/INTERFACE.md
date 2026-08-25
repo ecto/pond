@@ -279,12 +279,15 @@ Traps worth knowing before you spend an hour on them:
 | `joint5` | +z | −1.34 … 1.34 | link04 → link05 (wrist yaw) |
 | `joint6` | +x | −2.79 … 2.79 | link05 → link06 (tool roll) |
 
-> ⚠️ **Known bug, first job for the Z1 owner.** The current keyposes drive
-> `joint3` to **+1.72 … +1.90**, outside its limit `[−2.88, 0]`. The runtime
-> clamps it to 0, so the shipped arm is nearly straight and never reaches its
-> cube — while the offline preview (which did not clamp) drew the intended pose.
-> The poses need re-solving inside the real limits. Note the elbow folds
-> **negative** on this arm.
+The elbow folds **negative** on this arm. The keyposes hold `joint3` constant at
+−1.56 and sweep the shoulder, so interpolating between them moves along one arm
+posture and never folds `link04` back through `link02`.
+
+> Fixed, but worth knowing: these poses used to drive `joint3` to +1.9, outside
+> its limit. The runtime clamped it to 0 and shipped a nearly straight arm that
+> never reached its cube, while the preview — which did not clamp — drew the
+> intended pose. `preview.js` now applies limits exactly as the runtime does and
+> the selftest fails on out-of-limit authoring, so this cannot recur silently.
 
 ### pond-bot
 
@@ -317,6 +320,7 @@ npm run selftest
 | planted-foot slip while walking | **< 5%** of body speed |
 | frame-edge budget | nothing past its crop allowance |
 | copy keep-out | **zero** overlap, every viewport, every roam extreme |
+| authored joint angles | inside URDF limits (waived exceptions are listed in `selftest.js`) |
 
 `npm run selftest` asserts all of them. It is fast; run it after every change,
 and always before you hand work back.
@@ -326,6 +330,6 @@ Two more habits worth having:
 - **Look at every frame you generate.** These robots have non-obvious joint
   conventions and half the bugs found so far were invisible in numbers and
   obvious in a picture.
-- **The preview is not the browser.** It shares the camera solve and `work.mjs`
-  is shared code, but joint limits are applied by the runtime. If a pose looks
-  right offline and wrong live, suspect a limit first (see the Z1 note above).
+- **Respect the joint limits.** The preview applies them now, so offline and
+  live agree, and the selftest fails on anything new. If you need a pose the
+  limits forbid, the answer is a different pose, not a bigger number.
