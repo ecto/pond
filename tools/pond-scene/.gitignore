@@ -1,0 +1,5 @@
+# upstream robot description repos, cloned locally (see README)
+robots/
+# offline contact sheets
+preview/
+node_modules/

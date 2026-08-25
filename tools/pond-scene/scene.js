@@ -1,0 +1,465 @@
+/* Pond landing scene — four real robots, articulated and doing their jobs.
+   Loads site-wide via Mintlify custom scripts, so it must be a no-op
+   anywhere the landing frame is absent. */
+import {
+  Scene, PerspectiveCamera, WebGLRenderer, Group, Object3D, Mesh,
+  MeshBasicMaterial, MeshLambertMaterial, BufferGeometry, BufferAttribute, BoxGeometry,
+  DirectionalLight, AmbientLight, Raycaster, Vector2, Vector3, Quaternion,
+  CircleGeometry, CanvasTexture, Color, DoubleSide,
+} from 'three';
+import { MESH_B64 } from './mesh-data.js';
+import { WORK, PERIOD, REACTIONS } from './work.mjs';
+
+/* Pond's four mark colours, one per character, over the shared bone/ink base */
+const BONE = 0xefece2, INK = 0x212327;
+const ACCENTS = { pondbot: 0x0000ff, go2: 0x2aa13f, t1: 0xcf331e, z1: 0xf0ad00 };
+
+/* ---------------- character composition ----------------
+   x/y are viewport fractions (y measured from the bottom edge) so the
+   3D cast lands where the PNG critters used to sit. */
+const CAST = [
+  {
+    key: 'pondbot', xFrac: 0.18, yFrac: -0.05, px: 250, yaw: 0.55, delay: 0.0,
+    grounded: true, reactions: ['flip', 'boing', 'shimmy', 'hop'],
+  },
+  {
+    // quadruped is ~1.3x as long as it is tall, so its centre has to sit well
+    // inside the edge for the front body and legs to read
+    key: 'go2', xFrac: 0.07, yFrac: 0.17, px: 275, yaw: -0.38, delay: 0.22,
+    from: 'left', reactions: ['playbow', 'wag', 'hop', 'shimmy'],
+  },
+  {
+    // narrow humanoid: its silhouette is only ~0.35x its height wide, so an
+    // xFrac past 1.0 leaves nothing but a sliver. Keep the centre just inside
+    // the right edge and stand it low enough to read as standing.
+    key: 't1', xFrac: 0.95, yFrac: 0.2, px: 320, yaw: 2.72, delay: 0.42,
+    from: 'right', reactions: ['bow', 'twist', 'shimmy'],
+  },
+  {
+    key: 'z1', xFrac: 0.88, yFrac: -0.04, px: 240, yaw: -0.75, delay: 0.62,
+    grounded: true, reactions: ['wave', 'lean', 'boing'],
+  },
+];
+
+/* ---------------- props ----------------
+   Two cheap primitives. They are what make the work legible: without the cube
+   the Z1 is just waving, without the crate the T1 is just squatting. */
+const PROPS = {
+  z1: { attach: 'link06', offset: [0.015, 0, 0], size: [0.07, 0.07, 0.07], color: BONE },
+  t1: { attach: 'hands', offset: [0.16, 0, -0.281], size: [0.18, 0.30, 0.50], color: INK },
+};
+
+/* ---------------- payload decode ----------------
+   [u32 header length][JSON header][per-link geometry records] */
+function decode(b64) {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  const hl = new DataView(bytes.buffer).getUint32(0, true);
+  const header = JSON.parse(new TextDecoder().decode(bytes.subarray(4, 4 + hl)));
+  const base = 4 + hl;
+  const out = {};
+  for (const r of header.robots) {
+    const links = {};
+    for (const L of r.links) {
+      const o = base + L.o;
+      const q = new Int16Array(bytes.buffer, o, L.nv * 3);
+      const index = new Uint16Array(bytes.buffer, o + L.nv * 6, L.nt * 3);
+      const matId = new Uint8Array(bytes.buffer, o + L.nv * 6 + L.nt * 6, L.nv);
+      const positions = new Float32Array(L.nv * 3);
+      for (let i = 0; i < L.nv; i++) {
+        for (let c = 0; c < 3; c++) {
+          positions[i * 3 + c] = ((q[i * 3 + c] + 32768) / 65535) * L.size[c] + L.min[c];
+        }
+      }
+      links[L.n] = { positions, index, matId };
+    }
+    out[r.name] = { ...r, links };
+  }
+  return out;
+}
+
+/* one Mesh per palette slot, so plain materials do all the colouring */
+function linkMeshes(link, accent) {
+  const g = new Group();
+  const { positions, index, matId } = link;
+  for (const [id, color] of [[0, BONE], [1, INK], [2, accent]]) {
+    const keep = [];
+    for (let t = 0; t < index.length; t += 3) {
+      if (matId[index[t]] === id) keep.push(index[t], index[t + 1], index[t + 2]);
+    }
+    if (!keep.length) continue;
+    const geo = new BufferGeometry();
+    geo.setAttribute('position', new BufferAttribute(positions, 3));
+    geo.setIndex(keep);
+    geo.computeVertexNormals();
+    g.add(new Mesh(geo, new MeshLambertMaterial({
+      color: new Color(color),
+      emissive: new Color(color).multiplyScalar(id === 1 ? 0.10 : 0.05),
+      side: DoubleSide,
+    })));
+  }
+  return g;
+}
+
+/** rebuild the URDF node graph: one Object3D per link, wired by the joint table */
+function buildSkeleton(robot, accent) {
+  const nodes = {};
+  for (const name of Object.keys(robot.links)) {
+    const n = new Object3D();
+    n.name = name;
+    n.add(linkMeshes(robot.links[name], accent));
+    nodes[name] = n;
+  }
+  const joints = [];
+  for (const j of robot.joints) {
+    const child = nodes[j.c], parent = nodes[j.p];
+    if (!child || !parent) continue;
+    parent.add(child);
+    const originPos = new Vector3().fromArray(j.pos);
+    const originQuat = new Quaternion().fromArray(j.quat);
+    child.position.copy(originPos);
+    child.quaternion.copy(originQuat);
+    if (j.t !== 'f') {
+      joints.push({
+        name: j.n, node: child, originQuat, prismatic: j.t === 'p',
+        axis: new Vector3().fromArray(j.axis).normalize(),
+        lim: j.lim,
+        basePos: originPos,
+      });
+    }
+  }
+  return { nodes, joints, root: nodes[robot.root] };
+}
+
+function blobTexture() {
+  const c = document.createElement('canvas');
+  c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const grd = x.createRadialGradient(32, 32, 2, 32, 32, 30);
+  grd.addColorStop(0, 'rgba(0,0,0,0.42)');
+  grd.addColorStop(1, 'rgba(0,0,0,0)');
+  x.fillStyle = grd;
+  x.fillRect(0, 0, 64, 64);
+  return new CanvasTexture(c);
+}
+
+const EASE = (t) => 1 - Math.pow(1 - t, 3);
+/* where in its cycle a frozen (reduced-motion) character sits: mid-work, not
+   mid-transition, so it reads as a still of someone doing the job */
+const FROZEN_U = { pondbot: 0.72, go2: 0.06, t1: 0.16, z1: 0.45 };
+
+/* ---------------- the scene ---------------- */
+function start(frame) {
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let canvas, renderer;
+  try {
+    canvas = document.createElement('canvas');
+    renderer = new WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
+  } catch (e) { return null; }
+  if (!renderer || !renderer.getContext || !renderer.getContext()) return null;
+
+  canvas.className = 'pond-scene-canvas';
+  Object.assign(canvas.style, {
+    position: 'absolute', inset: '0', width: '100%', height: '100%',
+    pointerEvents: 'none', zIndex: '0', display: 'block',
+  });
+  frame.appendChild(canvas);
+
+  const robots = decode(MESH_B64);
+  const scene = new Scene();
+  const camera = new PerspectiveCamera(30, 1, 0.1, 200);
+  const D = 10;
+  camera.position.set(0, 0, D);
+  camera.lookAt(0, 0, 0);
+
+  const key = new DirectionalLight(0xfff6e8, 2.15);
+  key.position.set(-2.6, 4.2, 3.4);
+  scene.add(key);
+  const fill = new DirectionalLight(0xdfe6ff, 0.55);
+  fill.position.set(3.2, 0.6, 2.0);
+  scene.add(fill);
+  scene.add(new AmbientLight(0xffffff, 1.05));
+
+  const blobTex = blobTexture();
+  const actors = [];
+
+  for (const spec of CAST) {
+    const robot = robots[spec.key];
+    if (!robot) continue;
+    const accent = ACCENTS[spec.key] || 0x0000ff;
+
+    /* holder(placement) > norm(unit height) > shift(pivot) > gnd(foot contact) > zup > links */
+    const holder = new Group();
+    const norm = new Group();
+    const shift = new Group();
+    const gnd = new Group();
+    const zup = new Group();
+    norm.scale.setScalar(1 / (robot.height || 1));
+    norm.position.y = -0.5;
+    shift.position.set(-robot.pivot[0], -robot.pivot[1], -robot.pivot[2]);
+    if (!robot.yUp) zup.rotation.x = -Math.PI / 2;   // URDF is Z-up, the scene is Y-up
+    holder.add(norm); norm.add(shift); shift.add(gnd); gnd.add(zup);
+
+    const skel = buildSkeleton(robot, accent);
+    zup.add(skel.root);
+
+    // grounding references: link origins that rest on the deck
+    const groundNodes = (robot.ground || []).map((n) => skel.nodes[n]).filter(Boolean);
+
+    // prop + its carry anchor
+    let prop = null, carry = null;
+    const P = PROPS[spec.key];
+    if (P) {
+      const geo = new BoxGeometry(P.size[0], P.size[1], P.size[2]);
+      prop = new Mesh(geo, new MeshLambertMaterial({
+        color: new Color(P.color),
+        emissive: new Color(P.color).multiplyScalar(P.color === INK ? 0.10 : 0.05),
+      }));
+      if (P.attach === 'hands') {
+        carry = new Object3D();
+        (skel.nodes.Trunk || skel.root).add(carry);
+      } else {
+        carry = skel.nodes[P.attach] || skel.root;
+      }
+      prop.position.set(P.offset[0], P.offset[1], P.offset[2]);
+      carry.add(prop);
+    }
+
+    if (spec.grounded === true) {
+      const blob = new Mesh(new CircleGeometry(0.42, 20), new MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false }));
+      blob.rotation.x = -Math.PI / 2;
+      blob.position.y = -0.52;
+      holder.add(blob);
+    }
+    scene.add(holder);
+
+    actors.push({
+      spec, robot, holder, norm, shift, gnd, zup, skel, groundNodes,
+      prop, carry, propHeld: true, propCfg: P,
+      hands: [skel.nodes.left_hand_link, skel.nodes.right_hand_link],
+      work: WORK[spec.key], period: PERIOD[spec.key] || 10,
+      base: { x: 0, y: 0, yaw: spec.yaw },
+      phase: Math.random() * PERIOD[spec.key],   // desync the loops
+      react: null,
+    });
+  }
+
+  /* layout in world units from viewport fractions */
+  let vw = 1, vh = 1, visH = 1, visW = 1;
+  function layout() {
+    const r = frame.getBoundingClientRect();
+    vw = Math.max(1, r.width); vh = Math.max(1, r.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setSize(vw, vh, false);
+    camera.aspect = vw / vh;
+    camera.updateProjectionMatrix();
+    visH = 2 * D * Math.tan((camera.fov * Math.PI) / 180 / 2);
+    visW = visH * camera.aspect;
+    for (const a of actors) {
+      const targetWorldH = (a.spec.px / vh) * visH;
+      a.baseScale = targetWorldH;
+      a.base.x = (a.spec.xFrac - 0.5) * visW;
+      // holder origin sits at the body centre, so lift by half a height to
+      // put the feet on the requested viewport fraction
+      a.base.y = (a.spec.yFrac - 0.5) * visH + targetWorldH * 0.5;
+    }
+  }
+  layout();
+
+  /* entrances: slide in from the nearest edge */
+  const t0 = performance.now() / 1000;
+  const ENTRY = 0.95;
+  function entryOffset(a, now) {
+    if (reduced) return { x: 0, y: 0, o: 1 };
+    const t = Math.min(1, Math.max(0, (now - t0 - a.spec.delay) / ENTRY));
+    const e = EASE(t);
+    const dir = a.spec.from === 'left' ? -1 : a.spec.from === 'right' ? 1 : 0;
+    if (dir) return { x: dir * (1 - e) * visW * 0.42, y: 0, o: t <= 0 ? 0 : 1 };
+    return { x: 0, y: -(1 - e) * visH * 0.35, o: t <= 0 ? 0 : 1 };
+  }
+
+  /* click -> raycast -> one random morphology-appropriate reaction */
+  const ray = new Raycaster();
+  const ndc = new Vector2();
+  function onClick(ev) {
+    if (reduced) return;
+    const r = canvas.getBoundingClientRect();
+    if (ev.clientX < r.left || ev.clientX > r.right || ev.clientY < r.top || ev.clientY > r.bottom) return;
+    ndc.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+    ndc.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(ndc, camera);
+    for (const a of actors) {
+      if (a.react) continue;
+      if (!ray.intersectObject(a.holder, true).length) continue;
+      const list = a.spec.reactions;
+      a.react = {
+        name: list[(Math.random() * list.length) | 0],
+        start: performance.now() / 1000,
+        vary: 0.82 + Math.random() * 0.36,
+        dir: Math.random() < 0.5 ? -1 : 1,
+      };
+      break;
+    }
+  }
+  window.addEventListener('click', onClick, true);
+
+  /* ---- per-frame posing ---- */
+  const tmpV = new Vector3();
+  const tmpQ = new Quaternion();
+  const body = { rot: { x: 0, y: 0, z: 0 }, pos: { y: 0 }, scl: { x: 1, y: 1 } };
+
+  function poseActor(a, now) {
+    const t = now + a.phase;
+    const w = a.work ? a.work(t) : { j: {}, body: {}, prop: null };
+    const jd = a.react && REACTIONS[a.react.name] && REACTIONS[a.react.name].joints
+      ? REACTIONS[a.react.name].joints(reactT(a, now), a.react.dir) : null;
+
+    for (const j of a.skel.joints) {
+      let q = w.j[j.name] || 0;
+      if (jd && jd[j.name]) q += jd[j.name];
+      if (j.lim) q = Math.max(j.lim[0], Math.min(j.lim[1], q));
+      if (j.prismatic) {
+        j.node.position.copy(j.basePos).addScaledVector(j.axis, q);
+      } else {
+        j.node.quaternion.copy(j.originQuat).multiply(tmpQ.setFromAxisAngle(j.axis, q));
+      }
+    }
+
+    // re-ground: push the character down until its lowest planted link is back
+    // on the deck (the URDF root is the trunk, so squatting lifts the feet)
+    if (a.groundNodes.length) {
+      a.gnd.position.y = 0;
+      a.holder.updateMatrixWorld(true);
+      let lo = Infinity;
+      for (const n of a.groundNodes) {
+        n.getWorldPosition(tmpV);
+        a.shift.worldToLocal(tmpV);
+        if (tmpV.y < lo) lo = tmpV.y;
+      }
+      if (lo !== Infinity) a.gnd.position.y = -lo;
+    }
+
+    // the T1's crate rides a node pinned to the midpoint of its two hands
+    if (a.carry && a.propCfg && a.propCfg.attach === 'hands' && a.hands[0] && a.hands[1]) {
+      a.holder.updateMatrixWorld(true);
+      const trunk = a.carry.parent;
+      a.hands[0].getWorldPosition(tmpV);
+      const mid = trunk.worldToLocal(tmpV.clone());
+      a.hands[1].getWorldPosition(tmpV);
+      mid.add(trunk.worldToLocal(tmpV)).multiplyScalar(0.5);
+      a.carry.position.copy(mid);
+    }
+
+    // grasp / release: attach() keeps the world transform, so a released prop
+    // simply stays where the character put it
+    if (a.prop && w.prop) {
+      const want = !!w.prop.held;
+      if (want !== a.propHeld) {
+        (want ? a.carry : a.shift).attach(a.prop);
+        if (want) a.prop.position.set(a.propCfg.offset[0], a.propCfg.offset[1], a.propCfg.offset[2]);
+        a.propHeld = want;
+      }
+    }
+    return w;
+  }
+
+  function reactT(a, now) {
+    const R = REACTIONS[a.react.name];
+    return (now - a.react.start) / (R.dur * a.react.vary);
+  }
+
+  function frameLoop() {
+    raf = requestAnimationFrame(frameLoop);
+    if (!running) return;
+    render(performance.now() / 1000);
+  }
+
+  function render(now) {
+    for (const a of actors) {
+      const w = poseActor(a, now);
+      const wb = w.body || {};
+
+      body.rot.x = wb.pitch || 0;
+      body.rot.y = wb.yaw || 0;
+      body.rot.z = wb.roll || 0;
+      body.pos.y = wb.lift || 0;
+      body.scl.x = 1; body.scl.y = wb.squash || 1;
+
+      if (a.react) {
+        const R = REACTIONS[a.react.name];
+        const t = reactT(a, now);
+        if (t >= 1) a.react = null;
+        else if (R.body) R.body(body, t, a.react.dir);
+      }
+
+      const e = entryOffset(a, now);
+      const s = a.baseScale;
+      a.holder.position.set(a.base.x + e.x, a.base.y + e.y + body.pos.y * s, 0);
+      a.holder.rotation.set(body.rot.x, a.base.yaw + body.rot.y, body.rot.z);
+      a.holder.scale.set(s * body.scl.x, s * body.scl.y, s * body.scl.x);
+      a.holder.visible = e.o > 0;
+    }
+    renderer.render(scene, camera);
+  }
+
+  let raf = 0, running = true;
+  if (reduced) {
+    // freeze mid-work: one still frame, no loop and no reactions
+    for (const a of actors) a.phase = (FROZEN_U[a.spec.key] || 0) * a.period;
+    render(0);
+  } else {
+    frameLoop();
+  }
+
+  const onResize = () => { layout(); if (reduced) render(0); };
+  window.addEventListener('resize', onResize);
+  const onVis = () => { running = !document.hidden; };
+  document.addEventListener('visibilitychange', onVis);
+
+  // progressive enhancement: the PNGs were the fallback, retire them
+  const pngs = frame.querySelectorAll('.landing-critter');
+  pngs.forEach((el) => { el.dataset.pondHidden = '1'; el.style.display = 'none'; });
+
+  return function dispose() {
+    cancelAnimationFrame(raf);
+    window.removeEventListener('click', onClick, true);
+    window.removeEventListener('resize', onResize);
+    document.removeEventListener('visibilitychange', onVis);
+    pngs.forEach((el) => { if (el.dataset.pondHidden) { el.style.display = ''; delete el.dataset.pondHidden; } });
+    scene.traverse((o) => {
+      if (o.geometry) o.geometry.dispose();
+      if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
+    });
+    blobTex.dispose();
+    renderer.dispose();
+    if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+  };
+}
+
+/* ---------------- lifecycle across Mintlify client-side navigation ---------------- */
+(function boot() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return;
+  let active = null, activeFrame = null;
+
+  function sync() {
+    const frame = document.querySelector('.landing-frame');
+    if (frame && frame !== activeFrame) {
+      if (active) { active(); active = null; }
+      if (frame.querySelector('.pond-scene-canvas')) return;
+      activeFrame = frame;
+      try { active = start(frame); } catch (e) { active = null; }
+      if (!active) activeFrame = null;   // WebGL failed: PNG fallback stays
+    } else if (!frame && active) {
+      active(); active = null; activeFrame = null;
+    }
+  }
+
+  const run = () => { try { sync(); } catch (e) { /* never break the page */ } };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+  else run();
+
+  const mo = new MutationObserver(() => run());
+  mo.observe(document.documentElement, { childList: true, subtree: true });
+  window.addEventListener('popstate', run);
+})();
