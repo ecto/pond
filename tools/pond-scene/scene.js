@@ -10,15 +10,16 @@
    the landing frame is absent. */
 import {
   Scene, PerspectiveCamera, WebGLRenderer, Group, Object3D, Mesh,
-  MeshBasicMaterial, MeshLambertMaterial, BufferGeometry, BufferAttribute, BoxGeometry,
-  DirectionalLight, AmbientLight, Raycaster, Vector2, Vector3, Quaternion,
-  CircleGeometry, CanvasTexture, Color, DoubleSide,
+  MeshBasicMaterial, BufferGeometry, BufferAttribute, BoxGeometry,
+  Raycaster, Vector2, Vector3, Quaternion, CircleGeometry, CanvasTexture,
 } from 'three';
 import { MESH_B64 } from './mesh-data.js';
 import { WORK, PERIOD, ENTRY_END, REACTIONS_BY_KEY, CHARACTERS,
   createPointerState, updatePointer, pointerFor } from './anim/index.mjs';
 import { HEIGHT, cameraFor } from './stage.mjs';
 import { makeClock, beginReaction, phaseOf, isExpired, bodyChannel } from './anim/reaction.mjs';
+import { isDarkPage, themeSettings, setupRenderer, buildEnvironment, buildLights,
+  buildShadowCatcher, makeMaterials } from './studio.js';
 
 /* Pond's four mark colours, one per character, over the shared bone/ink base */
 const BONE = 0xefece2, INK = 0x212327;
@@ -71,11 +72,14 @@ function decode(b64) {
   return out;
 }
 
-/* one Mesh per palette slot, so plain materials do all the colouring */
-function linkMeshes(link, accent) {
+/* One Mesh per palette slot. `mats` is this robot's three shared materials
+   (bone, ink, accent) — shared rather than per-link, so the whole cast is a
+   dozen materials instead of a hundred and three, and three.js can keep the
+   draw state stable between links. */
+function linkMeshes(link, mats) {
   const g = new Group();
   const { positions, index, matId } = link;
-  for (const [id, color] of [[0, BONE], [1, INK], [2, accent]]) {
+  for (let id = 0; id < 3; id++) {
     const keep = [];
     for (let t = 0; t < index.length; t += 3) {
       if (matId[index[t]] === id) keep.push(index[t], index[t + 1], index[t + 2]);
@@ -85,22 +89,21 @@ function linkMeshes(link, accent) {
     geo.setAttribute('position', new BufferAttribute(positions, 3));
     geo.setIndex(keep);
     geo.computeVertexNormals();
-    g.add(new Mesh(geo, new MeshLambertMaterial({
-      color: new Color(color),
-      emissive: new Color(color).multiplyScalar(id === 1 ? 0.10 : 0.05),
-      side: DoubleSide,
-    })));
+    const m = new Mesh(geo, mats[id]);
+    m.castShadow = true;
+    m.receiveShadow = true;
+    g.add(m);
   }
   return g;
 }
 
 /** rebuild the URDF node graph: one Object3D per link, wired by the joint table */
-function buildSkeleton(robot, accent) {
+function buildSkeleton(robot, mats) {
   const nodes = {};
   for (const name of Object.keys(robot.links)) {
     const n = new Object3D();
     n.name = name;
-    n.add(linkMeshes(robot.links[name], accent));
+    n.add(linkMeshes(robot.links[name], mats));
     nodes[name] = n;
   }
   const joints = [];
@@ -158,13 +161,17 @@ function start(frame) {
   const scene = new Scene();
   const camera = new PerspectiveCamera(30, 1, 0.1, 200);
 
-  const key = new DirectionalLight(0xfff6e8, 2.15);
-  key.position.set(-2.6, 4.2, 3.4);
-  scene.add(key);
-  const fill = new DirectionalLight(0xdfe6ff, 0.55);
-  fill.position.set(3.2, 0.6, 2.0);
-  scene.add(fill);
-  scene.add(new AmbientLight(0xffffff, 1.05));
+  /* The studio: one procedural IBL, a key/fill/rim rig, and a shadow-catching
+     deck. Everything about the look lives in studio.js; everything about the
+     page's two themes lives in themeSettings(). */
+  let dark = isDarkPage();
+  let S = themeSettings(dark);
+  setupRenderer(renderer, S);
+  scene.environment = buildEnvironment(renderer, S);
+  scene.environmentIntensity = S.envIntensity;
+  const lights = buildLights(scene, S);
+  const deck = buildShadowCatcher(scene, S);
+  const allMats = [];
 
   const blobTex = blobTexture();
   const actors = [];
@@ -189,15 +196,21 @@ function start(frame) {
     root.add(tilt); tilt.add(squash); squash.add(norm);
     norm.add(shift); shift.add(gnd); gnd.add(zup);
 
-    const skel = buildSkeleton(robot, spec.accent);
+    const mats = makeMaterials(spec.accent, S);
+    allMats.push(...mats);
+    const skel = buildSkeleton(robot, mats);
     zup.add(skel.root);
     scene.add(root);
 
     // shadow lives on the floor, not on the character, so a hop lifts the body
     // away from its own contact patch the way it should
     const blob = new Mesh(
-      new CircleGeometry(0.42 * HEIGHT[spec.key], 20),
-      new MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false })
+      new CircleGeometry(0.34 * HEIGHT[spec.key], 20),
+      // a tight contact darkening under the feet. The cast shadow does the
+      // big grounding; this does the last centimetre, where a shadow map is
+      // always too coarse and where the eye actually looks for contact.
+      new MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false,
+        opacity: S.contactOpacity })
     );
     blob.rotation.x = -Math.PI / 2;
     blob.position.y = 0.002;
@@ -206,10 +219,12 @@ function start(frame) {
     let prop = null, carry = null;
     const P = PROPS[spec.key];
     if (P) {
-      prop = new Mesh(new BoxGeometry(P.size[0], P.size[1], P.size[2]), new MeshLambertMaterial({
-        color: new Color(P.color),
-        emissive: new Color(P.color).multiplyScalar(P.color === INK ? 0.10 : 0.05),
-      }));
+      // the crate and the cube are part of the shot: same materials as the
+      // robots handling them, so they sit in the same light
+      const pm = P.color === INK ? mats[1] : mats[0];
+      prop = new Mesh(new BoxGeometry(P.size[0], P.size[1], P.size[2]), pm);
+      prop.castShadow = true;
+      prop.receiveShadow = true;
       carry = P.attach === 'hands'
         ? (() => { const o = new Object3D(); (skel.nodes.Trunk || skel.root).add(o); return o; })()
         : (skel.nodes[P.attach] || skel.root);
@@ -262,11 +277,26 @@ function start(frame) {
   window.addEventListener('touchstart', onTouch, POINTER_OPTS);
   window.addEventListener('touchmove', onTouch, POINTER_OPTS);
 
+  /* Resolution ladder. The studio look costs about twice the geometry work of
+     the old flat one — the shadow depth pass draws the whole cast a second
+     time — which is comfortable on a fast machine and is exactly the kind of
+     thing that quietly drops a weak integrated GPU to 30fps. This page loads on
+     every landing visit, so it gives up pixels rather than smoothness: if the
+     measured frame interval stays bad, step the pixel ratio down a rung.
+
+     Downgrades only. An adaptive scheme that climbs back up oscillates on
+     precisely the machines it is meant to help, and a landing scene that
+     visibly changes sharpness while you read is worse than one that is a rung
+     softer than it could have been. */
+  const DPR_LADDER = [2, 1.5, 1.25, 1];
+  let dprStep = 0;
+  const dprCap = () => Math.min(window.devicePixelRatio || 1, DPR_LADDER[dprStep]);
+
   /* the camera adapts to the viewport aspect and nothing else */
   function layout() {
     const r = frame.getBoundingClientRect();
     const vw = Math.max(1, r.width), vh = Math.max(1, r.height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(dprCap());
     renderer.setSize(vw, vh, false);
     const cam = cameraFor(vw / vh);
     lastCam = cam;
@@ -277,6 +307,37 @@ function start(frame) {
     camera.updateProjectionMatrix();
   }
   layout();
+
+  /* The docs theme toggles without navigating, so the look has to follow it
+     live. Everything theme-dependent is re-derived from themeSettings(); the
+     IBL is the only expensive part, and it is one PMREM pass on a toggle. */
+  function applyTheme(nextDark) {
+    if (nextDark === dark) return;
+    dark = nextDark;
+    S = themeSettings(dark);
+    renderer.toneMappingExposure = S.exposure;
+    const old = scene.environment;
+    scene.environment = buildEnvironment(renderer, S);
+    scene.environmentIntensity = S.envIntensity;
+    if (old) old.dispose();
+    lights.key.intensity = S.keyIntensity;
+    lights.fill.intensity = S.fillIntensity;
+    lights.rim.intensity = S.rimIntensity;
+    lights.amb.intensity = S.ambient;
+    deck.material.opacity = S.shadowOpacity;
+    for (const m of allMats) {
+      m.envMapIntensity = m.isMeshStandardMaterial && !m.isMeshPhysicalMaterial
+        ? S.envIntensity * 1.28 : S.envIntensity;
+      m.needsUpdate = true;
+    }
+    if (reduced) render(0);
+  }
+  const themeObserver = new MutationObserver(() => applyTheme(isDarkPage()));
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] });
+  if (document.body) themeObserver.observe(document.body, { attributes: true, attributeFilter: ['class', 'style'] });
+  const colorScheme = window.matchMedia('(prefers-color-scheme: dark)');
+  const onScheme = () => applyTheme(isDarkPage());
+  if (colorScheme.addEventListener) colorScheme.addEventListener('change', onScheme);
 
   /* ONE clock for the whole scene: seconds since it started. The frame loop and
      the click handler both read time from here, and they must — a reaction's
@@ -374,6 +435,14 @@ function start(frame) {
   function render(now) {
     const dtMs = lastNow == null ? 0 : Math.min(120, (now - lastNow) * 1000);
     lastNow = now;
+    // watch the real frame interval; give up pixels before smoothness
+    if (dtMs > 0 && dprStep < DPR_LADDER.length - 1) {
+      perfAcc += dtMs; perfN++;
+      if (perfN >= 45) {
+        if (perfAcc / perfN > 20) { dprStep++; layout(); }
+        perfAcc = 0; perfN = 0;
+      }
+    }
     if (lastCam) updatePointer(pointer, lastCam, now);
     for (const a of actors) {
       const t = reduced ? a.entryEnd + FROZEN_U[a.spec.key] * a.period : now;
@@ -398,14 +467,14 @@ function start(frame) {
       // the contact patch stays on the floor and fades as the body leaves it
       a.blob.position.set(w.place.x, 0.002, w.place.z);
       const air = (w.lift || 0) / Math.max(0.001, HEIGHT[a.spec.key]);
-      a.blob.material.opacity = Math.max(0, 1 - air * 1.6) * rise;
+      a.blob.material.opacity = Math.max(0, 1 - air * 1.6) * rise * S.contactOpacity;
       a.blob.visible = rise > 0.02;
       a.root.visible = rise > 0.02;
     }
     renderer.render(scene, camera);
   }
 
-  let raf = 0, running = true, lastNow = null;
+  let raf = 0, running = true, lastNow = null, perfAcc = 0, perfN = 0;
   function frameLoop() {
     raf = requestAnimationFrame(frameLoop);
     if (!running) return;
@@ -426,6 +495,8 @@ function start(frame) {
 
   return function dispose() {
     cancelAnimationFrame(raf);
+    themeObserver.disconnect();
+    if (colorScheme.removeEventListener) colorScheme.removeEventListener('change', onScheme);
     window.removeEventListener('click', onClick, true);
     window.removeEventListener('pointermove', onPointerMove, POINTER_OPTS);
     window.removeEventListener('pointerdown', onPointerDown, POINTER_OPTS);
@@ -440,6 +511,7 @@ function start(frame) {
       if (o.material) (Array.isArray(o.material) ? o.material : [o.material]).forEach((m) => m.dispose());
     });
     blobTex.dispose();
+    if (scene.environment) scene.environment.dispose();
     renderer.dispose();
     if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
   };

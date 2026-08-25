@@ -33,7 +33,8 @@ Edit:
 | what one character is *doing* (work loop, entrance, gait, reactions, pointer behaviour) | `anim/<character>.mjs` — see `anim/INTERFACE.md` |
 | shared motion machinery (IK, schedules, pointer projection, the reaction lifecycle, the authoring context) | `anim/kinematics.mjs`, `anim/schedule.mjs`, `anim/pointer.mjs`, `anim/reaction.mjs`, `anim/context.mjs` |
 | the stage itself: camera framing, character sizes, swept-extent constants | `stage.mjs` |
-| colours, props, lighting, lifecycle | `scene.js` |
+| colours, props, lifecycle | `scene.js` |
+| lighting, materials, tone mapping, the two page themes | `studio.js` |
 | triangle budgets, palette mapping, poses baked into the payload | `build.js` |
 
 The `anim/` modules are shared by the runtime and the offline preview, so a pose
@@ -183,6 +184,7 @@ stable from 1280x700 to 1280x1400.
 | file | role |
 | --- | --- |
 | `scene.js` | runtime: node graph, posing, grounding, lifecycle. Bundle entry point. |
+| `studio.js` | the look: procedural IBL, PBR materials per part class, tone mapping, the light rig, and the whole light/dark theme difference. |
 | `anim/<character>.mjs` | one character's choreography. One owner each. |
 | `anim/index.mjs` | assembles the cast, applies the roam clamps, exposes the runtime API. |
 | `anim/context.mjs` | the authoring context characters write through. |
@@ -202,6 +204,58 @@ stable from 1280x700 to 1280x1400.
 | `raster.js` | tiny software rasterizer + PNG writer. |
 | `selftest.js` | decode, node-graph FK equivalence, IK inversion, and foot-slip checks. |
 | `glb-export.js` | optional: writes the posed, skinned characters back out as GLBs. |
+
+## The look
+
+Studio product render, not game asset. The recipe is in `studio.js`:
+
+- **One procedural environment**, a gradient dome plus three softbox panels,
+  pre-filtered through `PMREMGenerator` into an IBL. No external assets — the
+  gradient is drawn into a canvas at runtime. This single ingredient is what
+  makes a surface read as a material rather than as a lit polygon.
+- **Khronos PBR Neutral tone mapping**, deliberately not ACES. ACES rolls off
+  more prettily but rotates saturated hues, and the four accents are Pond's
+  mark colours — `#0000ff` has to still look like `#0000ff`. Neutral was built
+  for product viewers, where that is the requirement.
+- **Materials per part class**: bone is powder-coated plastic
+  (`MeshStandardMaterial`, roughness 0.58, metalness 0); ink is rubbery/anodised
+  (roughness 0.82, a little metalness, extra `envMapIntensity` so it holds an
+  edge against a black page); accent is the glossiest thing on the robot
+  (`MeshPhysicalMaterial` with clearcoat — small area, and the gloss is the
+  point). One set of three per robot, shared by every link.
+- **A real soft shadow** (PCFSoft, 1024 map, tight ortho around the stage) onto
+  a `ShadowMaterial` deck, plus a tight contact darkening at the feet for the
+  last centimetre the shadow map cannot resolve.
+
+**Both page themes are first-class.** `themeSettings()` holds the entire
+difference: on white the cast shadow does the grounding; on black a shadow is
+invisible, so a rim light and a hotter environment do the separating instead.
+The theme is read from the painted background, and a `MutationObserver` re-lights
+the scene when the docs toggle it without navigating.
+
+The budget note that matters: **the IBL is a light.** Adding an environment on
+top of the previous key/fill/ambient levels doubled the irradiance and blew the
+bone panels to flat white, which is the opposite of the goal — all the quality
+lives in the gradient across a panel. Ambient is now 0; the environment is the
+ambient.
+
+### What it costs
+
+The shadow pass draws the cast a second time, so geometry work doubles:
+
+| | before | after |
+| --- | --- | --- |
+| draw calls / frame | 59 | 115 |
+| triangles / frame | 247,242 | 494,406 |
+| shader programs | 3 | 11 |
+
+Measured main-thread cost per frame roughly doubles with it, from ~1.5ms to
+~3.3ms at 1280x1000 on a fast machine — comfortably inside a 16.7ms budget, but
+the kind of margin that disappears on weak integrated graphics. So `scene.js`
+carries a **resolution ladder**: if the measured frame interval stays above
+20ms, the pixel ratio steps down a rung (2 → 1.5 → 1.25 → 1). Downgrades only —
+a scheme that climbs back up oscillates on exactly the machines it is meant to
+help.
 
 ## Budgets
 
