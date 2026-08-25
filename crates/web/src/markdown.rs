@@ -90,7 +90,7 @@ pub fn MarkdownPage(content: String) -> impl IntoView {
             {if !title.is_empty() {
                 view! {
                     <header class="mb-8">
-                        <h1 class="font-mono text-4xl font-bold mb-2">{title}</h1>
+                        <h1 class="font-serif text-4xl font-semibold mb-2">{title}</h1>
                         {if !description.is_empty() {
                             view! {
                                 <p class="text-xl text-gray-600 font-serif">{description}</p>

@@ -8,7 +8,7 @@ pub fn HardwarePage() -> impl IntoView {
 
     view! {
         <article class="prose max-w-none">
-            <h1 class="font-mono text-3xl font-bold mb-4">{"Hardware: "}{move || slug()}</h1>
+            <h1 class="font-serif text-3xl font-semibold mb-4">{"Hardware: "}{move || slug()}</h1>
             <p class="font-serif text-black">"Hardware reference placeholder."</p>
         </article>
     }
