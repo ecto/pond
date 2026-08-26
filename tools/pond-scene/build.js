@@ -312,6 +312,15 @@ function measure(char, poses, fkFor, groundLinks) {
   }
   const c = box.getCenter(new THREE.Vector3());
   char.pivot = [c.x, box.min.y, c.z];
+  /* A MOUNTED character is placed by its mounting face, not by the lowest
+     point its geometry reaches during the loop. That distinction does not
+     matter for anything that walks — a foot's lowest point IS its mounting
+     face — but it matters enormously for a bolted arm, which is supposed to
+     reach BELOW its own base to pick things off a pallet. Grounding such a
+     character on its swept box lifts it by however far it reached down, so the
+     plinth gets counted twice and the arm hovers above every target it has.
+     The module says which it is; nothing here guesses. */
+  if (char.mounted) char.pivot[1] = 0;
   char.height = box.max.y - box.min.y;
   return char;
 }

@@ -358,8 +358,18 @@ async function checkHandoffs(cast) {
     if (C.node === 'hands') {
       const a = new THREE.Vector3().setFromMatrixPosition(pm.world.left_hand_link);
       const b = new THREE.Vector3().setFromMatrixPosition(pm.world.right_hand_link);
-      NM = new THREE.Matrix4().copy(pm.world.Trunk || new THREE.Matrix4())
-        .setPosition(a.add(b).multiplyScalar(0.5));
+      /* The `hands` pseudo-node has a POSITION (the midpoint of the two hand
+         links) but no rotation of its own, so the carry offset is applied in
+         the frame CARRY names. This used to be hardcoded to 'Trunk', which is
+         the K1's torso link — the H2 calls its own `torso_link`, so for the
+         flagship `pm.world.Trunk` was undefined and the offset was applied in
+         an IDENTITY frame. That is the exact failure the `frame` field was
+         added to world.mjs to prevent, and the assertion meant to catch it was
+         itself committing it: it put the H2's cube 68mm high and 68mm
+         downstage of where the renderers actually draw it. */
+      const F = pm.world[C.frame];
+      if (!F) return null;
+      NM = new THREE.Matrix4().copy(F).setPosition(a.add(b).multiplyScalar(0.5));
     } else NM = pm.world[C.node];
     if (!NM) return null;
     new THREE.Matrix4().multiplyMatrices(pm.M, NM).decompose(V, Q, S3);

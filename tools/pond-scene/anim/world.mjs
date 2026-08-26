@@ -88,20 +88,27 @@ export const MASTER = 96;                  // one full circuit, seconds
    beside it. */
 export const STATIONS = {
   // left band — the arm, the dog, the flagship
-  z1: { x: -1.80, z: -0.10 },              // the arm, bolted, upstage left
-  z1Pallet: { x: -1.55, z: 0.16 },         // where the cube rests, 0.36m from the arm's base
-  go2Load: { x: -1.52, z: 0.26 },          // the dog stands here to be loaded
+  /* The arm is bolted at the ONE point that reaches all four of its targets:
+     its pallet (0.42), the dog's back at the bay (0.41), the flagship's
+     presented hands (0.25) and the head of the belt (0.43) — every one inside
+     the 0.20..0.65 band where this arm still looks like an arm. It loads the
+     line because the flagship physically cannot: an H2's lowest legal hand
+     height is 0.232m and a belt that clears the copy has to ride at 0.17. */
+  z1: { x: -1.70, z: 0.95 },               // the arm, bolted to a plinth, DOWNSTAGE
+  z1Pallet: { x: -1.55, z: 1.15 },         // its parts stand, downstage of it again
+  go2Load: { x: -1.40, z: 1.05 },          // the dog stands here to be loaded
   go2Patrol: { x: -1.90, z: -0.45 },       // and idles here between runs
-  h2: { x: -1.56, z: 0.66 },               // the flagship, at the head of the belt
-  h2Handoff: { x: -1.7589, z: 0.6893 },     // the dog crouches here; the H2 bends to it
+  h2: { x: -1.62, z: 0.50 },               // the flagship, UPSTAGE of the arm
+  h2Handoff: { x: -1.7030, z: 0.7405 },    // the dog crouches here; the H2 bends to it
+  h2Present: { x: -1.7674, z: 0.6278 },    // where the H2 holds the cube out for the arm    // where the H2 holds the cube out for the arm    // where the H2 holds the cube out for the arm    // where the H2 holds the cube out for the arm    // where the H2 holds the cube out for the arm    // where the H2 holds the cube out for the arm
 
   // right band — the kid
   k1: { x: 1.62, z: 0.38 },                // its bench
-  k1Reach: { x: 1.510, z: 0.85 },           // it steps out to the belt tail and crouches
+  k1Reach: { x: 1.500, z: 0.95 },          // it steps out to the belt tail and crouches
 
   // the belt's two ends (see BELT below)
-  beltHead: { x: -1.5719, z: 0.7814 },
-  beltTail: { x: 1.4739, z: 0.8409 },
+  beltHead: { x: -1.4200, z: 1.0000 },
+  beltTail: { x: 1.4668, z: 0.9664 },
 };
 
 /* ---------------- the conveyor ----------------
@@ -129,7 +136,7 @@ export const STATIONS = {
    cube crossing under the headline reads as a deliberate beat rather than a
    flick. Change BELT_OUT/BELT_BACK in the score and the speed follows. */
 export const BELT = {
-  y: 0.1433,                               // deck height, metres
+  y: 0.1463,                               // deck height, metres
   w: 0.19,                                 // deck width (across the run)
   head: STATIONS.beltHead,
   tail: STATIONS.beltTail,
@@ -196,20 +203,42 @@ export const CARRY = {
 
      at the loading bay   the dog standing, broadside to the arm
      at the H2 handoff    the dog crouched, so a bending humanoid can reach it */
-export const BACK_AT_BAY = { x: -1.4628, y: 0.3391, z: 0.3377 };
+export const BACK_AT_BAY = { x: -1.3491, y: 0.3326, z: 0.9701 };
 export const BACK_AT_HANDOFF = { x: -1.7405, y: 0.2702, z: 0.7794 };
 
-/* And where each humanoid's hands are at the pose it uses to work the belt.
-   The H2 stands at z = 0.45 and bends/reaches DOWNSTAGE to the belt head; the
-   K1 crouches right beside the tail. Both measured the same way. */
-export const H2_HAND_AT_BELT = { x: -1.4500, y: 0.2200, z: 0.9200 };
-export const K1_HAND_AT_BELT = { x: 1.2500, y: 0.2050, z: 1.0450 };
+/* Where the flagship holds the cube out for the arm to take. This is the one
+   exchange in the circuit between two ROBOTS' end effectors rather than
+   between a robot and a surface, so it has to suit both: chest height for a
+   1.83m machine standing straight, and inside the arm's reach envelope from
+   the top of its plinth.
+
+   This value is the arm's AIM, and it is pre-compensated. The arm's realised
+   base bearing runs about 0.12 rad inside the bearing it is given at this
+   station — far enough out on the yaw track that a lead offset and the tail of
+   a line-up have not fully unwound — so aiming it at the true exchange point
+   left the gripper 63mm away. Aiming it 0.12 rad past lands it on the hands.
+   `STATIONS.h2Present` below is the TRUE point, and the handoff assertion is
+   measured against reality either way. */
+export const H2_PRESENT = { x: -1.8084, y: 0.7609, z: 0.6280 };
 
 /* Where a parked cube rests. The arm's is a PALLET on the floor: a 0.74m arm
    reaching down to 37mm is nothing, and the floor keeps it out of the way. The
    K1's is a BENCH at 0.30 — the kid is 0.94m tall, and a bench it can work at
    without folding in half is proportionally lower than a person's. */
-export const PALLET = { w: 0.16, h: 0.012, d: 0.16 };
+/* A parts STAND, not a floor pallet. At 12mm the cube sat at 0.037 and the arm
+   had to drive its shoulder 0.086 rad past joint2's limit to get down to it —
+   the runtime clamped, and the arm stopped short of its own pallet. Raising the
+   stand to 0.10 puts the pick at 0.125, the same order as the belt, and every
+   joint stays inside its limit through the whole reach. */
+export const PALLET = { w: 0.16, h: 0.10, d: 0.16 };
+/* The arm stands on a plinth, the way a real cell mounts one. This is not
+   dressing: an arm's reach envelope SHRINKS with height, and bolted flat to
+   the floor this one could not meet the flagship's presented hands (0.567) and
+   still lay the cube on a 0.113 belt — it was 78mm short at the exchange and
+   straining at the limit clamp. Raising the base 0.25 puts BOTH targets in the
+   comfortable middle of its envelope: 0.414 out to the hands, 0.445 down to
+   the belt, against a 0.555 maximum. */
+export const PLINTH = { w: 0.26, h: 0.25, d: 0.26 };
 export const BENCH = { w: 0.24, h: 0.2372, d: 0.18 };
 
 /** the height a parked cube's CENTRE sits at, per pallet */
@@ -227,39 +256,47 @@ STATIONS.k1Bench = { x: 1.5326, z: 0.5480 };
 
    96 seconds, and the two belt legs are the spine of it:
 
-        0..18   the arm picks the cube off its pallet and loads the dog
-                 (the four instants the arm's own shift grasps and releases are
-                  master 92, 96/0, 6 and 18 — the score is fitted to the arm,
-                  not the other way round, because its choreography was already
-                  measured against these)
+        0..6    the cube is parked on the arm's pallet; the arm reaches for it
+        6..18   the arm lifts it and sets it on the dog's back
        18..26   the dog carries it across the left band to the flagship
-       26..34   the H2 bends to the crouched dog, lifts, and sets it on the belt
-       34..47   THE CROSSING — 2.70m of belt, under the headline, 13 seconds
-       47..54   the K1 crouches at the tail, picks it off, benches it
-       54..60   the dwell: the whole cast is still, and this is what they watch
-       60..67   the K1 puts it back on the belt
-       67..80   the crossing again, the other way
-       80..87   the H2 takes it off the belt and loads the dog
-       87..96   the dog carries it home and the arm re-stows it                */
-export const BELT_OUT = { t0: 34, t1: 47 };
-export const BELT_BACK = { t0: 67, t1: 80 };
+       26..33   THE BEND — the flagship folds to the crouched dog, lifts the
+                cube off its back and holds it out
+       33..46   the arm takes it from the flagship's hands and lays it on the
+                head of the belt. The arm loads the line, not the flagship:
+                an H2's lowest LEGAL hand height is 0.232m (its knee limit and
+                its canted hip's roll limit, not something tunable) and a belt
+                that clears the copy has to ride at 0.17. The arm reaches 0.037
+                without thinking about it. Each body does what only it can.
+       46..59   THE CROSSING — 2.87m of belt, under the headline, 13 seconds
+       59..65   the K1 crouches at the tail, picks it off, benches it
+       65..70   the dwell: the whole cast is still, and this is what they watch
+       70..76   the K1 puts it back on the belt
+       76..89   the crossing again, the other way
+       89..96   the arm takes it off the belt and re-stows it on its pallet
+
+   The return path is deliberately shorter than the outbound one. Sending it
+   back through the flagship and the dog would be symmetric and would say
+   nothing new; letting the arm close the loop on its own gives the second half
+   a different shape and gets the cube home in time to start again.           */
+export const BELT_OUT = { t0: 46, t1: 59 };
+export const BELT_BACK = { t0: 76, t1: 89 };
 BELT.speed = BELT.len / (BELT_OUT.t1 - BELT_OUT.t0);
 
 const LEGS = [
-  { t0: 0, t1: 6, hold: null, park: 'z1Pallet', beat: 'z1-approach' },
+  { t0: 0, t1: 6, hold: null, park: 'z1Pallet', beat: 'rest' },
   { t0: 6, t1: 12, hold: 'z1', beat: 'z1-lift' },
-  { t0: 12, t1: 18, hold: 'z1', beat: 'z1-load' },
+  { t0: 12, t1: 18, hold: 'z1', beat: 'z1-load-dog' },
   { t0: 18, t1: 22, hold: 'go2', beat: 'go2-carry-out' },
   { t0: 22, t1: 26, hold: 'go2', beat: 'go2-present' },
-  { t0: 26, t1: 34, hold: 'h2', beat: 'h2-load-belt' },
-  { t0: 34, t1: 47, hold: 'belt', beat: 'belt-out' },
-  { t0: 47, t1: 54, hold: 'k1', beat: 'k1-take' },
-  { t0: 54, t1: 60, hold: null, park: 'k1Bench', beat: 'dwell' },
-  { t0: 60, t1: 67, hold: 'k1', beat: 'k1-return' },
-  { t0: 67, t1: 80, hold: 'belt', beat: 'belt-back' },
-  { t0: 80, t1: 87, hold: 'h2', beat: 'h2-unload-belt' },
-  { t0: 87, t1: 92, hold: 'go2', beat: 'go2-carry-back' },
-  { t0: 92, t1: 96, hold: 'z1', beat: 'z1-restow' },
+  { t0: 26, t1: 33, hold: 'h2', beat: 'h2-take' },
+  { t0: 33, t1: 40, hold: 'z1', beat: 'z1-take-from-h2' },
+  { t0: 40, t1: 46, hold: 'z1', beat: 'z1-load-belt' },
+  { t0: 46, t1: 59, hold: 'belt', beat: 'belt-out' },
+  { t0: 59, t1: 65, hold: 'k1', beat: 'k1-take' },
+  { t0: 65, t1: 70, hold: null, park: 'k1Bench', beat: 'dwell' },
+  { t0: 70, t1: 76, hold: 'k1', beat: 'k1-return' },
+  { t0: 76, t1: 89, hold: 'belt', beat: 'belt-back' },
+  { t0: 89, t1: 96, hold: 'z1', beat: 'z1-restow' },
 ];
 
 /** master-clock phase, 0..MASTER, from absolute scene seconds */
@@ -332,18 +369,17 @@ export function parkAt(t) {
 export const HANDOFFS = (() => {
   const out = [];
   const WHERE = {
-    'z1-approach': 'z1Pallet',      // the wrap: the arm has just re-stowed it
+    'rest': 'z1Pallet',             // the wrap: the arm has just re-stowed it
     'z1-lift': 'z1Pallet',
     'go2-carry-out': 'go2Load',
-    'h2-load-belt': 'h2Handoff',
+    'h2-take': 'h2Handoff',
+    'z1-take-from-h2': 'h2Present',
     'belt-out': 'beltHead',
     'k1-take': 'beltTail',
     'dwell': 'k1Bench',
     'k1-return': 'k1Bench',
     'belt-back': 'beltTail',
-    'h2-unload-belt': 'beltHead',
-    'go2-carry-back': 'h2Handoff',
-    'z1-restow': 'go2Load',
+    'z1-restow': 'beltHead',
   };
   for (let i = 0; i < LEGS.length; i++) {
     const prev = LEGS[(i - 1 + LEGS.length) % LEGS.length];

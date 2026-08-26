@@ -49,7 +49,7 @@
    0. Solving instead of guessing is the durable fix for that class of bug. */
 
 import { clamp01, mix, smooth, EASE } from './schedule.mjs';
-import { MASTER, STATIONS, PALLET, CUBE, BACK_AT_BAY, masterPhase } from './world.mjs';
+import { MASTER, STATIONS, PALLET, PLINTH, CUBE, BACK_AT_BAY, H2_PRESENT, BELT_CARRY_Y, masterPhase } from './world.mjs';
 
 export const params = {
   cycle: 11.0,      // seconds for one plain pick-and-place
@@ -170,15 +170,22 @@ const LEAD_TOOL = -0.27;
    authored as reach/yaw pairs, so moving a station moves the arm with it. */
 const AT = STATIONS.z1;
 
-/* Facing. The two things it reaches for — the pallet and the Go2's back — sit
-   at stage bearings -0.49 and -1.17; facing the average puts them at +-0.34 rad
-   of base yaw, a symmetric swing either side of straight ahead. */
-const YAW = -0.83;
+/* Facing. It now reaches for FOUR things — its pallet, the dog's back, the
+   flagship's presented hands and the head of the belt — at stage bearings
+   +0.77, +0.27, -0.41 and -0.87. Facing the middle of that fan puts the whole
+   job inside +-0.82 rad of base yaw, a symmetric swing either side of straight
+   ahead, and keeps the arm broadside to camera for all four. */
+const YAW = -0.05;
 
-/** a stage station and a height -> this arm's own (base yaw, reach, height) */
+/** a stage station and a WORLD height -> this arm's own (base yaw, reach, height)
+
+   The height is taken relative to the arm's own base, which sits on top of the
+   plinth. Everything downstream of here — the IK, the tracks, the hover and
+   carry heights — is in the arm's frame, so this is the one place the plinth
+   has to be subtracted. Forget it and every target is 0.25 too high. */
 function aim(st, h) {
   const dx = st.x - AT.x, dz = st.z - AT.z;
-  return { yaw: wrapPi(Math.atan2(-dz, dx) - YAW), r: Math.hypot(dx, dz), h };
+  return { yaw: wrapPi(Math.atan2(-dz, dx) - YAW), r: Math.hypot(dx, dz), h: h - PLINTH.h };
 }
 const wrapPi = (a) => a - TAU * Math.round(a / TAU);
 
@@ -192,9 +199,15 @@ const HOVER = 0.085;                         // the air it lines up in
 const H_CARRY = 0.285;                       // travelling clear of everything
 const R_HOME = 0.346;                        // ready pose: drawn in and up
 const H_HOME = 0.304;
-const DOWN = PI / 2;                         // tool straight down
+/* Tool "straight down" is 1.50, not PI/2. The pallet moved out to 0.417 when
+   the arm was re-based to reach the belt, and at that radius a truly vertical
+   tool needs more wrist pitch than joint4 has (limit +-1.52). 1.50 is
+   indistinguishable by eye and inside the limit at every reach the arm uses. */
+const DOWN = 1.42;
 
 const PALLET_AIM = aim(STATIONS.z1Pallet, H_DECK);
+const BELT_AIM = aim(STATIONS.beltHead, BELT_CARRY_Y);
+const H2_AIM = aim(H2_PRESENT, H2_PRESENT.y);
 /* Aim at the cube's real resting place on the back, not at the dog's stance
    centre. The two differ by 110mm — the carry point is forward of the body
    centre and rotates with the dog's heading — and 110mm is a miss. */
@@ -207,6 +220,8 @@ export const roam = {
   work: { x: [AT.x, AT.x], z: [AT.z, AT.z] },
 };
 export const ground = ['link00'];
+/* bolted to a plinth: placed by its mounting face, not by its swept box */
+export const mounted = true;
 
 /* Phase-locked to the world task. Every character's period is now the master
    period, so the extent, keep-out and joint-limit sweeps cover one whole
@@ -237,72 +252,95 @@ export const entryEnd = params.rise;
    ownership change and requires its world position to be continuous. If this
    arm is not where the score says at those instants, the cube teleports and
    the build fails. */
-const SHIFT0 = 84;                       // master second the shift begins at
-const SHIFT_LEN = 30;                    // and how long it runs
-const GRAB_BACK = 8.0, DROP_PALLET = 12.0, GRAB_PALLET = 18.0, DROP_BACK = 30.0;
+const SHIFT0 = 85;                       // master second the shift begins at
+const GRAB_BELT = 4.0, DROP_PALLET = 11.0, GRAB_PALLET = 17.0,
+      DROP_BACK = 29.0, GRAB_HAND = 44.0, DROP_BELT = 57.0;
+const SHIFT_LEN = 60;                    // and how long the work runs
 
-/** shift-local seconds, 0..88 (only 0..30 is work) */
+/** shift-local seconds, 0..96 (only 0..60 is work) */
 function shiftAt(t) {
-  const m = masterPhase(t - SHIFT0);
-  return m;
+  return masterPhase(t - SHIFT0);
 }
 
 /* The four channels, as keyframe tracks in SHIFT seconds. Same shape as before
    — a station-to-station move is an arrival ABOVE the target, a line-up, a
-   descent that decelerates the whole way, a press, then a lift with
-   conviction. Only the targets changed. */
-const B = BACK_AIM, P = PALLET_AIM;
+   descent that decelerates the whole way, a press, then a lift with conviction
+   — but there are three of those moves now instead of two, and one of them is
+   a hand-off from another robot rather than a pick off a surface. */
+const B = BACK_AIM, P = PALLET_AIM, BE = BELT_AIM, H = H2_AIM;
 
 const yawTrack = [
-  [0.0, B.yaw], [6.0, B.yaw], [9.5, B.yaw],
-  [11.0, P.yaw, inOut], [12.0, P.yaw], [16.0, P.yaw], [18.0, P.yaw], [20.5, P.yaw],
-  [25.0, B.yaw, inOut], [28.0, B.yaw], [30.0, B.yaw], [33.0, B.yaw],
-  [36.0, 0], [SHIFT_LEN + 50, 0],
+  [0.0, BE.yaw], [2.0, BE.yaw], [4.0, BE.yaw], [5.5, BE.yaw],
+  [8.0, P.yaw, inOut], [11.0, P.yaw], [14.0, P.yaw], [17.0, P.yaw], [19.5, P.yaw],
+  [25.0, B.yaw, inOut], [29.0, B.yaw], [32.0, B.yaw],
+  [40.0, H.yaw, inOut], [44.0, H.yaw], [47.0, H.yaw],
+  [53.0, BE.yaw, inOut], [57.0, BE.yaw], [60.0, BE.yaw],
+  [64.0, 0], [96.0, 0],
 ];
 const reachTrack = [
-  [0.0, R_HOME], [3.0, B.r, inOut], [6.0, B.r], [8.0, B.r], [9.5, B.r],
-  [11.0, P.r, inOut], [12.0, P.r], [13.5, P.r], [16.0, P.r], [18.0, P.r], [20.5, P.r],
-  [25.0, B.r, inOut], [28.0, B.r], [30.0, B.r], [33.0, B.r],
-  [36.0, R_HOME, inOut], [SHIFT_LEN + 50, R_HOME],
+  [0.0, BE.r], [2.0, BE.r], [4.0, BE.r], [5.5, BE.r],
+  [8.0, P.r, inOut], [11.0, P.r], [12.5, P.r], [14.0, P.r], [17.0, P.r], [19.5, P.r],
+  [25.0, B.r, inOut], [29.0, B.r], [32.0, B.r],
+  [40.0, H.r, inOut], [44.0, H.r], [47.0, H.r],
+  [53.0, BE.r, inOut], [57.0, BE.r], [60.0, BE.r],
+  [64.0, R_HOME, inOut], [96.0, R_HOME],
 ];
 const heightTrack = [
-  [0.0, H_HOME],
-  [3.0, B.h + HOVER, inOut], [6.0, B.h + HOVER],      // lined up over the back
-  [7.4, B.h + 0.006, outQuint],                        // descend, decelerating
-  [8.0, B.h, outQuad],                                 // the press: GRASP
-  [8.4, B.h + 0.004, outQuad],
-  [9.6, H_CARRY, inQuad], [10.2, H_CARRY, outQuad],    // lift, then settle
-  [11.2, P.h + HOVER, inOut],
-  [11.7, P.h + 0.020, outQuad], [12.0, P.h, outQuint], // last centimetres slowest
-  [13.0, P.h],                                         // RELEASE happens in here
-  [13.8, P.h + HOVER, outQuad], [16.0, P.h + HOVER],   // back off and look at it
-  [17.4, P.h + 0.006, outQuint], [18.0, P.h, outQuad], // down again: GRASP
-  [18.4, P.h + 0.004, outQuad],
-  [20.0, H_CARRY, inQuad], [20.8, H_CARRY, outQuad],
+  [0.0, BE.h + HOVER], [2.0, BE.h + HOVER],            // lined up over the belt
+  [3.4, BE.h + 0.006, outQuint],                        // descend, decelerating
+  [4.0, BE.h, outQuad],                                 // the press: GRASP
+  [4.4, BE.h + 0.004, outQuad],
+  [5.6, H_CARRY, inQuad], [6.2, H_CARRY, outQuad],      // lift, then settle
+  [8.2, P.h + HOVER, inOut],
+  [10.7, P.h + 0.020, outQuad], [11.0, P.h, outQuint],  // last centimetres slowest
+  [12.0, P.h],                                          // RELEASE happens in here
+  [12.8, P.h + HOVER, outQuad], [15.0, P.h + HOVER],    // back off and look at it
+  [16.4, P.h + 0.006, outQuint], [17.0, P.h, outQuad],  // down again: GRASP
+  [17.4, P.h + 0.004, outQuad],
+  [19.0, H_CARRY, inQuad], [19.8, H_CARRY, outQuad],
   [25.0, H_CARRY],
   [27.0, B.h + HOVER, inOut], [28.0, B.h + HOVER],
-  [29.4, B.h + 0.020, outQuad], [30.0, B.h, outQuint], // set down: RELEASE
-  [31.0, B.h],
-  [32.5, B.h + HOVER, outQuad],
-  [36.0, H_HOME, inOut], [SHIFT_LEN + 50, H_HOME],
+  [28.4, B.h + 0.020, outQuad], [29.0, B.h, outQuint],  // set down: RELEASE
+  [30.0, B.h],
+  [31.5, B.h + HOVER, outQuad],
+  [34.0, H_CARRY, inOut], [40.0, H_CARRY],
+  /* the take from the flagship's hands. No hover-and-descend here: you do not
+     lower a gripper onto something a colleague is holding out, you come in
+     level and meet it. */
+  [42.5, H.h, inOut], [44.0, H.h], [45.0, H.h],
+  [47.0, H.h + 0.05, outQuad],
+  [50.0, H_CARRY, inOut], [53.0, H_CARRY],
+  [55.5, BE.h + 0.020, inOut], [57.0, BE.h, outQuint],  // lay it on the belt
+  [58.0, BE.h],
+  [59.5, BE.h + HOVER, outQuad],
+  [64.0, H_HOME, inOut], [96.0, H_HOME],
 ];
-/* Tool pitch. Straight down over the pallet — you set a thing on the floor from
-   above — but only 0.35 rad below horizontal over the Go2's back, and that is
-   geometry rather than taste. The back is 0.49 up and 0.44 out; with the tool
-   pointing down, TOOL (0.134) pushes the WRIST another 0.134 higher again and
-   the target falls outside (L1+L2)*0.965. Coming in shallower keeps the wrist
-   low enough to reach, and reads better anyway: you place onto a shelf from the
-   side, not by hovering over it. */
-const P_BACK = 0.35;
+/* Tool pitch. Straight down over the pallet and over the belt — you set a thing
+   on a surface from above — but only 0.35 rad below horizontal over the Go2's
+   back, and that is geometry rather than taste. The back is 0.49 up and 0.44
+   out; with the tool pointing down, TOOL (0.134) pushes the WRIST another 0.134
+   higher again and the target falls outside (L1+L2)*0.965. Coming in shallower
+   keeps the wrist low enough to reach, and reads better anyway: you place onto
+   a shelf from the side, not by hovering over it. Taking from the flagship's
+   hands is shallower still — level, because that is how you meet a hand. */
+const P_BACK = 0.55;
+const P_HAND = 0.10;
+/* Over the belt the tool comes in at 1.30 rather than straight down. The belt
+   sits 0.433 out and only 0.113 up, and pointing the tool fully down there
+   costs the wrist more pitch than joint4 has (limit +-1.52) — the runtime was
+   clamping it by 0.101 rad, which quietly moved where the cube was laid. */
+const P_BELT = 1.16;
 const pitchTrack = [
-  [0.0, 1.30], [3.0, P_BACK, inOut], [9.0, P_BACK],
-  [11.5, DOWN, inOut], [13.0, DOWN], [18.5, DOWN], [20.5, DOWN],
-  [26.0, P_BACK, inOut], [30.0, P_BACK], [33.0, P_BACK],
-  [36.0, 1.30, inOut], [SHIFT_LEN + 50, 1.30],
+  [0.0, P_BELT], [5.0, P_BELT],
+  [8.5, DOWN], [12.0, DOWN], [17.5, DOWN], [19.5, DOWN],
+  [25.0, P_BACK, inOut], [29.0, P_BACK], [32.0, P_BACK],
+  [40.0, P_HAND, inOut], [44.0, P_HAND], [47.0, P_HAND],
+  [53.0, P_BELT, inOut], [57.0, P_BELT], [60.0, P_BELT],
+  [64.0, 1.30, inOut], [96.0, 1.30],
 ];
 
 /** is the arm holding the cube, at shift time w */
-const gripping = (w) => (w >= GRAB_BACK && w < DROP_PALLET) || (w >= GRAB_PALLET && w < DROP_BACK);
+const gripping = (w) => (w >= GRAB_BELT && w < DROP_PALLET) || (w >= GRAB_PALLET && w < DROP_BACK) || (w >= GRAB_HAND && w < DROP_BELT);
 
 /**
  * The line-up: two to three shrinking corrections, ~120 ms of motion each with
@@ -368,8 +406,15 @@ function toLocal(sx, sy, sz, mps) {
    these bounds cost 6.7 mm of extra height and 7.9 mm of extra width over the
    work loop's own silhouette — about 1.4 mm in stage units, against 2.8% of
    frame-edge slack. Widen them and re-measure, or do not widen them. */
-const ENV_MIN_H = 0.10;   // never below ten centimetres off the deck
-const ENV_MAX_R = 0.44;   // inside the pick radius: no new silhouette width
+/* All four are in the ARM's frame, which now starts on top of the plinth. The
+   height bounds therefore carry the plinth with them — `0.10 off the deck` is
+   0.10 - PLINTH.h in the arm's own coordinates. Leaving them floor-relative
+   made the lower bound a FLOOR the work pose could not get under, and since
+   this clamp is applied to the blended pose rather than only to the pointer's
+   contribution, it quietly lifted the arm off every target it reaches down to
+   even with the pointer nowhere near it. */
+const ENV_MIN_H = 0.10 - PLINTH.h;   // never below ten centimetres off the deck
+const ENV_MAX_R = 0.44;              // inside the pick radius: no new silhouette width
 const ENV_MIN_R = 0.20;
 const ENV_MAX_H = 0.40;
 
@@ -377,7 +422,7 @@ const ENV_MAX_H = 0.40;
 function freedom(ct, carrying) {
   if (carrying) return 0;                     // wrist-only; handled separately
   // dead steady over the work, free once the shift is done and before it starts
-  return smooth(clamp01((ct - 36) / 2.5));
+  return smooth(clamp01((ct - 62) / 2.5));
 }
 
 /* ---------------------------------------------------------------------------
@@ -397,25 +442,30 @@ function workPose(ctx, t) {
      shallow arc, not a chord: it swings a little wide and a little high. Two
      lines, and it is the difference between "moved" and "carried". */
   const bow = (a, b) => Math.sin(PI * clamp01((w - a) / (b - a)));
-  h += 0.030 * bow(9.6, 11.8);            // off the back, onto the pallet
-  h += 0.038 * bow(20.0, 27.5);           // off the pallet, across to the back
-  r += 0.010 * bow(20.0, 27.5);
+  h += 0.030 * bow(5.6, 8.8);             // off the belt, onto the pallet
+  h += 0.038 * bow(19.0, 26.5);           // off the pallet, across to the back
+  r += 0.010 * bow(19.0, 26.5);
+  h += 0.034 * bow(47.0, 55.0);           // out of the flagship's hands, to the belt
+  r += 0.010 * bow(47.0, 55.0);
 
   /* Line-ups: shrinking corrections converging on zero, ~120ms of motion each
      with a beat of stillness between. The craftsman squaring up to the work.
      Three over a pick (it is committing to a grip), one over a place (it
      already knows where this goes). All excursions INBOARD — the working
      radius is the widest this silhouette ever gets. */
-  const up1 = lineUp(w, 5.60, [[-0.024, 0.017], [0.011, -0.010], [-0.005, 0.004]]);
-  const up2 = lineUp(w, 11.10, [[-0.013, 0.009]]);
-  const up3 = lineUp(w, 15.60, [[-0.024, 0.017], [0.011, -0.010], [-0.005, 0.004]]);
-  const up4 = lineUp(w, 26.90, [[-0.013, 0.009]]);
-  r += up1.dr + up2.dr + up3.dr + up4.dr;
-  yaw += up1.dy + up2.dy + up3.dy + up4.dy;
+  const ups = [
+    lineUp(w, 1.60, [[-0.024, 0.017], [0.011, -0.010], [-0.005, 0.004]]),   // pick off the belt
+    lineUp(w, 10.10, [[-0.013, 0.009]]),                                     // place on the pallet
+    lineUp(w, 14.60, [[-0.024, 0.017], [0.011, -0.010], [-0.005, 0.004]]),   // pick off the pallet
+    lineUp(w, 27.90, [[-0.013, 0.009]]),                                     // place on the back
+    lineUp(w, 42.00, [[-0.018, 0.012], [0.008, -0.007]]),                    // meet the hand
+    lineUp(w, 55.00, [[-0.013, 0.009]]),                                     // lay it on the belt
+  ];
+  for (const u of ups) { r += u.dr; yaw += u.dy; }
 
   /* The settle: having set something down it lets one small oscillation die out
      of the wrist — the arm relaxing, not the arm wobbling. Once per place. */
-  for (const s0 of [12.0, 30.0]) {
+  for (const s0 of [11.0, 29.0, 57.0]) {
     const st = clamp01((w - s0) / 0.55);
     if (st > 0 && st < 1) pitch += Math.sin(st * PI * 2.6) * 0.020 * (1 - st) * (1 - st);
   }
@@ -446,8 +496,14 @@ function workPose(ctx, t) {
      out — and the extents tool is the thing that says whether that is
      affordable. It was 0.50, which silently held the gripper 26mm short of the
      back and turned the handoff into a miss. */
-  r = clamp(r, 0.16, 0.56);
-  h = clamp(h, 0.028, 0.52);
+  r = clamp(r, 0.16, 0.60);
+  /* The height clamp is in the ARM's frame, so it has to be measured from the
+     top of the plinth. It used to read `clamp(h, 0.028, 0.52)` — floor-mounted
+     numbers — and the moment the arm went up on a plinth that floor became a
+     ceiling 0.25 too high: every reach DOWN, to the pallet at 0.037 and to the
+     belt at 0.113, silently clamped to the same 0.293 and the arm hovered
+     above all four of its targets holding nothing. */
+  h = clamp(h, 0.028 - PLINTH.h, 0.52);
   const pose = armPose(yaw, r, h, pitch);
   ctx.setAll(pose);
   ctx.set('joint5', wristYaw);
@@ -590,6 +646,7 @@ const CURL = { joint1: 0.10, joint2: 2.75, joint3: -0.15, joint4: 0.90, joint5: 
 export function entrance(ctx, t) {
   const R = params.rise;
   const u = clamp01(t / R);
+  ctx.lift(PLINTH.h);
   // the base plate arrives first and the arm is still folded on top of it
   ctx.rise(smooth(clamp01(t / (R * 0.45))));
 
@@ -618,6 +675,7 @@ export function work(ctx, t) {
   const w = workPose(ctx, t);
   overlays(ctx, t, w);
   ctx.rise(1);
+  ctx.lift(PLINTH.h);          // it is bolted to a plinth, not to the floor
 }
 
 /* ---------------------------------------------------------------------------
@@ -720,4 +778,4 @@ export const reactions = [
   },
 ];
 
-export default { key: 'z1', params, roam, ground, period, entryEnd, entrance, work, reactions };
+export default { key: 'z1', params, roam, ground, mounted, period, entryEnd, entrance, work, reactions };

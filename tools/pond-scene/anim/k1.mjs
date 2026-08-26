@@ -76,8 +76,8 @@ params.advance = params.stance / params.duty;
             person's, which is the whole reason it has its own. */
 export const FOLD = {
   stand: { stand: params.stand, lean: 0, shoulder: -0.30, elbow: -0.34, roll: 1.28, footX: 0 },
-  belt: { stand: 0.2415, lean: -0.45, shoulder: 0, elbow: 0.80, roll: 1.50, footX: 0.0915 },
-  bench: { stand: 0.293, lean: 0, shoulder: -0.45, elbow: 0.80, roll: 1.00, footX: 0.0038 },
+  belt: { stand: 0.271, lean: -0.25, shoulder: 0, elbow: 0.60, roll: 1.50, footX: 0.0915 },
+  bench: { stand: 0.2930, lean: 0, shoulder: -0.45, elbow: 0.80, roll: 1.00, footX: 0.0038 },
 };
 const FOLD_REACH = { stand: 0.16, belt: 0.1287, bench: 0.1950 };
 
@@ -88,7 +88,7 @@ const BENCH_AT = STATIONS.k1, REACH_AT = STATIONS.k1Reach;
    back toward the middle of the frame, so the cube comes off the line in front
    of its chest and the exchange is visible rather than hidden behind it. */
 const YAW_BENCH = -2.10;
-const YAW_REACH = 2.64;
+const YAW_REACH = -2.94;
 
 /* Roam region — see INTERFACE.md. The K1 has the right band to itself, and
    being 0.42m of half-width it is the only humanoid here that can get
@@ -103,8 +103,8 @@ const YAW_REACH = 2.64;
 export const roam = {
   side: 'right',
   halfWidth: 0.46,
-  work: { x: [1.48, 1.74], z: [0.35, 0.90] },
-  entry: { x: [1.48, 3.50], z: [0.35, 0.90] },
+  work: { x: [1.48, 1.74], z: [0.35, 0.98] },
+  entry: { x: [1.48, 3.50], z: [0.35, 0.98] },
 };
 export const ground = ['left_foot_link', 'right_foot_link'];
 export const period = MASTER;
@@ -123,11 +123,11 @@ export const period = MASTER;
    (it always leaves early) and the walk between the two is what the seven
    seconds are for. */
 const ROUTE = makeRoute([
-  { t: 0, ...BENCH_AT, yaw: YAW_BENCH }, { t: 38, ...BENCH_AT, yaw: YAW_BENCH },
-  { t: 42, ...REACH_AT, yaw: YAW_REACH }, { t: 49, ...REACH_AT, yaw: YAW_REACH },
-  { t: 52, ...BENCH_AT, yaw: YAW_BENCH }, { t: 62, ...BENCH_AT, yaw: YAW_BENCH },
-  { t: 65, ...REACH_AT, yaw: YAW_REACH }, { t: 78, ...REACH_AT, yaw: YAW_REACH },
-  { t: 82, ...BENCH_AT, yaw: YAW_BENCH }, { t: 96, ...BENCH_AT, yaw: YAW_BENCH },
+  { t: 0, ...BENCH_AT, yaw: YAW_BENCH }, { t: 50, ...BENCH_AT, yaw: YAW_BENCH },
+  { t: 54, ...REACH_AT, yaw: YAW_REACH }, { t: 61, ...REACH_AT, yaw: YAW_REACH },
+  { t: 64, ...BENCH_AT, yaw: YAW_BENCH }, { t: 71, ...BENCH_AT, yaw: YAW_BENCH },
+  { t: 74, ...REACH_AT, yaw: YAW_REACH }, { t: 80, ...REACH_AT, yaw: YAW_REACH },
+  { t: 84, ...BENCH_AT, yaw: YAW_BENCH }, { t: 96, ...BENCH_AT, yaw: YAW_BENCH },
 ]);
 
 const sched = plan(
@@ -236,8 +236,8 @@ function beatId(t) {
    parked on the bench at 54; it picks it back up at 60 and it is back on the
    belt at 67. */
 const span = (t0, t1, gb, st) => ({ t0, t1, grab: (gb - t0) / (t1 - t0), set: (st - t0) / (t1 - t0) });
-const TAKE = span(43, 57, 47, 54);
-const GIVE = span(57, 71, 60, 67);
+const TAKE = span(55, 69, 59, 65);
+const GIVE = span(68, 82, 70, 76);
 
 function jobAt(m) {
   if (m >= TAKE.t0 && m < TAKE.t1) return { kind: 'take', u: (m - TAKE.t0) / (TAKE.t1 - TAKE.t0), J: TAKE };

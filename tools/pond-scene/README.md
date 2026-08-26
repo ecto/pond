@@ -92,13 +92,57 @@ This step needs the upstream robot repos under `tools/pond-scene/robots/`
 the site actually ships):
 
 ```
-git clone https://github.com/unitreerobotics/unitree_ros  robots/unitree_ros
-git clone https://github.com/BoosterRobotics/booster_gym   robots/booster_gym
+git clone --depth 1 https://github.com/unitreerobotics/unitree_ros    robots/unitree_ros
+git clone --depth 1 https://github.com/BoosterRobotics/booster_assets robots/booster_assets
 ```
 
-Built against `unitree_ros` @ `4ddbf6d` and `booster_gym` @ `da396a0`. Sources
-and licences are recorded in `assets/third_party/*/SOURCE.txt` (`unitree_go2`,
-`unitree_z1`, `booster_t1`). pond-bot comes from `assets/pond-bot.glb`.
+**Use `--depth 1`, and prune what you do not need.** A full `unitree_ros`
+clone is **1.6 GB** — the history plus descriptions for two dozen robots we
+never load. This scene needs exactly three of them:
+
+```
+rm -rf robots/unitree_ros/.git
+cd robots/unitree_ros/robots && ls | grep -vE '^(go2|z1|h2)_description$' | xargs rm -rf
+```
+
+That takes the tree to 125 MB. This is not tidiness — an unpruned clone filled
+the working disk to 100% mid-session, at which point the build, the tests and
+even the tooling's own temp files fail with `ENOSPC` and the errors point
+everywhere except the cause.
+
+Sources and licences are recorded in `assets/third_party/*/SOURCE.txt`.
+
+### Robot notes — read these before adding or re-importing a robot
+
+**Load the H2 from `H2.urdf`, never `H2_dae.urdf`.** Both exist upstream. The
+`_dae` variant references Collada meshes that our Collada reader parses to
+**zero triangles, silently** — no throw, no warning. The build then fails two
+stages later, in the payload packer, with a message that points nowhere near
+the cause. The STL variant is the one that works.
+
+**The H2's hips are canted, and it is invisible at the rest pose.** Its
+`hip_pitch` joint origin carries a 30 degree roll, so the axis is
+`(0, 0.866, -0.5)` and driving that joint alone swings the leg diagonally
+outward rather than forward. The `hip_roll` origin rolls the same 30 degrees
+back, so at the zero pose the leg hangs straight down and nothing looks
+unusual. Drive the gait as if `hip_pitch` were sagittal and you get 20% of body
+speed in foot slip that no amount of tuning the gait will fix.
+
+`kinematics.mjs` exports `cantedHip(theta, cant)`, which asks the whole
+three-joint hip for a *pure sagittal rotation* and returns the pitch/roll/yaw
+triple that achieves it. It is exact to 1e-16 and the selftest checks it.
+
+Two follow-ons, both of which cost real millimetres:
+
+* The roll and yaw joint ORIGINS are offsets as well as rotations, so they
+  carry the leg sideways as they move — 63 mm of lateral slide across one
+  step. `h2.mjs` solves the leg with a three-pass fixed point on that offset.
+* The canted hip spends roll and yaw to buy pitch, so **roll and yaw hit their
+  limits long before the pitch joint hits its own**. At a sagittal angle of
+  about 1.46 rad the left roll reaches -0.47 and the pose stops being
+  reachable. Checking only the pitch limit produces folds the runtime silently
+  clamps — which means the pose that ships is not the pose that was measured,
+  and every handoff built on it moves.
 
 ## Payload format
 
@@ -293,43 +337,75 @@ and the cube's owner is a pure function of the clock:
 
 | master | leg | who has the cube |
 | --- | --- | --- |
-| 0–18 | the arm lifts it off its pallet and loads the dog | Z1 |
-| 18–36 | the dog carries it downstage and lies down | Go2 |
-| 36–52 | the frog leaps for it and crosses **under the copy** | pond-bot |
-| 52–66 | the humanoid squats, takes it, sets it on its bench, looks at it | T1 |
-| 66–85 | the same road back | pond-bot → Go2 |
-| 85–96 | the dog carries it home, the arm re-stows it | Go2 → Z1 |
+| 0–6 | parked on the arm's stand; the arm reaches for it | — |
+| 6–18 | the arm lifts it and sets it on the dog's back | Z1 |
+| 18–26 | the dog carries it upstage to the flagship | Go2 |
+| 26–33 | **the bend** — the flagship folds to the crouched dog and lifts it off | H2 |
+| 33–46 | the flagship holds it out; the arm takes it and lays it on the line | H2 → Z1 |
+| 46–59 | **the crossing** — 2.9 m of belt, **under the copy**, 13 seconds | belt |
+| 59–65 | the K1 crouches at the tail, picks it off, benches it | K1 |
+| 65–70 | the dwell: the whole cast is still, and this is what they watch | — |
+| 70–76 | the K1 puts it back on the line | K1 |
+| 76–89 | the crossing again, the other way | belt |
+| 89–96 | the arm takes it off the line and re-stows it | Z1 |
 
-Each body does what only it can. The arm has precision and 0.74m of reach. The
-dog has range and a flat back. The humanoid has hands and height, and a squat
-deep enough to pick a 50mm cube off a 97mm frog. The frog fits where nothing
-else does.
+Each body does what only it can, and that is a constraint before it is a theme:
 
-The circuit is shaped by a measured fact, not a preference. Ask which characters
-can physically stand *under* the copy column — floor still on screen, own height
-below the copy's bottom edge — and only one can do it at all four viewports:
+* **The arm** has precision and reaches the floor without thinking about it, so
+  it loads and unloads the line and it keeps the pallet.
+* **The dog** has range and a flat back, so it does the one leg that covers
+  ground.
+* **The flagship** has height, hands, and presence, so it takes the work off a
+  crouched dog at knee height and hands it on at chest height. It does **not**
+  load the belt, and that is measured rather than chosen: an H2's lowest LEGAL
+  hand height is **0.232 m** — bounded by its knee limit and its canted hip's
+  roll limit, not by anything tunable — and a belt that clears the copy has to
+  ride at about **0.17 m**. It is 60 mm short, and every attempt to squat lower
+  hits a limit that raises its hands again.
+* **The K1** is the only body small enough to crouch at the tail of a
+  knee-high line and still look like it is working rather than collapsing.
 
-| viewport | pond-bot | Go2 | Z1 | T1 |
-| --- | --- | --- | --- | --- |
-| 1280x700 | from z=1.32 | never | never | from z=4.66 |
-| 1280x1000 | from z=-0.42 | from z=2.98 | from z=3.42 | never |
-| 1440x1300 | from z=-2.00 | from z=1.44 | from z=2.00 | never |
-| 1280x1400 | from z=-2.00 | from z=0.00 | from z=0.60 | never |
+The thing that crosses under the copy is a **conveyor**, not a character. That
+is the honest answer to the geometry — the corridor under the headline is about
+0.31 m tall and nothing in the cast fits through it — and it is also what a real
+cell looks like: big machines stand where they can reach and hand work to the
+line.
 
-A downstage floor point sits *lower* in frame, so walking further forward drops
-the floor off the bottom edge faster than distance shrinks a body: the Go2 runs
-out of frame before it runs out from under the words. So the copy column is a
-wall, and the frog is the only one small enough to pass under it — which is
-exactly what makes it the courier. At true scale each body does what only it can:
-the arm has precision, the dog has range and a flat back, the frog fits, the
-humanoid has hands and height.
+The circuit is shaped by a measured fact, not a preference. The copy column
+leaves a corridor between the deck and the bottom edge of the headline. Raising
+the copy (`.landing-hero { padding-bottom: calc(2rem + 16vh) }`) moved its
+bottom edge from `0.500*H + 209px` to `0.420*H + 209px` — measured on the real
+DOM at all four viewports, with the intercept unchanged — which roughly doubled
+that corridor to about **0.31 m**. 0.42 is the floor, not taste: the hero block
+is ~370 px and the masthead owns the top ~100 px, so its centre cannot rise
+above ~0.41h at 1280x700.
 
-Stations are solved against `feasibleX` at their own depth, not eyeballed, and
-the selftest asserts it: the usable band narrows fast downstage, and at true
-scale the Z1 has no lateral room at all past z=0.5, the Go2 past z=1.2, the T1
-past z=0.5, while the 75mm-half-width frog still has 330mm at z=2.0.
+Even doubled, the corridor fits no member of the cast. It fits a conveyor with
+a 50 mm cube on it, with margin to spare — and `measure-circuit.js` reports
+that margin (currently **0.86% of frame height** at the tightest point) so that
+raising the belt or moving it upstage fails loudly rather than quietly.
 
-### The handoffs
+### Pinning the circuit
+
+None of the transfer points is derivable in closed form: they depend on stance
+heights, on the grounding solve, on headings, and on where a character is in a
+blend at that exact second. They are **measured through the real transform
+chain and pinned**, and the handoff assertion is what keeps them honest.
+
+```
+node measure-circuit.js              # every transfer point in one pass, plus
+                                     # the belt's clearance under the copy
+node calibrate.js h2 dog 26 0.3183   # bisect one fold against the LIVE handoff
+node probe.js                        # where a pose actually puts a link
+```
+
+Use `calibrate.js` rather than solving a pose in isolation. Solving in
+isolation answers "what pose puts the cube at height H"; the circuit asks
+"where is the cube at master second T", and at T the character is mid-blend,
+carrying its own sway, at a yaw. The difference measured **70 mm** here, which
+is more than the whole handoff budget.
+
+## The handoffs
 
 Ten of them, and each one is an instant: ownership flips on a single frame and
 the cube's position is a pure function of whoever owns it. If the giver and the

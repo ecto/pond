@@ -125,10 +125,13 @@ const ROUTE = makeRoute([
      150mm. So the hold runs a beat past the ownership change and the walk
      starts after it. */
   { t: 0, ...LOAD, yaw: LOAD_YAW }, { t: 19.5, ...LOAD, yaw: LOAD_YAW },
-  { t: 22.5, ...HAND, yaw: HAND_YAW }, { t: 36, ...HAND, yaw: HAND_YAW },
-  { t: 42, ...POST }, { t: 70, ...POST },
-  { t: 76, ...HAND, yaw: HAND_YAW }, { t: 88, ...HAND, yaw: HAND_YAW },
-  { t: 92, ...LOAD, yaw: LOAD_YAW }, { t: 96, ...LOAD, yaw: LOAD_YAW },
+  { t: 22.5, ...HAND, yaw: HAND_YAW }, { t: 34, ...HAND, yaw: HAND_YAW },
+  /* One trip, not two. The cube comes back along the belt and the arm re-stows
+     it on its own, so the dog's job is the outbound carry and then its patrol —
+     which gives the second half of the loop a different shape instead of the
+     same shape backwards. */
+  { t: 40, ...POST }, { t: 78, ...POST },
+  { t: 84, ...LOAD, yaw: LOAD_YAW }, { t: 96, ...LOAD, yaw: LOAD_YAW },
 ]);
 
 /* How low it gets. Standing, its back is 0.49 off the deck; a frog at the top
@@ -162,7 +165,7 @@ function window(t, at, a, b, c, d) {
 
 /** 0..1 how far into a crouch it is — patrol flourishes fade out against this */
 function crouchWeight(t) {
-  const low = Math.max(window(t, 0, 22, 25, 34, 36), window(t, 0, 76, 79, 87, 88));
+  const low = window(t, 0, 22, 25, 32, 34);
   const mid = window(t, 86, 0, 2, 28, 30);
   return Math.max(0, Math.min(1, Math.max(low, mid * 0.55)));
 }
@@ -173,7 +176,7 @@ function standAt(t) {
      for, and for the same reason — the thing reaching for the cube cannot get
      that low on its own, so the dog gives way. A 1.83m humanoid folded over a
      dog folded flat is the size story of the whole scene in one picture. */
-  const low = Math.max(window(t, 0, 22, 25, 34, 36), window(t, 0, 76, 79, 87, 88));
+  const low = window(t, 0, 22, 25, 32, 34);
   /* and the loading crouch for the arm, which WRAPS the master boundary. It has
      to be down at 92, when the arm takes the cube off the back, and still down
      at 18, when the arm puts the next one on — one hold spanning 86..20, not

@@ -174,6 +174,7 @@ async function buildStage(names) {
     const char = build(key);
     char.key = key;
     char.ground = W.GROUND[key] || [];
+    char.mounted = !!(W.MOUNTED && W.MOUNTED[key]);
     char.act = W.WORK[key];
     char.period = W.PERIOD[key];
     char.entryEnd = W.ENTRY_END[key] || 0;
@@ -295,11 +296,24 @@ function stageSoup(cast, t, opts = {}) {
   /* one cube for the cast, wherever the score says it is, plus the two pallets
      it rests on. Drawn once for the stage rather than once per character. */
   const CM = cubeMatrix(cast, t);
-  // Pond blue: the same slot the pond-bot's accent maps to
-  if (CM) push(boxSoup([W_.CUBE, W_.CUBE, W_.CUBE], 2), CM, 2 + ORDER.indexOf('pondbot'));
-  for (const [n, D] of [['z1Pallet', W_.PALLET], ['t1Pallet', W_.BENCH]]) {
+  /* Pond blue. This used to index ORDER by a character that no longer exists,
+     which returned -1 and quietly drew the cube in ink — the one object the
+     whole scene is about, rendered as a dark speck. */
+  if (CM) push(boxSoup([W_.CUBE, W_.CUBE, W_.CUBE], 2), CM, 2 + ORDER.indexOf('h2'));
+  for (const [n, D] of [['z1Pallet', W_.PALLET], ['k1Bench', W_.BENCH], ['z1', W_.PLINTH]]) {
     const st = W_.STATIONS[n];
     push(boxSoup([D.w, D.h, D.d], 0), new THREE.Matrix4().makeTranslation(st.x, D.h / 2, st.z), 0);
+  }
+  /* the conveyor. It is set dressing to the animation system — nothing is
+     parented to it — but it has to be DRAWN, or the sheets show a cube gliding
+     through mid-air and the whole point of the beat is invisible. */
+  {
+    const B = W_.BELT;
+    const dx = B.tail.x - B.head.x, dz = B.tail.z - B.head.z;
+    const M = new THREE.Matrix4()
+      .makeTranslation((B.head.x + B.tail.x) / 2, B.y / 2, (B.head.z + B.tail.z) / 2)
+      .multiply(new THREE.Matrix4().makeRotationY(Math.atan2(-dz, dx)));
+    push(boxSoup([B.len, B.y, B.w], 0), M, 0);
   }
   for (const char of cast) {
     const pm = placeMatrix(char, t);
@@ -674,7 +688,7 @@ async function stageSheets() {
      on the third circuit so every entrance is finished. */
   const TIMES = (process.env.PONDTIMES ? JSON.parse(process.env.PONDTIMES)
     : [1.2, 9, 17, 26, 38, 52]);
-  const SC = 0.36;                            // render at a fraction of real pixels
+  const SC = process.env.PONDSC ? Number(process.env.PONDSC) : 0.36;
   for (const [vw, vh] of VIEWPORTS) {
     const cam = S.cameraFor(vw / vh);
     const w = Math.round(vw * SC), h = Math.round(vh * SC);
@@ -684,7 +698,7 @@ async function stageSheets() {
       const { img } = render(soup, {
         width: w, height: h, cam,
         colors: [PALETTE.bone, PALETTE.ink,
-          PALETTE[ACCENT.pondbot], PALETTE[ACCENT.go2], PALETTE[ACCENT.t1], PALETTE[ACCENT.z1],
+          PALETTE[ACCENT.h2], PALETTE[ACCENT.k1], PALETTE[ACCENT.go2], PALETTE[ACCENT.z1],
           [206, 209, 214], [236, 238, 242]],
       });
       // tint the copy's rectangle so a character sitting under it is obvious

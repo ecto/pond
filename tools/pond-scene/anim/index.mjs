@@ -63,6 +63,10 @@ export const ROAM = Object.fromEntries(ORDER.map((k) => [k, CHARACTERS[k].roam])
    character is re-grounded by pushing it down until the lowest of these links
    is back on the deck. With locomotion this is the invariant, not a fix-up. */
 export const GROUND = Object.fromEntries(ORDER.map((k) => [k, CHARACTERS[k].ground]));
+/* Which characters are BOLTED to a mount rather than standing on the floor.
+   A mounted character is placed by its mounting face; everything else is
+   placed by the lowest point its geometry reaches over the whole loop. */
+export const MOUNTED = Object.fromEntries(ORDER.map((k) => [k, !!CHARACTERS[k].mounted]));
 
 /* ---------------- reactions ----------------
    A module authors a reaction as update(ctx, t, dir). The runtime wants joint

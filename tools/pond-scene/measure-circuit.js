@@ -40,17 +40,20 @@ const THREE = require('three');
 
   console.log('\n--- where each body actually holds the cube, at the second it matters ---\n');
   const rows = [
-    ['go2 back at the loading bay      (t=18, z1 -> go2)', 'go2', 18, 'BACK_AT_BAY'],
+    ['z1 tool at the pallet            (t=0,  z1 -> parked)', 'z1', 0, 'z1Pallet + PALLET.h'],
+    ['z1 tool lifting off the pallet   (t=6,  parked -> z1)', 'z1', 6, ''],
+    ['z1 tool at the dog\'s back        (t=18, z1 -> go2)', 'z1', 18, 'BACK_AT_BAY'],
+    ['go2 back being loaded            (t=18)', 'go2', 18, 'BACK_AT_BAY'],
     ['go2 back at the flagship         (t=26, go2 -> h2)', 'go2', 26, 'BACK_AT_HANDOFF'],
     ['H2 hands taking off the dog      (t=26)', 'h2', 26, ''],
-    ['H2 hands at the belt head        (t=34, h2 -> belt)', 'h2', 34, 'beltHead + BELT.y'],
-    ['K1 hands at the belt tail        (t=47, belt -> k1)', 'k1', 47, 'beltTail'],
-    ['K1 hands at its bench            (t=54, k1 -> parked)', 'k1', 54, 'k1Bench + BENCH.h'],
-    ['K1 hands back at the belt        (t=67, k1 -> belt)', 'k1', 67, ''],
-    ['H2 hands taking off the belt     (t=80, belt -> h2)', 'h2', 80, ''],
-    ['H2 hands putting it on the dog   (t=87, h2 -> go2)', 'h2', 87, ''],
-    ['go2 back receiving it            (t=87)', 'go2', 87, ''],
-    ['go2 back at the bay for restow   (t=92, go2 -> z1)', 'go2', 92, 'BACK_AT_BAY (2nd visit)'],
+    ['H2 hands presenting to the arm   (t=33, h2 -> z1)', 'h2', 33, 'H2_PRESENT'],
+    ['z1 tool meeting those hands      (t=33)', 'z1', 33, 'H2_PRESENT'],
+    ['z1 tool laying it on the belt    (t=46, z1 -> belt)', 'z1', 46, 'beltHead + BELT.y'],
+    ['K1 hands at the belt tail        (t=59, belt -> k1)', 'k1', 59, 'beltTail'],
+    ['K1 hands at its bench            (t=65, k1 -> parked)', 'k1', 65, 'k1Bench + BENCH.h'],
+    ['K1 hands back at the belt        (t=76, k1 -> belt)', 'k1', 76, ''],
+    ['z1 tool taking it off the belt   (t=89, belt -> z1)', 'z1', 89, 'beltTail? no — beltHead'],
+    ['z1 tool re-stowing on the pallet (t=96, z1 -> parked)', 'z1', 96, 'z1Pallet + PALLET.h'],
   ];
   for (const [label, key, m, pins] of rows) {
     console.log(`  ${label.padEnd(52)} ${fmt(at(key, m))}${pins ? '   <- ' + pins : ''}`);

@@ -68,10 +68,16 @@ params.advance = params.stance / params.duty;   // metres of travel per gait cyc
    them honest. Re-solve with `node solve-fold.js h2 <targetY>` if a height
    moves.
 
-     BELT   puts the carried cube at y = 0.145 — the 0.12m conveyor deck plus
-            half a cube. This is the deepest thing the character does: a 1.83m
-            machine folded down to put something on a knee-high line.
-     DOG    puts it at y = 0.278, the cube sitting on the crouched Go2's back.
+     DOG      puts the carried cube at the height of the crouched Go2's back.
+              This is the deepest thing the character does, and it is as deep
+              as it CAN go: the fold sits right on the knee limit and on the
+              canted hip's roll limit, and anything past it is a pose the
+              runtime clamps rather than the pose that was measured.
+     PRESENT  holds it out at 0.76 — chest height, legs straight. The flagship does not
+              load the belt — it physically cannot, its lowest legal hand
+              height is 0.232 and the line has to ride at 0.17 to clear the
+              copy — so it hands the work to the one body in the cast that can
+              reach the floor without thinking about it.
 
    `footX` is the part that is easy to miss. Folding slides the planted feet
    backward in the body's own frame, and the runtime only ever grounds
@@ -81,11 +87,11 @@ params.advance = params.stance / params.duty;   // metres of travel per gait cyc
    deepest bend in the scene. */
 export const FOLD = {
   stand: { stand: params.stand, lean: 0, waist: 0.04, shoulder: -0.10, elbow: 1.05, roll: 0.12, footX: 0 },
-  belt: { stand: 0.366, lean: -0.45, waist: 0.52, shoulder: -0.45, elbow: 1.40, roll: 0.12, footX: 0.1092 },
-  dog: { stand: 0.3660, lean: 0, waist: 0.44, shoulder: -0.15, elbow: 0.80, roll: 0.30, footX: 0.0053 },
+  present: { stand: 0.800, lean: 0, waist: 0.10, shoulder: -0.10, elbow: 1.60, roll: 0.10, footX: 0 },
+  dog: { stand: 0.4081, lean: 0, waist: 0.44, shoulder: -0.15, elbow: 0.80, roll: 0.30, footX: 0.0053 },
 };
 /** how far in front of the body root the carried cube sits, per fold */
-const FOLD_REACH = { stand: 0.30, belt: 0.3167, dog: 0.3402 };
+const FOLD_REACH = { stand: 0.30, present: 0.195, dog: 0.3402 };
 
 /* The entrance walks in at its WORKING DEPTH, not toward it.
 
@@ -103,7 +109,15 @@ const HOME = STATIONS.h2;
    dog comes up on its left, and the belt head is downstage of it. Turning
    between the two IS the performance — a body this size does not reach across
    itself, it turns to face what it is working on. */
-const YAW_BELT = -1.30;
+/* The exchange point sits DOWNSTAGE of both of them rather than between them.
+   Two reasons, both hard: the flagship's own reach (0.21) is longer than the
+   gap it would have to reach across, so aiming straight at the arm would put
+   the cube through the arm's base; and the arm's reach envelope SHRINKS with
+   height — at the 0.50 the exchange happens at it can only manage 0.52 out, so
+   the point has to be somewhere both can meet without either straining. It
+   also keeps the flagship turned toward the audience: 39 degrees off its dog
+   facing, rather than the 143 it would need to turn to face the arm. */
+const YAW_ARM = -2.423;
 const YAW_DOG = -1.75;
 const YAW_REST = -1.30;
 
@@ -119,8 +133,8 @@ const YAW_REST = -1.30;
 export const roam = {
   side: 'left',
   halfWidth: 0.44,
-  work: { x: [-1.72, -1.52], z: [0.50, 0.66] },
-  entry: { x: [-3.50, -1.52], z: [0.50, 0.66] },
+  work: { x: [-1.72, -1.52], z: [0.44, 0.60] },
+  entry: { x: [-3.50, -1.52], z: [0.44, 0.60] },
 };
 export const ground = ['left_ankle_pitch_link', 'right_ankle_pitch_link'];
 export const period = MASTER;          // phase-locked to the world task
@@ -325,12 +339,10 @@ function beatId(t) {
    are then just those two master seconds expressed as fractions. Fitting the
    window to the performance keeps the authored proportions intact. */
 const span = (t0, t1, tk, pl) => ({ t0, t1, take: (tk - t0) / (t1 - t0), place: (pl - t0) / (t1 - t0) });
-const LOAD = span(21, 38, 26, 34);
-const UNLOAD = span(76, 91, 80, 87);
+const LOAD = span(21, 40, 26, 33);
 
 function jobAt(m) {
   if (m >= LOAD.t0 && m < LOAD.t1) return { kind: 'load', u: (m - LOAD.t0) / (LOAD.t1 - LOAD.t0), J: LOAD };
-  if (m >= UNLOAD.t0 && m < UNLOAD.t1) return { kind: 'unload', u: (m - UNLOAD.t0) / (UNLOAD.t1 - UNLOAD.t0), J: UNLOAD };
   return { kind: 'idle', u: 0, J: null };
 }
 
@@ -368,12 +380,9 @@ function working(ctx, t) {
        take -> carry -> place. The two ends of the gesture are different folds
        and different facings, and the character turns BETWEEN them rather than
        reaching across itself. */
-    const load = job.kind === 'load';
     const u = job.u, J = job.J;
-    const fromF = load ? FOLD.dog : FOLD.belt;
-    const toF = load ? FOLD.belt : FOLD.dog;
-    const fromYaw = load ? YAW_DOG : YAW_BELT;
-    const toYaw = load ? YAW_BELT : YAW_DOG;
+    const fromF = FOLD.dog, toF = FOLD.present;
+    const fromYaw = YAW_DOG, toYaw = YAW_ARM;
 
     /* down to the first thing, hold, up and across, down to the second, hold,
        and all the way back up. Each descent is slow at the end (a careful
@@ -394,7 +403,7 @@ function working(ctx, t) {
        dip drove the knee and the canted hip's roll past their limits and the
        runtime clamped them, so the pose that shipped was not the pose that was
        measured, and the handoff moved. */
-    F.stand = Math.max(F.stand - 0.008 * h1, Math.min(FOLD.belt.stand, FOLD.dog.stand));
+    F.stand = Math.max(F.stand - 0.008 * h1, FOLD.dog.stand);
 
     yaw = mixYaw(fromYaw, toYaw, smooth(clamp01((u - (J.take + 0.08)) / 0.26)));
     shift = applyFold(ctx, F, sway * (1 - Math.max(wDown1, wDown2)));
@@ -412,12 +421,12 @@ function working(ctx, t) {
     ctx.set('head_yaw_joint', 0);
     ctx.set('waist_yaw_joint', 0);
 
-    /* and once it has let go, it watches the line take the cube away — the
-       satisfied beat. Without it the character just stands up and forgets. */
-    if (load && u > J.place + 0.06) {
+    /* and once it has let go, it watches the arm carry the cube down to the
+       line — the satisfied beat. Without it the character just straightens up
+       and forgets what it was doing. */
+    if (u > J.place + 0.06) {
       const w = smooth(clamp01((u - (J.place + 0.06)) / 0.16));
-      const b = beltPoint(0.22);
-      lookAt(ctx, yaw, headingTo(HOME.x, HOME.z, b.x, b.z), 0.8 * w);
+      lookAt(ctx, yaw, headingTo(HOME.x, HOME.z, STATIONS.z1.x, STATIONS.z1.z), 0.8 * w);
     }
   }
 
