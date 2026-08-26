@@ -249,6 +249,33 @@ export function parkHeight(name) {
 /* the bench is a station too, for the parked-cube position */
 STATIONS.k1Bench = { x: 1.5326, z: 0.5480 };
 
+/* ---------------- the set ----------------
+   Every solid prop in the scene, as {name, w, h, d, at, yaw}, in metres and
+   stage coordinates. `at` is the CENTRE of the footprint and `h` is the full
+   height, so a prop occupies y = 0 .. h.
+
+   THIS LIST IS THE ONE SOURCE. Both renderers build their props from it —
+   scene.js for the browser and preview.js for the offline sheets — because
+   they used to keep two hand-written copies "in sync" and they drifted: the
+   browser bundle still asked for a station called `t1Pallet` long after the
+   T1 left the cast, `STATIONS.t1Pallet` came back undefined, and reading `.x`
+   off it threw. The throw happened inside start(), which the boot wraps in a
+   catch that exists to never break the docs page, so the site showed no error
+   at all — it just silently kept the PNG fallback while a canvas sat in the
+   DOM doing nothing. A prop list that cannot drift is the fix; the assertion
+   below is the seatbelt. */
+export const PROPS = [
+  { name: 'z1Plinth', ...PLINTH, at: STATIONS.z1 },
+  { name: 'z1Pallet', ...PALLET, at: STATIONS.z1Pallet },
+  { name: 'k1Bench', ...BENCH, at: STATIONS.k1Bench },
+  {
+    name: 'belt',
+    w: BELT.len, h: BELT.y, d: BELT.w,
+    at: { x: (BELT.head.x + BELT.tail.x) / 2, z: (BELT.head.z + BELT.tail.z) / 2 },
+    yaw: Math.atan2(-(BELT.tail.z - BELT.head.z), BELT.tail.x - BELT.head.x),
+  },
+];
+
 /* ---------------- the score ----------------
    Each leg: [t0, t1, holder]. `holder` is who owns the cube for that span;
    'belt' is the conveyor, which owns it exactly like a character does; null

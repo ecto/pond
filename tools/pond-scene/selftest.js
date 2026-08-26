@@ -5,6 +5,7 @@
    Catches frame/quaternion/offset mistakes without needing a browser. */
 const THREE = require('three');
 const fs = require('fs');
+const path = require('path');
 const { fk } = require('./preview');
 
 function decode(b64) {
@@ -222,6 +223,7 @@ function checkIK(WORK) {
   await checkBaseOrientation(cast, WORK);
   await checkWorldTask();
   await checkHandoffs(cast);
+  await checkRuntimeContract();
 
   console.log('selftest OK');
 /* ---- a reaction must hand the body back upright ----------------------------
@@ -344,6 +346,60 @@ async function checkUpright(cast, WORK) {
    were measured through this chain. If someone changes a route, a crouch depth
    or a stance height, this is the test that says so, and it says so with the
    miss distance in millimetres. */
+/* Does the BROWSER bundle's contract with the score still hold?
+
+   scene.js and preview.js both build the set and the cube from world.mjs. If a
+   name they import goes away, node throws at import time offline — but in the
+   browser the failure is invisible: start() is wrapped in a catch whose whole
+   job is to never break the docs page, so a stale reference silently leaves
+   the PNG fallback up with a dead canvas behind it. That is exactly what
+   shipped when `STATIONS.t1Pallet` outlived the T1: no console error, no
+   visible change, a scene that simply never appeared.
+
+   So check it here, where a failure is loud. */
+async function checkRuntimeContract() {
+  const W = await import('./anim/world.mjs');
+  let bad = 0;
+
+  // 1. every name scene.js imports from the score actually exists
+  const src = fs.readFileSync(path.join(__dirname, 'scene.js'), 'utf8');
+  const m = src.match(/import\s*\{([^}]*)\}\s*from\s*'\.\/anim\/world\.mjs'/);
+  if (!m) { console.error('  runtime: scene.js no longer imports from world.mjs'); bad++; }
+  else {
+    for (const raw of m[1].split(',')) {
+      const name = raw.trim().split(/\s+as\s+/)[0].trim();
+      if (!name) continue;
+      if (W[name] === undefined) {
+        console.error(`  runtime: scene.js imports \`${name}\` from world.mjs, which does not export it`);
+        bad++;
+      }
+    }
+  }
+
+  // 2. every prop is a real box at a real place
+  for (const P of (W.PROPS || [])) {
+    for (const k of ['w', 'h', 'd']) {
+      if (!(P[k] > 0)) { console.error(`  runtime: prop ${P.name} has a bad ${k} (${P[k]})`); bad++; }
+    }
+    if (!P.at || !Number.isFinite(P.at.x) || !Number.isFinite(P.at.z)) {
+      console.error(`  runtime: prop ${P.name} has no position — a station name has gone stale`);
+      bad++;
+    }
+  }
+  if (!W.PROPS || !W.PROPS.length) { console.error('  runtime: the set is empty'); bad++; }
+
+  // 3. the belt is one of them, and it matches the score's own belt
+  const belt = (W.PROPS || []).find((p) => p.name === 'belt');
+  if (!belt) { console.error('  runtime: nothing draws the conveyor'); bad++; }
+  else if (Math.abs(belt.h - W.BELT.y) > 1e-9 || Math.abs(belt.w - W.BELT.len) > 1e-6) {
+    console.error('  runtime: the drawn belt is not the belt the score moves the cube along');
+    bad++;
+  }
+
+  if (bad) { console.error(`RUNTIME CONTRACT BROKEN: ${bad}`); process.exit(1); }
+  else console.log(`runtime contract ok (${W.PROPS.length} props, every world.mjs import resolves)`);
+}
+
 async function checkHandoffs(cast) {
   const W = await import('./anim/world.mjs');
   const { placeMatrix } = require('./preview');

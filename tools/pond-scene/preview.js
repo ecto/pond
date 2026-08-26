@@ -300,20 +300,10 @@ function stageSoup(cast, t, opts = {}) {
      which returned -1 and quietly drew the cube in ink — the one object the
      whole scene is about, rendered as a dark speck. */
   if (CM) push(boxSoup([W_.CUBE, W_.CUBE, W_.CUBE], 2), CM, 2 + ORDER.indexOf('h2'));
-  for (const [n, D] of [['z1Pallet', W_.PALLET], ['k1Bench', W_.BENCH], ['z1', W_.PLINTH]]) {
-    const st = W_.STATIONS[n];
-    push(boxSoup([D.w, D.h, D.d], 0), new THREE.Matrix4().makeTranslation(st.x, D.h / 2, st.z), 0);
-  }
-  /* the conveyor. It is set dressing to the animation system — nothing is
-     parented to it — but it has to be DRAWN, or the sheets show a cube gliding
-     through mid-air and the whole point of the beat is invisible. */
-  {
-    const B = W_.BELT;
-    const dx = B.tail.x - B.head.x, dz = B.tail.z - B.head.z;
-    const M = new THREE.Matrix4()
-      .makeTranslation((B.head.x + B.tail.x) / 2, B.y / 2, (B.head.z + B.tail.z) / 2)
-      .multiply(new THREE.Matrix4().makeRotationY(Math.atan2(-dz, dx)));
-    push(boxSoup([B.len, B.y, B.w], 0), M, 0);
+  for (const P of W_.PROPS) {
+    const M = new THREE.Matrix4().makeTranslation(P.at.x, P.h / 2, P.at.z);
+    if (P.yaw) M.multiply(new THREE.Matrix4().makeRotationY(P.yaw));
+    push(boxSoup([P.w, P.h, P.d], 0), M, 0);
   }
   for (const char of cast) {
     const pm = placeMatrix(char, t);

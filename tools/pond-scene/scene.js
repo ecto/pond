@@ -18,7 +18,7 @@ import { WORK, PERIOD, ENTRY_END, REACTIONS_BY_KEY, CHARACTERS,
   createPointerState, updatePointer, pointerFor } from './anim/index.mjs';
 import { HEIGHT, MODEL_SCALE, cameraFor } from './stage.mjs';
 import { makeClock, beginReaction, phaseOf, isExpired, bodyChannel } from './anim/reaction.mjs';
-import { pulse as worldPulse, holderAt, parkedCube, CARRY, CUBE, PALLET, BENCH, STATIONS, MASTER } from './anim/world.mjs';
+import { pulse as worldPulse, holderAt, parkedCube, CARRY, CUBE, PROPS, MASTER } from './anim/world.mjs';
 import { isDarkPage, themeSettings, setupRenderer, buildEnvironment, buildLights,
   buildShadowCatcher, makeMaterials } from './studio.js';
 
@@ -320,10 +320,33 @@ function start(frame) {
   const dprCap = () => Math.min(window.devicePixelRatio || 1, DPR_LADDER[dprStep]);
 
   /* the camera adapts to the viewport aspect and nothing else */
+  /* The most pixels we will ever ask a GPU to shade, before the DPR ladder.
+     Every one of them goes through a PCF shadow pass, so this is the number
+     that decides whether the scene runs or crawls. 4.2M is a 2560x1600 retina
+     frame: generous, and an order of magnitude cheaper than what an unclamped
+     frame rect can ask for. */
+  const MAX_BUFFER_PX = 4.2e6;
+
   function layout() {
     const r = frame.getBoundingClientRect();
-    const vw = Math.max(1, r.width), vh = Math.max(1, r.height);
-    renderer.setPixelRatio(dprCap());
+    /* Size against the frame INTERSECTED WITH THE VIEWPORT, never the raw
+       frame rect. `.landing-frame` is `min-height: 100vh` inside a docs shell
+       that gives it whatever width it likes, and the rect can come back far
+       larger than anything on screen — measured at 1651x1576 CSS on a 1280-wide
+       viewport, which at DPR 2 is a 3302x3152 buffer: 10.4M pixels, 2.5x the
+       budget, every one of them shadow-mapped. The result was ~1 frame per
+       second, which is also slow enough that the DPR ladder below never gets
+       the samples it needs to rescue itself. Shading pixels that are not on
+       screen is never right; clamping here is not a workaround. */
+    const vw = Math.max(1, Math.min(r.width, window.innerWidth || r.width));
+    const vh = Math.max(1, Math.min(r.height, window.innerHeight || r.height));
+
+    /* and cap the total, so an unusual viewport cannot blow the budget either */
+    let dpr = dprCap();
+    const px = vw * vh * dpr * dpr;
+    if (px > MAX_BUFFER_PX) dpr = Math.max(1, dpr * Math.sqrt(MAX_BUFFER_PX / px));
+
+    renderer.setPixelRatio(dpr);
     renderer.setSize(vw, vh, false);
     const cam = cameraFor(vw / vh);
     lastCam = cam;
@@ -385,11 +408,13 @@ function start(frame) {
   const cube = new Mesh(new BoxGeometry(CUBE, CUBE, CUBE), cubeMat);
   cube.castShadow = true; cube.receiveShadow = true;
   scene.add(cube);
-  for (const [n, D] of [['z1Pallet', PALLET], ['t1Pallet', BENCH]]) {
-    const st = STATIONS[n];
-    const m = new Mesh(new BoxGeometry(D.w, D.h, D.d),
+  /* the set, straight off world.mjs — see PROPS there for why this is not two
+     hand-maintained copies any more */
+  for (const P of PROPS) {
+    const m = new Mesh(new BoxGeometry(P.w, P.h, P.d),
       new MeshStandardMaterial({ color: new Color(BONE), roughness: 0.7, metalness: 0 }));
-    m.position.set(st.x, D.h / 2, st.z);
+    m.position.set(P.at.x, P.h / 2, P.at.z);
+    if (P.yaw) m.rotation.y = P.yaw;
     m.castShadow = true; m.receiveShadow = true;
     scene.add(m);
   }
@@ -504,10 +529,30 @@ function start(frame) {
     lastNow = now;
     // watch the real frame interval; give up pixels before smoothness
     if (dtMs > 0 && dprStep < DPR_LADDER.length - 1) {
-      perfAcc += dtMs; perfN++;
-      if (perfN >= 45) {
-        if (perfAcc / perfN > 20) { dprStep++; layout(); }
-        perfAcc = 0; perfN = 0;
+      /* Two rules, and the first one is the one that matters at boot.
+
+         A frame that takes longer than 80ms is not a machine that needs
+         watching for a while, it is a machine that is already failing, and
+         waiting 45 samples to say so takes 45 SECONDS at 1fps — by which time
+         the visitor has scrolled past. So a single catastrophic frame drops a
+         rung immediately. The sustained average is still there underneath for
+         the ordinary case: a machine that is merely a bit slow, where one
+         unlucky frame should not cost sharpness. */
+      /* ...but not for the first couple of measured frames. Shader compilation
+         and the first upload land there, and they can cost 100ms+ on a GPU
+         that is perfectly capable of holding 60fps a moment later. Penalising
+         a fast machine for its one-time warm-up is how a scene ends up
+         permanently softer than it needed to be. A genuinely 1fps boot still
+         drops a rung on the very next frame. */
+      warm++;
+      if (warm > 2 && dtMs > 80) {
+        dprStep++; perfAcc = 0; perfN = 0; layout();
+      } else if (warm > 2) {
+        perfAcc += dtMs; perfN++;
+        if (perfN >= 45) {
+          if (perfAcc / perfN > 20) { dprStep++; layout(); }
+          perfAcc = 0; perfN = 0;
+        }
       }
     }
     if (lastCam) updatePointer(pointer, lastCam, now);
@@ -553,7 +598,7 @@ function start(frame) {
     renderer.render(scene, camera);
   }
 
-  let raf = 0, running = true, lastNow = null, perfAcc = 0, perfN = 0;
+  let raf = 0, running = true, lastNow = null, perfAcc = 0, perfN = 0, warm = 0;
   function frameLoop() {
     raf = requestAnimationFrame(frameLoop);
     if (!running) return;

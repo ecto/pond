@@ -78,6 +78,55 @@ forward kinematics, and — the one that matters most — that a planted foot do
 not travel across the ground while the body moves. Anything above 5% of body
 speed reads as skating and fails the test.
 
+
+### The browser is a separate gate from the selftest
+
+`npm run selftest` proves the geometry, the score and the handoffs. It cannot
+prove the bundle boots, and the two have already disagreed once in a way that
+was invisible from both ends.
+
+`start()` in `scene.js` is wrapped in a `catch` whose entire job is to never
+break the docs page. That is the right behaviour — a landing scene must not
+take the site down — but it means **a throw inside `start()` produces no
+console error, no visible change, and a dead `<canvas>` sitting in the DOM
+behind the PNG fallback.** The one that shipped was a stale station name
+(`STATIONS.t1Pallet`, months after the T1 left the cast): `st.x` on `undefined`,
+thrown before the line that retires the PNGs.
+
+So the tell is simple, and worth knowing:
+
+**If the four `.landing-critter` PNGs are still visible, `start()` did not
+return.** Hiding them is the last statement in the function. A canvas with no
+robots and the PNGs still up is never a rendering problem — it is an exception.
+
+To see it, build an unminified bundle and make the catch talk:
+
+```
+npx esbuild scene.js --bundle --format=iife --outfile=/tmp/dbg.js
+# then patch the `catch (e) { active = null; }` in /tmp/dbg.js to log e.stack
+```
+
+`checkRuntimeContract()` in the selftest now closes this specific hole: it
+asserts every name `scene.js` imports from `world.mjs` resolves, and that every
+prop in `PROPS` has a real footprint at a real station. `PROPS` itself lives in
+`world.mjs` precisely so the browser and the offline preview cannot drift —
+they used to keep two hand-written copies of the set "in sync", and that is how
+the stale name survived.
+
+### Sizing is not free
+
+The drawing buffer is sized against the frame rect **intersected with the
+viewport**, under a hard 4.2M-pixel budget. `.landing-frame` is
+`min-height: 100vh` inside a docs shell that gives it whatever width it likes,
+and its rect has been measured at 1651x1576 CSS on a 1280-wide viewport — a
+3302x3152 buffer at DPR 2, 10.4M pixels, every one of them through a PCF shadow
+pass. That renders at about **1 frame per second**, which is also slow enough
+that the DPR ladder never collects the samples it needs to rescue itself.
+
+The ladder therefore drops a rung on the **first** frame slower than 80ms
+(after a two-frame warm-up for shader compilation), not after a 45-sample
+average — at 1fps, 45 samples is 45 seconds.
+
 ## Regenerating the mesh payload (needed after any `build.js` change)
 
 `mesh-data.js` is **generated**, not hand-edited.
