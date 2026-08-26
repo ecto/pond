@@ -7,7 +7,7 @@ pub fn Heading(
     children: Children,
     #[prop(optional)] class: Option<String>,
 ) -> impl IntoView {
-    let base_classes = "font-mono font-bold text-black leading-tight";
+    let base_classes = "font-serif font-semibold text-black leading-tight";
     let size_classes = match level {
         1 => "text-4xl", // 2.5rem
         2 => "text-3xl", // 2rem

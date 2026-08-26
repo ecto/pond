@@ -1,10 +1,69 @@
 /* Pond Brand CSS - McMaster-Carr Inspired */
 @import url('https://fonts.googleapis.com/css2?family=Berkeley+Mono:wght@400;500;700&display=swap');
 
+/* Iowan Old Style BT Web: preview from the macOS system face until webfont files are added. */
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style"), local("IowanOldStyle-Roman"), local("Iowan Old Style BT");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style Italic"), local("IowanOldStyle-Italic");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style Bold"), local("IowanOldStyle-Bold");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Iowan Old Style BT Web";
+  src: local("Iowan Old Style Bold Italic"), local("IowanOldStyle-BoldItalic");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Pond Sans: Mona Sans instanced to GT America Standard (wdth=100, opsz=14). */
+@font-face {
+  font-family: "Pond Sans";
+  src: url("/fonts/pond-sans/PondSans-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pond Sans";
+  src: url("/fonts/pond-sans/PondSans-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Pond Sans";
+  src: url("/fonts/pond-sans/PondSans-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 /* CSS Custom Properties from Brand Guide */
 :root {
   --font-mono: "Berkeley Mono", "SF Mono", Consolas, Monaco, monospace;
-  --font-serif: "Times New Roman", Georgia, serif;
+  --font-sans: "Pond Sans", system-ui, -apple-system, sans-serif;
+  --font-serif: "Iowan Old Style BT Web", "Iowan Old Style", Palatino, "Palatino Linotype", Georgia, serif;
   --color-black: #000000;
   --color-white: #ffffff;
   --color-pond-blue: #0000ff;
@@ -36,6 +95,11 @@ body {
 /* Typography - Brand Scale */
 .font-mono {
   font-family: var(--font-mono);
+  line-height: 1.4;
+}
+
+.font-sans {
+  font-family: var(--font-sans);
   line-height: 1.4;
 }
 
@@ -94,12 +158,12 @@ body {
   max-width: 65ch;
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: var(--font-mono);
-    font-weight: 700;
+    font-family: var(--font-serif);
+    font-weight: 600;
     color: var(--color-black);
     margin-top: var(--spacing-xl);
     margin-bottom: var(--spacing-sm);
-    letter-spacing: -0.01em;
+    letter-spacing: normal;
   }
 
   h1 { font-size: 2.5rem; }

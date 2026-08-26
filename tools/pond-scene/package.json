@@ -1,0 +1,22 @@
+{
+  "name": "pond-scene",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "bundle": "esbuild scene.js --bundle --minify --format=iife --outfile=../../docs/pond-scene.js",
+    "mesh": "node export.js",
+    "preview": "node preview.js",
+    "selftest": "node selftest.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Build pipeline for the Pond landing 3D scene bundle",
+  "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

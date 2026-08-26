@@ -8,25 +8,34 @@
     "library": "lucide"
   },
   "theme": "maple",
-  "navbar": {
-    "links": [
-      {
-        "label": "Code",
-        "href": "https://github.com/ecto/pond",
-        "icon": "circle"
-      },
-      {
-        "label": "Community",
-        "href": "https://github.com/ecto/pond/discussions",
-        "icon": "users"
-      }
-    ]
+  "appearance": {
+    "default": "system",
+    "strict": true
+  },
+  "background": {
+    "color": {
+      "light": "#ffffff",
+      "dark": "#000000"
+    }
   },
   "navigation": {
+    "global": {
+      "anchors": [
+        {
+          "anchor": "Code",
+          "href": "https://github.com/ecto/pond",
+          "icon": "github"
+        },
+        {
+          "anchor": "Community",
+          "href": "https://github.com/ecto/pond/discussions",
+          "icon": "message-circle"
+        }
+      ]
+    },
     "groups": [
       {
         "group": "Start",
-        "icon": "play",
         "pages": [
           "start/welcome",
           "start/introduction",
@@ -37,19 +46,16 @@
       },
       {
         "group": "Guides",
-        "icon": "list",
         "pages": [
           "guides/quickstart"
         ]
       },
       {
         "group": "Reference",
-        "icon": "book",
         "pages": [
           "reference/architecture",
           {
             "group": "Hardware",
-            "icon": "bot",
             "pages": [
               "reference/hardware/cad",
               "reference/hardware/actuator",
@@ -59,7 +65,6 @@
           },
           {
             "group": "Software",
-            "icon": "code",
             "pages": [
               "reference/software/mind",
               "reference/software/koi",
@@ -68,9 +73,8 @@
           },
           {
             "group": "Firmware",
-            "icon": "microchip",
             "pages": [
-              "reference/firmware/overview"
+              "reference/firmware/firmware"
             ]
           }
         ]

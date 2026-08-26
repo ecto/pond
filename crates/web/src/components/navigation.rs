@@ -16,7 +16,7 @@ pub fn Navigation() -> impl IntoView {
                     </div>
 
                     // Main navigation
-                    <div class="hidden md:flex items-center space-x-8 font-mono text-sm">
+                    <div class="hidden md:flex items-center space-x-8 font-sans text-sm">
                         <A href="/introduction"
                            class="text-gray-700 hover:text-black transition-colors"
                            active_class="text-black font-medium">
@@ -47,7 +47,7 @@ pub fn Navigation() -> impl IntoView {
                     </div>
 
                     // Mobile menu button (placeholder)
-                    <button class="md:hidden font-mono text-sm">
+                    <button class="md:hidden font-sans text-sm">
                         "Menu"
                     </button>
                 </div>

@@ -1,0 +1,4 @@
+Unitree Go2 — go2_description
+Source: https://github.com/unitreerobotics/unitree_ros (robots/go2_description)
+License: BSD 3-Clause (see LICENSE), (c) 2016-2022 HangZhou YuShu TECHNOLOGY CO.,LTD ("Unitree Robotics")
+Used: visual meshes (.dae) + go2_description.urdf, posed and re-skinned for the Pond landing scene.

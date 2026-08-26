@@ -1,0 +1,4 @@
+Unitree Z1 — z1_description
+Source: https://github.com/unitreerobotics/unitree_ros (robots/z1_description)
+License: BSD 3-Clause (see LICENSE), (c) 2016-2022 HangZhou YuShu TECHNOLOGY CO.,LTD ("Unitree Robotics")
+Used: visual meshes (.dae) + xacro/z1.urdf, posed and re-skinned for the Pond landing scene.

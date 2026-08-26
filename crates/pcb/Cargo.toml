@@ -1,0 +1,16 @@
+[package]
+name = "pcb"
+version = "0.1.0"
+edition = "2021"
+
+# This crate generates PCB designs using Python and KiCad's pcbnew API.
+# It follows the same pattern as the cad crate for consistency.
+
+[dependencies]
+clap = { version = "4.0", features = ["derive"] } # For CLI args
+walkdir = "2.3"
+
+[[bin]]
+name = "generate-pcb"
+path = "src/bin/generate_pcb.rs"
+

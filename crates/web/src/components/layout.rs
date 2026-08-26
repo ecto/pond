@@ -18,7 +18,7 @@ pub fn Layout() -> impl IntoView {
                     // Sidebar for table of contents or secondary navigation
                     <aside class="col-span-12 lg:col-span-3">
                         <div class="sticky top-8">
-                            <nav class="font-mono text-sm">
+                            <nav class="font-sans text-sm">
                                 <h3 class="font-bold mb-4 text-black">"Table of Contents"</h3>
                                 // TOC will be populated dynamically
                             </nav>

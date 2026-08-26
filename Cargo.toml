@@ -4,6 +4,7 @@ resolver = "2" # Use the modern resolver compatible with Edition 2021
 
 members = [
     "crates/cad",
+    "crates/pcb",
     # "crates/web", # Temporarily removed for Leptos standalone setup
     "apps/pad",
     "apps/mind",
