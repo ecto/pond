@@ -218,7 +218,7 @@ Assets live in `docs/brand/logo/`:
 | `mark.svg` | Primary. Nav, masthead, slides. |
 | `icon.svg` | App icon, avatar, favicon. The same four forms in a 2×2. |
 | `profile-light.png` / `profile-dark.png` | 1024px profile pictures. Padded so a circular crop does not clip the shapes. SVG sources sit next to them. |
-| `header-light.png` / `header-dark.png` | 1500×500 Twitter/X headers. Booster K1, Unitree H2, YAM arm, and Unitree Go2. No mark. |
+| `header-light.png` / `header-dark.png` | 1500×500 Twitter/X headers. Booster K1, Unitree H2, YAM arm, and Unitree Go2 at true scale on one floor. No mark. |
 | `wordmark.svg` | The word *pond* in Pond Sans Bold, lowercase, ink. |
 | `wordmark-color.svg` | Same, with the *o* in Pond Blue. Use when the mark is not beside it. |
 | `lockup.svg` | Mark + ink wordmark. Headers, print, GitHub social. |
