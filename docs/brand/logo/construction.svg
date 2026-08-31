@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-8 -16 140 56" fill="none">
+  <title>Pond mark construction</title>
+  <defs>
+    <pattern id="grid" width="2" height="2" patternUnits="userSpaceOnUse">
+      <path d="M 2 0 L 0 0 0 2" stroke="#e8e8e8" stroke-width="0.25"/>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="102" height="24" fill="#ffffff"/>
+  <rect x="0" y="0" width="102" height="24" fill="url(#grid)"/>
+  <rect x="0" y="0" width="102" height="24" stroke="#c8c8c8" stroke-width="0.35"/>
+  <!-- modules -->
+  <rect x="2" y="2" width="20" height="20" stroke="#9ca3af" stroke-width="0.35" stroke-dasharray="1 1"/>
+  <rect x="28" y="2" width="20" height="20" stroke="#9ca3af" stroke-width="0.35" stroke-dasharray="1 1"/>
+  <rect x="54" y="2" width="20" height="20" stroke="#9ca3af" stroke-width="0.35" stroke-dasharray="1 1"/>
+  <rect x="80" y="2" width="20" height="20" stroke="#9ca3af" stroke-width="0.35" stroke-dasharray="1 1"/>
+  <polygon points="12,2 22,22 2,22" fill="#2aa13f"/>
+  <circle cx="38" cy="12" r="10" fill="#0000ff"/>
+  <rect x="54" y="2" width="20" height="20" fill="#e13a26"/>
+  <polygon points="90,22 100,2 80,2" fill="#f0ad00"/>
+  <g font-family="IBM Plex Mono, ui-monospace, monospace" font-size="3.2" fill="#6b7280">
+    <text x="12" y="-3" text-anchor="middle">20</text>
+    <text x="38" y="-3" text-anchor="middle">20</text>
+    <text x="64" y="-3" text-anchor="middle">20</text>
+    <text x="90" y="-3" text-anchor="middle">20</text>
+    <text x="25" y="33" text-anchor="middle">6</text>
+    <text x="51" y="33" text-anchor="middle">6</text>
+    <text x="77" y="33" text-anchor="middle">6</text>
+  </g>
+</svg>

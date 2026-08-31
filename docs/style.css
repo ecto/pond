@@ -72,6 +72,14 @@
   --mark-yellow: #f0ad00;
   --mark-red: #e13a26;
   --mark-green: #2aa13f;
+  --mark-gradient: linear-gradient(
+    90deg,
+    var(--mark-green) 0 25%,
+    var(--plotter) 25% 50%,
+    var(--mark-red) 50% 75%,
+    var(--mark-yellow) 75% 100%
+  );
+  --mark-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 102 24' fill='black'%3E%3Cpolygon points='12,2 22,22 2,22'/%3E%3Ccircle cx='38' cy='12' r='10'/%3E%3Crect x='54' y='2' width='20' height='20'/%3E%3Cpolygon points='90,22 100,2 80,2'/%3E%3C/svg%3E");
   --text: 16px;
   --leading: 1.6;
   --h1: 1.75rem;
@@ -218,27 +226,21 @@ body,
   font-size: 0 !important;
   line-height: 0 !important;
   color: transparent !important;
-  width: 5.1rem !important;
+  width: 4.46rem !important;
   height: 1.05rem !important;
   max-width: none !important;
   padding: 0 !important;
   margin: 0 !important;
   overflow: visible !important;
   background-color: var(--ink) !important;
-  background-image: linear-gradient(
-    90deg,
-    var(--mark-green) 0 23%,
-    var(--plotter) 23% 50%,
-    var(--mark-red) 50% 76%,
-    var(--mark-yellow) 76% 100%
-  ) !important;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
+  background-image: var(--mark-gradient) !important;
+  -webkit-mask: var(--mark-mask) center / contain no-repeat;
+  mask: var(--mark-mask) center / contain no-repeat;
 }
 
 #navbar .nav-logo,
 #navbar a[href="/"] .nav-logo {
-  width: 6.4rem !important;
+  width: 5.53rem !important;
   height: 1.3rem !important;
 }
 
@@ -459,7 +461,7 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
 .landing-mark::after {
   content: "";
   position: absolute;
-  left: 36.73%;
+  left: 37.25%;
   top: 50%;
   width: 1.15rem;
   height: 1.15rem;
@@ -556,19 +558,13 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
 }
 
 .landing-shapes {
-  width: 5.5rem;
-  height: 1.1rem;
+  width: 5.3rem;
+  height: 1.25rem;
   margin: 0;
   background-color: var(--ink);
-  background-image: linear-gradient(
-    90deg,
-    var(--mark-green) 0 23%,
-    var(--plotter) 23% 50%,
-    var(--mark-red) 50% 76%,
-    var(--mark-yellow) 76% 100%
-  );
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 98 20' fill='black'%3E%3Cpolygon points='10,0 20,20 0,20'/%3E%3Ccircle cx='36' cy='10' r='10'/%3E%3Crect x='52' y='0' width='20' height='20'/%3E%3Cpolygon points='88,0 98,20 78,20'/%3E%3C/svg%3E") center / contain no-repeat;
+  background-image: var(--mark-gradient);
+  -webkit-mask: var(--mark-mask) center / contain no-repeat;
+  mask: var(--mark-mask) center / contain no-repeat;
 }
 
 .landing-critter {

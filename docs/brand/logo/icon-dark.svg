@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img">
+  <title>Pond</title>
+  <polygon points="8.5,2 15,15 2,15" fill="#3fd465"/>
+  <circle cx="23.5" cy="8.5" r="6.5" fill="#3d5fff"/>
+  <rect x="2" y="17" width="13" height="13" fill="#ff4f38"/>
+  <polygon points="23.5,30 30,17 17,17" fill="#ffc61a"/>
+</svg>

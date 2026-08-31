@@ -1,6 +1,11 @@
 {
   "name": "Pond",
   "description": "Autonomous Robotics, today",
+  "logo": {
+    "light": "/logo.svg",
+    "dark": "/brand/logo/mark-dark.svg"
+  },
+  "favicon": "/favicon.svg",
   "colors": {
     "primary": "#0000ff"
   },

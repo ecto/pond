@@ -45,7 +45,18 @@ Caption: 0.75rem (12px) – Monospace, Regular
 
 - Black: #000000 — text and headings
 - White: #FFFFFF — background
-- Pond Blue: #0000FF — links and accents
+- Pond Blue: #0000FF — links, accents, and the circle in the mark
+
+### Mark
+
+Four filled primitives, always in this order. These are the logo, not decoration.
+
+- Green: #2AA13F — triangle, pointing up
+- Pond Blue: #0000FF — circle (the pond)
+- Red: #E13A26 — square
+- Yellow: #F0AD00 — triangle, pointing down
+
+On dark surfaces, lift them to #3FD465, #3D5FFF, #FF4F38, and #FFC61A.
 
 ### Secondary
 
@@ -163,6 +174,9 @@ POND
   --color-black: #000000;
   --color-white: #ffffff;
   --color-pond-blue: #0000ff;
+  --color-mark-green: #2aa13f;
+  --color-mark-red: #e13a26;
+  --color-mark-yellow: #f0ad00;
   --color-tech-gray: #6b7280;
   --color-annotation: #9ca3af;
   --color-border: #e5e7eb;
@@ -193,9 +207,29 @@ POND
 
 ### Logo
 
-- Wordmark: Pond in Berkeley Mono.
-- Icon: minimal, robotics/automation reference.
-- Clear space: ≥1× logo height. Minimum size: 24px height.
+The Pond logo is four unit primitives on a 20-unit grid: a green triangle, a blue circle, a red square, and a yellow triangle pointing down. The circle is the pond. The other three are the kit of parts around it.
+
+Do not rearrange, recolor, or rotate the shapes. The last triangle points down on purpose: four different forms, not a repeated pair.
+
+Assets live in `docs/brand/logo/`:
+
+| File | Use |
+| --- | --- |
+| `mark.svg` | Primary. Nav, masthead, slides. |
+| `icon.svg` | App icon, avatar, favicon. The same four forms in a 2×2. |
+| `wordmark.svg` | The word *pond* in Pond Sans Bold, lowercase, ink. |
+| `wordmark-color.svg` | Same, with the *o* in Pond Blue. Use when the mark is not beside it. |
+| `lockup.svg` | Mark + ink wordmark. Headers, print, GitHub social. |
+| `*-dark.svg` / `*-mono.svg` | Dark-surface and single-color versions. Mono uses `currentColor`. |
+| `construction.svg` | The 20-unit grid the mark is built on. |
+
+`docs/logo.svg` and `docs/favicon.svg` are copies of the mark and icon for the docs site.
+
+**Clear space:** ≥1× the module (the 20-unit square). **Minimum size:** mark 24px tall, icon 16px, wordmark 20px x-height.
+
+**Lockup:** mark on the left, wordmark on the right. Gap is half the mark height. The word's x-height matches the 20-unit module.
+
+**Don't:** outline the shapes, add shadows, swap the yellow triangle back to pointing up, or set the wordmark in any face other than Pond Sans Bold.
 
 ### File Formats
 
