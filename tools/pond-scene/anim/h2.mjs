@@ -41,7 +41,7 @@
 import { legIK, cantedHip } from './kinematics.mjs';
 import { plan, follow, track, clamp01, smooth, mix, TAU, arc } from './schedule.mjs';
 import {
-  MASTER, STATIONS, BELT, CUBE, makeRoute, routeAt, masterPhase, beltPoint,
+  MASTER, STATIONS, BELT, CUBE, makeRoute, routeAt, masterPhase, beltPoint, beltProgress,
 } from './world.mjs';
 
 export const params = {
@@ -168,6 +168,20 @@ const win = (u, a, b, e) => clamp01(Math.min(smooth((u - a) / e), smooth((b - u)
 const headingTo = (x, z, tx, tz) => Math.atan2(-(tz - z), tx - x);
 /** shortest-arc blend between two headings */
 const mixYaw = (a, b, w) => a + (((b - a + Math.PI * 3) % TAU) - Math.PI) * w;
+
+/** follow the cube while it crosses under the copy (invisible conveyor) */
+function watchCube(ctx, at, yaw, t, m, strength) {
+  const u = beltProgress(t);
+  if (u == null) return;
+  const inCross = (m >= 46 && m < 59) || (m >= 76 && m < 89);
+  if (!inCross) return;
+  const cube = beltPoint(u);
+  const legT0 = m >= 76 ? 76 : 46;
+  const w = strength * win((m - legT0) / 13, 0.04, 0.96, 0.10);
+  if (w < 0.02) return;
+  lookAt(ctx, yaw, headingTo(at.x, at.z, cube.x, cube.z), w);
+  ctx.add('head_pitch_joint', -0.10 * w);
+}
 
 /** one leg from the IK, sole kept flat on the deck through any body lean */
 /* ---- the canted hip, solved properly ------------------------------------
@@ -375,6 +389,7 @@ function working(ctx, t) {
     const who = COWORKERS[id % COWORKERS.length];
     const look = win((m % 24) / 24, 0.18, 0.52, 0.10);
     lookAt(ctx, yaw, headingTo(HOME.x, HOME.z, who.x, who.z), 0.85 * look);
+    watchCube(ctx, HOME, yaw, t, m, 0.92);
   } else {
     /* --- the fold ---------------------------------------------------------
        take -> carry -> place. The two ends of the gesture are different folds
@@ -388,10 +403,10 @@ function working(ctx, t) {
        and all the way back up. Each descent is slow at the end (a careful
        arrival) and each lift is slow at the START (taking the weight). */
     const d1 = smooth(clamp01((u - 0.04) / (J.take - 0.10)));       // fold to the giver
-    const h1 = win(u, J.take, J.take + 0.10, 0.03);                  // the exchange
-    const up = smooth(clamp01((u - (J.take + 0.10)) / 0.14));        // straighten with it
-    const d2 = smooth(clamp01((u - (J.place - 0.20)) / 0.16));       // fold to the belt
-    const rec = smooth(clamp01((u - (J.place + 0.10)) / 0.18));      // and all the way up
+    const h1 = win(u, J.take, J.take + 0.10, 0.04);                  // the exchange
+    const up = smooth(clamp01((u - (J.take + 0.10)) / 0.16));        // straighten with it
+    const d2 = smooth(clamp01((u - (J.place - 0.22)) / 0.18));       // fold to the line
+    const rec = smooth(clamp01((u - (J.place + 0.08)) / 0.20));      // and all the way up
 
     // fold: stand -> from -> stand -> to -> stand
     const wDown1 = Math.max(0, d1 - up);

@@ -466,8 +466,8 @@ function workPose(ctx, t) {
   /* The settle: having set something down it lets one small oscillation die out
      of the wrist — the arm relaxing, not the arm wobbling. Once per place. */
   for (const s0 of [11.0, 29.0, 57.0]) {
-    const st = clamp01((w - s0) / 0.55);
-    if (st > 0 && st < 1) pitch += Math.sin(st * PI * 2.6) * 0.020 * (1 - st) * (1 - st);
+    const st = clamp01((w - s0) / 0.62);
+    if (st > 0 && st < 1) pitch += Math.sin(st * PI * 2.4) * 0.018 * (1 - st) * (1 - st);
   }
 
   /* The signature beat, kept: on the long carry it brings the cube up toward

@@ -388,11 +388,12 @@ async function checkRuntimeContract() {
   }
   if (!W.PROPS || !W.PROPS.length) { console.error('  runtime: the set is empty'); bad++; }
 
-  // 3. the belt is one of them, and it matches the score's own belt
-  const belt = (W.PROPS || []).find((p) => p.name === 'belt');
-  if (!belt) { console.error('  runtime: nothing draws the conveyor'); bad++; }
-  else if (Math.abs(belt.h - W.BELT.y) > 1e-9 || Math.abs(belt.w - W.BELT.len) > 1e-6) {
-    console.error('  runtime: the drawn belt is not the belt the score moves the cube along');
+  // 3. the invisible conveyor path still matches the score (no drawn deck)
+  if (!(W.BELT.len > 0) || !(W.BELT.y > 0)) {
+    console.error('  runtime: belt geometry is missing from world.mjs');
+    bad++;
+  } else if (Math.abs(W.BELT_CARRY_Y - (W.BELT.y + W.CUBE / 2)) > 1e-9) {
+    console.error('  runtime: BELT_CARRY_Y does not match belt deck + cube');
     bad++;
   }
 
