@@ -217,6 +217,7 @@ Assets live in `docs/brand/logo/`:
 | --- | --- |
 | `mark.svg` | Primary. Nav, masthead, slides. |
 | `icon.svg` | App icon, avatar, favicon. The same four forms in a 2×2. |
+| `profile-light.png` / `profile-dark.png` | 1024px profile pictures. Padded so a circular crop does not clip the shapes. SVG sources sit next to them. |
 | `wordmark.svg` | The word *pond* in Pond Sans Bold, lowercase, ink. |
 | `wordmark-color.svg` | Same, with the *o* in Pond Blue. Use when the mark is not beside it. |
 | `lockup.svg` | Mark + ink wordmark. Headers, print, GitHub social. |
