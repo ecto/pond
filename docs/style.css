@@ -438,6 +438,11 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
   overflow: hidden;
 }
 
+/* Mintlify re-hydrates the PNG fallback after boot; hide it whenever WebGL is up. */
+.landing-frame:has(.pond-scene-canvas) .landing-critter {
+  display: none !important;
+}
+
 .landing-masthead,
 .landing-hero {
   position: relative;

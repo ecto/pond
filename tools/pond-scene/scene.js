@@ -652,8 +652,14 @@ function start(frame) {
       if (active) { active(); active = null; }
       if (frame.querySelector('.pond-scene-canvas')) return;
       activeFrame = frame;
-      try { active = start(frame); } catch (e) { active = null; }
-      if (!active) activeFrame = null;   // WebGL failed: PNG fallback stays
+      try { active = start(frame); } catch (e) {
+        console.error('[pond-scene] start failed:', e);
+        active = null;
+      }
+      if (!active) {
+        frame.querySelector('.pond-scene-canvas')?.remove();
+        activeFrame = null;   // WebGL failed: PNG fallback stays
+      }
     } else if (!frame && active) {
       active(); active = null; activeFrame = null;
     }
