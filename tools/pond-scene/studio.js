@@ -31,7 +31,7 @@ import {
   Scene, Mesh, MeshBasicMaterial, MeshStandardMaterial, MeshPhysicalMaterial,
   ShadowMaterial, PlaneGeometry, SphereGeometry, Color, CanvasTexture,
   DirectionalLight, AmbientLight, PMREMGenerator,
-  NeutralToneMapping, SRGBColorSpace, PCFSoftShadowMap, BackSide, FrontSide,
+  NeutralToneMapping, SRGBColorSpace, PCFSoftShadowMap, BackSide, DoubleSide, FrontSide,
 } from 'three';
 
 /* Khronos PBR Neutral, not ACES.
