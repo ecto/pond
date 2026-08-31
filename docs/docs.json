@@ -1,6 +1,17 @@
 {
   "name": "Pond",
   "description": "Autonomous Robotics, today",
+  "integrations": {
+    "telemetry": {
+      "enabled": false
+    }
+  },
+  "seo": {
+    "organization": {
+      "name": "Pond",
+      "url": "https://github.com/ecto/pond"
+    }
+  },
   "colors": {
     "primary": "#0000ff"
   },

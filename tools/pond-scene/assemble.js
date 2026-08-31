@@ -1,8 +1,15 @@
 'use strict';
 const path = require('path');
 const THREE = require('three');
+const { MeshoptSimplifier } = require('meshoptimizer');
 const { loadSTL, loadDAE, loadGLB } = require('./loaders');
 const { parseURDF, forwardKinematics, resolveMesh, mat } = require('./urdf');
+
+let meshoptReady = null;
+function ensureMeshopt() {
+  if (!meshoptReady) meshoptReady = MeshoptSimplifier.ready;
+  return meshoptReady;
+}
 
 /** Load one visual mesh file -> Float32Array of raw triangle positions */
 function loadMesh(file) {
@@ -124,15 +131,21 @@ function assembleGLB(file, matForPrim) {
   return { positions: new Float32Array(pos), matId: new Uint8Array(mid) };
 }
 
-/** weld identical-ish vertices into an indexed mesh (no simplification) */
+/** Weld identical vertices into an indexed mesh (no simplification).
+    When grid is omitted, merges only bit-identical coordinates per matId. */
 function weld(soup, grid) {
   const { positions, matId } = soup;
   const map = new Map();
   const outPos = [], outMat = [], index = [];
-  const q = (x) => Math.round(x / grid);
+  const keyFor = grid
+    ? ((x, y, z, m) => {
+      const q = (v) => Math.round(v / grid);
+      return m + ',' + q(x) + ',' + q(y) + ',' + q(z);
+    })
+    : ((x, y, z, m) => m + '|' + x + '|' + y + '|' + z);
   for (let i = 0; i < positions.length; i += 3) {
     const m = matId[i / 3];
-    const key = q(positions[i]) + ',' + q(positions[i + 1]) + ',' + q(positions[i + 2]) + ',' + m;
+    const key = keyFor(positions[i], positions[i + 1], positions[i + 2], m);
     let id = map.get(key);
     if (id === undefined) {
       id = outPos.length / 3;
@@ -151,23 +164,123 @@ function weld(soup, grid) {
   return { positions: new Float32Array(outPos), matId: new Uint8Array(outMat), index: new Uint32Array(idx) };
 }
 
-/** cluster-decimate to approximately targetTris by binary-searching the grid size */
-function decimate(soup, targetTris) {
+/** Exact-index weld for STL soups: only merge bit-identical corners. */
+function weldExact(soup) {
+  return weld(soup, null);
+}
+
+/** Fine weld cell for a soup; higher weight -> finer grid -> more source detail. */
+function fineGrid(soup, weight = 1) {
   const box = new THREE.Box3();
   for (let i = 0; i < soup.positions.length; i += 3) {
     box.expandByPoint(new THREE.Vector3(soup.positions[i], soup.positions[i + 1], soup.positions[i + 2]));
   }
-  const diag = box.getSize(new THREE.Vector3()).length();
-  let lo = diag / 4000, hi = diag / 8, best = null;
-  for (let it = 0; it < 22; it++) {
-    const g = Math.sqrt(lo * hi);
-    const w = weld(soup, g);
-    const tris = w.index.length / 3;
-    if (!best || Math.abs(tris - targetTris) < Math.abs(best.index.length / 3 - targetTris)) best = w;
-    if (tris > targetTris) lo = g; else hi = g;
-    if (Math.abs(tris - targetTris) / targetTris < 0.06) break;
+  const diag = box.getSize(new THREE.Vector3()).length() || 1;
+  return diag / (6000 * Math.max(weight, 0.25));
+}
+
+const REMAP_MISSING = 0xffffffff;
+
+/** Drop unreferenced verts after simplify/compact; indices are rewritten in place. */
+function compactIndexed(geo) {
+  const { positions, matId } = geo;
+  const indices = geo.index instanceof Uint32Array ? geo.index : new Uint32Array(geo.index);
+  const [remap, unique] = MeshoptSimplifier.compactMesh(indices);
+  const outPos = new Float32Array(unique * 3);
+  const outMat = new Uint8Array(unique);
+  for (let old = 0; old < remap.length; old++) {
+    const neu = remap[old];
+    if (neu === REMAP_MISSING) continue;
+    outPos[neu * 3] = positions[old * 3];
+    outPos[neu * 3 + 1] = positions[old * 3 + 1];
+    outPos[neu * 3 + 2] = positions[old * 3 + 2];
+    outMat[neu] = matId[old];
+  }
+  return { positions: outPos, matId: outMat, index: indices };
+}
+
+function splitByMaterial(geo) {
+  const { positions, matId, index } = geo;
+  const parts = [[], [], []];
+  for (let t = 0; t < index.length; t += 3) {
+    parts[matId[index[t]]].push(index[t], index[t + 1], index[t + 2]);
+  }
+  return parts.map((tri) => {
+    if (!tri.length) return null;
+    const used = new Set(tri);
+    const remap = new Map();
+    const outPos = [], outMat = [];
+    for (const vi of used) {
+      remap.set(vi, outPos.length / 3);
+      outPos.push(positions[vi * 3], positions[vi * 3 + 1], positions[vi * 3 + 2]);
+      outMat.push(matId[vi]);
+    }
+    return {
+      positions: new Float32Array(outPos),
+      matId: new Uint8Array(outMat),
+      index: new Uint32Array(tri.map((vi) => remap.get(vi))),
+    };
+  }).filter(Boolean);
+}
+
+function mergeParts(parts) {
+  const positions = [], matId = [], index = [];
+  let offset = 0;
+  for (const p of parts) {
+    positions.push(...p.positions);
+    matId.push(...p.matId);
+    for (let i = 0; i < p.index.length; i++) index.push(p.index[i] + offset);
+    offset += p.positions.length / 3;
+  }
+  return {
+    positions: new Float32Array(positions),
+    matId: new Uint8Array(matId),
+    index: new Uint32Array(index),
+  };
+}
+
+async function simplifyPart(part, targetTris) {
+  const pTris = part.index.length / 3;
+  if (pTris <= targetTris) return part;
+
+  const targetIdx = Math.max(3, Math.floor(targetTris) * 3);
+  const srcIndex = part.index instanceof Uint32Array ? part.index : new Uint32Array(part.index);
+  let lo = 0.00002, hi = 0.02, best = part;
+  for (let it = 0; it < 10; it++) {
+    const err = Math.sqrt(lo * hi);
+    let [newIndex] = MeshoptSimplifier.simplify(srcIndex, part.positions, 3, targetIdx, err);
+    if (newIndex.length < 3) break;
+    const out = compactIndexed({ positions: part.positions, matId: part.matId, index: newIndex });
+    const tris = out.index.length / 3;
+    if (!best || Math.abs(tris - targetTris) < Math.abs(best.index.length / 3 - targetTris)) best = out;
+    if (tris > targetTris) lo = err; else hi = err;
+    if (Math.abs(tris - targetTris) / Math.max(targetTris, 1) < 0.04) break;
   }
   return best;
+}
+
+/** Quadric edge-collapse decimation via meshoptimizer (manifold-preserving). */
+async function simplifyIndexed(geo, targetTris) {
+  await ensureMeshopt();
+  const srcTris = geo.index.length / 3;
+  if (srcTris <= targetTris) return geo;
+
+  const parts = splitByMaterial(geo);
+  let wSum = 0;
+  const w = parts.map((p) => { const t = p.index.length / 3; wSum += t; return t; });
+  const out = [];
+  for (let i = 0; i < parts.length; i++) {
+    const p = parts[i];
+    const pTarget = Math.max(4, Math.round(targetTris * w[i] / wSum));
+    out.push(await simplifyPart(p, pTarget));
+  }
+  return mergeParts(out);
+}
+
+/** Exact-index weld, then simplify to approximately targetTris. */
+async function decimate(soup, targetTris) {
+  const welded = weldExact(soup);
+  return simplifyIndexed(welded, targetTris);
 }
 
 /**
@@ -179,42 +292,61 @@ function decimate(soup, targetTris) {
  * cell for silhouette-critical links — heads, torsos, upper legs — so they
  * come out proportionally denser.
  */
-function decimateLinks(links, targetTris, weightFor) {
+async function decimateLinks(links, targetTris, weightFor) {
   const names = Object.keys(links);
-  const box = new THREE.Box3();
+  const welded = {};
+  const srcTris = {};
+  let totalSrc = 0;
   for (const n of names) {
-    const p = links[n].positions;
-    for (let i = 0; i < p.length; i += 3) box.expandByPoint(new THREE.Vector3(p[i], p[i + 1], p[i + 2]));
+    welded[n] = weldExact(links[n]);
+    srcTris[n] = welded[n].index.length / 3;
+    totalSrc += srcTris[n];
   }
-  const diag = box.getSize(new THREE.Vector3()).length() || 1;
+  if (totalSrc <= targetTris) return welded;
+
+  let wSum = 0;
   const w = {};
-  for (const n of names) w[n] = weightFor ? weightFor(n) : 1;
-
-  const attempt = (g) => {
-    const o = {};
-    let tris = 0;
-    for (const n of names) {
-      o[n] = weld(links[n], g / w[n]);
-      tris += o[n].index.length / 3;
-    }
-    return { o, tris };
-  };
-
-  let lo = diag / 20000, hi = diag / 4, best = null;
-  for (let it = 0; it < 24; it++) {
-    const g = Math.sqrt(lo * hi);
-    const a = attempt(g);
-    if (!best || Math.abs(a.tris - targetTris) < Math.abs(best.tris - targetTris)) best = a;
-    if (a.tris > targetTris) lo = g; else hi = g;
-    if (Math.abs(a.tris - targetTris) / targetTris < 0.04) break;
-  }
-  // uint16 indices are per-link, so a single link must stay under 65535 verts
   for (const n of names) {
-    let l = best.o[n], g = diag / 200;
-    while (l.positions.length / 3 > 65535) { l = weld(links[n], g); g *= 1.35; }
-    best.o[n] = l;
+    w[n] = (weightFor ? weightFor(n) : 1) * srcTris[n];
+    wSum += w[n];
   }
-  return best.o;
+
+  const out = {};
+  for (const n of names) {
+    let linkTarget = Math.max(4, Math.round(targetTris * w[n] / wSum));
+    out[n] = await simplifyIndexed(welded[n], linkTarget);
+    while (out[n].positions.length / 3 > 65535 && linkTarget > 4) {
+      linkTarget = Math.max(4, Math.floor(linkTarget * 0.7));
+      out[n] = await simplifyIndexed(welded[n], linkTarget);
+    }
+    if (out[n].positions.length / 3 > 65535) {
+      throw new Error(`${n}: ${out[n].positions.length / 3} verts exceeds uint16 after simplify`);
+    }
+  }
+  return out;
 }
 
-module.exports = { assembleURDF, assembleLinks, assembleGLB, weld, decimate, decimateLinks };
+/** Count boundary (open) and non-manifold edges for build diagnostics. */
+function meshStats(geo) {
+  const edge = new Map();
+  const idx = geo.index;
+  const add = (a, b) => {
+    const lo = a < b ? a : b, hi = a < b ? b : a;
+    const key = lo + ',' + hi;
+    edge.set(key, (edge.get(key) || 0) + 1);
+  };
+  for (let t = 0; t < idx.length; t += 3) {
+    add(idx[t], idx[t + 1]); add(idx[t + 1], idx[t + 2]); add(idx[t + 2], idx[t]);
+  }
+  let boundary = 0, nonManifold = 0;
+  for (const c of edge.values()) {
+    if (c === 1) boundary++;
+    else if (c > 2) nonManifold += c - 2;
+  }
+  return { tris: idx.length / 3, verts: geo.positions.length / 3, boundary, nonManifold };
+}
+
+module.exports = {
+  assembleURDF, assembleLinks, assembleGLB, weld, weldExact, decimate, decimateLinks,
+  fineGrid, simplifyIndexed, compactIndexed, meshStats, splitByMaterial, mergeParts,
+};

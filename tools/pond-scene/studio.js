@@ -31,7 +31,7 @@ import {
   Scene, Mesh, MeshBasicMaterial, MeshStandardMaterial, MeshPhysicalMaterial,
   ShadowMaterial, PlaneGeometry, SphereGeometry, Color, CanvasTexture,
   DirectionalLight, AmbientLight, PMREMGenerator,
-  NeutralToneMapping, SRGBColorSpace, PCFSoftShadowMap, BackSide, DoubleSide,
+  NeutralToneMapping, SRGBColorSpace, PCFSoftShadowMap, BackSide, FrontSide,
 } from 'three';
 
 /* Khronos PBR Neutral, not ACES.
@@ -190,14 +190,14 @@ export function makeMaterials(accent, S) {
     roughness: 0.58,
     metalness: 0.0,
     envMapIntensity: env,
-    side: DoubleSide,
+    side: FrontSide,
   });
   const ink = new MeshStandardMaterial({
     color: new Color(INK),
     roughness: 0.82,
     metalness: 0.14,
     envMapIntensity: env * 1.28,   // the ink lives or dies on reflected light
-    side: DoubleSide,
+    side: FrontSide,
   });
   /* The accent also carries the shared heartbeat (see anim/world.mjs): all
      four characters' accent parts breathe on ONE clock, in phase. It rides
@@ -212,7 +212,7 @@ export function makeMaterials(accent, S) {
     clearcoat: 0.65,
     clearcoatRoughness: 0.16,
     envMapIntensity: env,
-    side: DoubleSide,
+    side: FrontSide,
   });
   acc.userData.isAccent = true;
   return [bone, ink, acc];
