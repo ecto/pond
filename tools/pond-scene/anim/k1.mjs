@@ -39,6 +39,7 @@ import { legIK } from './kinematics.mjs';
 import { plan, follow, track, clamp01, smooth, mix, TAU, arc } from './schedule.mjs';
 import {
   MASTER, STATIONS, BENCH, CUBE, makeRoute, routeAt, masterPhase, parkHeight,
+  beltPoint, beltProgress,
 } from './world.mjs';
 
 export const params = {
@@ -262,11 +263,25 @@ function working(ctx, t, p) {
     F = { ...FOLD.stand };
     F.stand += breath * 0.005;
     shift = applyFold(ctx, F);
-    ctx.set('Head_pitch', 0.10 + breath * 0.05);
-    ctx.set('AAHead_yaw', fidget * 0.10);
-    // it checks on the big one, often
-    const who = COWORKERS[id % COWORKERS.length];
-    lookAt(ctx, yaw, headingTo(p.x, p.z, who.x, who.z), 0.8 * win((m % 18) / 18, 0.15, 0.55, 0.10));
+    if (m >= 65 && m < 70) {
+      /* the dwell: it put the cube down and everybody watches */
+      ctx.set('Head_pitch', 0.42 + breath * 0.04);
+      ctx.set('AAHead_yaw', fidget * 0.04);
+      lookAt(ctx, yaw, headingTo(p.x, p.z, p.x + 0.04, p.z - 0.12), 0.95);
+    } else {
+      ctx.set('Head_pitch', 0.10 + breath * 0.05);
+      ctx.set('AAHead_yaw', fidget * 0.10);
+      const who = COWORKERS[id % COWORKERS.length];
+      lookAt(ctx, yaw, headingTo(p.x, p.z, who.x, who.z), 0.8 * win((m % 18) / 18, 0.15, 0.55, 0.10));
+      const u = beltProgress(t);
+      if (u != null && ((m >= 46 && m < 59) || (m >= 76 && m < 89))) {
+        const cube = beltPoint(u);
+        const legT0 = m >= 76 ? 76 : 46;
+        const w = win((m - legT0) / 13, 0.08, 0.92, 0.12);
+        lookAt(ctx, yaw, headingTo(p.x, p.z, cube.x, cube.z), 0.82 * w);
+        ctx.add('Head_pitch', -0.14 * w);
+      }
+    }
     // and one small weight shift, a bit too often
     ctx.set('Left_Hip_Roll', clampTo(0.05 * fidget, -0.40, 1.57));
     ctx.set('Right_Hip_Roll', clampTo(0.05 * fidget, -1.57, 0.40));
@@ -279,11 +294,11 @@ function working(ctx, t, p) {
     const toF = take ? FOLD.belt : FOLD.bench;
     const awayF = take ? FOLD.bench : FOLD.belt;
 
-    const d1 = smooth(clamp01((u - 0.02) / (J.grab - 0.06)));
-    const hold1 = win(u, J.grab, J.grab + 0.09, 0.025);
-    const up = smooth(clamp01((u - (J.grab + 0.09)) / 0.13));
-    const d2 = smooth(clamp01((u - (J.set - 0.16)) / 0.13));
-    const rec = smooth(clamp01((u - (J.set + 0.08)) / 0.15));
+    const d1 = smooth(clamp01((u - 0.02) / (J.grab - 0.08)));
+    const hold1 = win(u, J.grab, J.grab + 0.11, 0.03);
+    const up = smooth(clamp01((u - (J.grab + 0.11)) / 0.15));
+    const d2 = smooth(clamp01((u - (J.set - 0.18)) / 0.14));
+    const rec = smooth(clamp01((u - (J.set + 0.10)) / 0.16));
 
     F = mixFold(FOLD.stand, toF, Math.max(0, d1 - up));
     F = mixFold(F, awayF, Math.max(0, d2 - rec));
@@ -298,7 +313,7 @@ function working(ctx, t, p) {
        millimetres past standing and settles back — the tiny overshoot that
        reads as "got it". It only happens on the way UP with the part, never on
        the way down, and never when it is empty-handed. */
-    const proud = win(u, J.grab + 0.12, J.grab + 0.34, 0.07);
+    const proud = win(u, J.grab + 0.14, J.grab + 0.36, 0.08);
     F.stand += (params.standTall - params.stand) * 0.55 * proud;
 
     shift = applyFold(ctx, F);

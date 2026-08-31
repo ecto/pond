@@ -12,7 +12,7 @@
 
 import { legIK } from './kinematics.mjs';
 import { plan, follow, clamp01, smooth, track, TAU, EASE } from './schedule.mjs';
-import { MASTER, STATIONS, makeRoute, routeAt, masterPhase } from './world.mjs';
+import { MASTER, STATIONS, makeRoute, routeAt, masterPhase, beltPoint, beltProgress } from './world.mjs';
 
 export const params = {
   L: 0.2130,          // both leg links, metres
@@ -427,6 +427,15 @@ function body(ctx, t) {
     frontDrop: raw.frontDrop * (1 - crouched),
     pitch: raw.pitch * (1 - crouched),
   };
+  const mm = masterPhase(t);
+  const bp = beltProgress(t);
+  if (bp != null && crouched < 0.15 && (mm >= 46 && mm < 59 || mm >= 76 && mm < 89)) {
+    const cube = beltPoint(bp);
+    const want = Math.atan2(-(cube.z - p.z), cube.x - p.x);
+    const rel = clamp(((want - p.heading + Math.PI * 3) % TAU) - Math.PI, -0.55, 0.55);
+    parked.yaw += rel * 0.42;
+    parked.pitch += -0.018;
+  }
 
   /* ---- what the trunk is pointing at ----------------------------------
      No neck joint on this robot: the trunk IS the head. Which means two

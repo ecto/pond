@@ -268,12 +268,6 @@ export const PROPS = [
   { name: 'z1Plinth', ...PLINTH, at: STATIONS.z1 },
   { name: 'z1Pallet', ...PALLET, at: STATIONS.z1Pallet },
   { name: 'k1Bench', ...BENCH, at: STATIONS.k1Bench },
-  {
-    name: 'belt',
-    w: BELT.len, h: BELT.y, d: BELT.w,
-    at: { x: (BELT.head.x + BELT.tail.x) / 2, z: (BELT.head.z + BELT.tail.z) / 2 },
-    yaw: Math.atan2(-(BELT.tail.z - BELT.head.z), BELT.tail.x - BELT.head.x),
-  },
 ];
 
 /* ---------------- the score ----------------
