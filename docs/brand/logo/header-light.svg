@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 500" width="1500" height="500" role="img">
+  <title>Pond</title>
+  <rect width="1500" height="500" fill="#ffffff"/>
+  <g transform="translate(214.500 90.000) scale(10.5)">
+    <polygon points="12,2 22,22 2,22" fill="#2aa13f"/>
+    <circle cx="38" cy="12" r="10" fill="#0000ff"/>
+    <rect x="54" y="2" width="20" height="20" fill="#e13a26"/>
+    <polygon points="90,22 100,2 80,2" fill="#f0ad00"/>
+  </g>
+</svg>
