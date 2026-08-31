@@ -1077,3 +1077,19 @@ html.dark .dark\\:text-gray-500 {
   outline: 2px solid var(--plotter);
   outline-offset: 2px;
 }
+
+/* Mintlify platform chrome (no native off switch on hosted plans). */
+#footer a[href*="utm_campaign=poweredBy"],
+#footer a[href*="mintlify.com"][href*="poweredBy"] {
+  display: none !important;
+}
+
+#footer:has(a[href*="utm_campaign=poweredBy"]) {
+  display: none !important;
+}
+
+.feedback-toolbar,
+.chat-assistant-floating-input,
+[class*="chat-assistant-"] {
+  display: none !important;
+}

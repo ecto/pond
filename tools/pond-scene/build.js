@@ -5,7 +5,7 @@
    frames plus the joint table, so scene.js can drive joint angles. */
 const path = require('path');
 const THREE = require('three');
-const { assembleLinks, assembleGLB, decimate, decimateLinks } = require('./assemble');
+const { assembleLinks, assembleGLB, decimate, decimateLinks, meshStats } = require('./assemble');
 const { forwardKinematics } = require('./urdf');
 
 const REPO = path.resolve(__dirname, '../..');           // .../pond
@@ -50,7 +50,7 @@ const SPECS = {
       : /hip_|knee|ankle|wrist|hand_link/.test(n) ? INK : BONE),
     weightFor: w([[/^torso_link$/, 2.0], [/^head_/, 1.9], [/^pelvis$/, 1.7],
       [/knee|hip_yaw/, 1.3], [/shoulder|elbow/, 1.2], [/ankle|hand_link|wrist/, 0.75]]),
-    tris: 92000,
+    tris: 100000,
     /* Rest: standing tall and easy, arms down, head level.
 
        The elbow sign is measured, not guessed (node probe.js h2). At the zero
@@ -86,7 +86,7 @@ const SPECS = {
     },
     weightFor: w([[/^Trunk$/, 2.0], [/^Head_[12]$/, 1.9], [/Shank|Hip_Pitch/, 1.3],
       [/^(Left|Right)_Arm_[123]$/, 1.2], [/foot_link|Ankle_Cross/, 0.75]]),
-    tris: 56000,
+    tris: 60000,
     // eager and upright: knees barely bent, arms ready rather than loaded
     rest: {
       Left_Hip_Pitch: -0.22, Right_Hip_Pitch: -0.22,
@@ -110,7 +110,7 @@ const SPECS = {
       return /thigh|calf|foot/.test(n) ? INK : BONE;
     },
     weightFor: w([[/^base$/, 1.9], [/thigh/, 1.35], [/hip/, 1.15], [/foot/, 0.7]]),
-    tris: 72000,
+    tris: 75000,
     // sentry rest pose: alert stance, front legs a touch straighter than rear
     rest: {
       FL_hip_joint: 0.04, RL_hip_joint: 0.04, FR_hip_joint: -0.04, RR_hip_joint: -0.04,
@@ -126,7 +126,7 @@ const SPECS = {
     // amber tool: the wrist/tool flange is the accent
     materialFor: (n) => (/link06/.test(n) ? ACCENT : /link04|link05/.test(n) ? INK : BONE),
     weightFor: w([[/link0[12]/, 1.7], [/link03/, 1.4], [/link06/, 1.3]]),
-    tris: 52000,
+    tris: 55000,
     // mid-cycle: reaching out, wrist cocked
     rest: { joint1: 0.34, joint2: 0.62, joint3: -0.95, joint4: 0.42, joint5: 0.2, joint6: 0 },
   },
@@ -184,7 +184,7 @@ function mat4(xyz, rpy) {
  * Returns { links: {name -> indexed geo}, joints, root, pivot, height } in the
  * source frame; pivot/height are measured at the rest pose, in Y-up.
  */
-function build(name) {
+async function build(name) {
   const s = SPECS[name];
   const t0 = Date.now();
 
@@ -216,7 +216,7 @@ function build(name) {
       }
     }
 
-    const geo = decimate(soup, s.tris);
+    const geo = await decimate(soup, s.tris);
     // bounds in the Y-up frame the runtime will see, same as the URDF path
     const box = new THREE.Box3();
     const v = new THREE.Vector3();
@@ -239,7 +239,7 @@ function build(name) {
   const { links, model } = assembleLinks(s);
   let srcTris = 0;
   for (const n of Object.keys(links)) srcTris += links[n].positions.length / 9;
-  const geo = decimateLinks(links, s.tris, s.weightFor);
+  const geo = await decimateLinks(links, s.tris, s.weightFor);
   const joints = prune(geo, model.joints);
 
   const childOf = new Set(joints.map((j) => j.child));
@@ -269,15 +269,19 @@ function build(name) {
 }
 
 function report(name, srcTris, out, t0) {
-  let tris = 0, verts = 0;
+  let tris = 0, verts = 0, boundary = 0, nonManifold = 0;
   for (const n of Object.keys(out.links)) {
-    tris += out.links[n].index.length / 3;
-    verts += out.links[n].positions.length / 3;
+    const st = meshStats(out.links[n]);
+    tris += st.tris;
+    verts += st.verts;
+    boundary += st.boundary;
+    nonManifold += st.nonManifold;
   }
   const moving = out.joints.filter((j) => /revolute|continuous|prismatic/.test(j.type)).length;
   console.log(`${name.padEnd(9)} ${Object.keys(out.links).length} links, ${out.joints.length} joints (${moving} movable)  `
-    + `src ${(srcTris / 1000).toFixed(0)}k -> ${tris} tris / ${verts} verts, h=${out.height.toFixed(2)}m, ${Date.now() - t0}ms`);
-  out.stats = { tris, verts, moving, srcTris };
+    + `src ${(srcTris / 1000).toFixed(0)}k -> ${tris} tris / ${verts} verts, h=${out.height.toFixed(2)}m, `
+    + `nm=${nonManifold} bd=${boundary}, ${Date.now() - t0}ms`);
+  out.stats = { tris, verts, moving, srcTris, boundary, nonManifold };
 }
 
 /**

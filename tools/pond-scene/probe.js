@@ -24,7 +24,8 @@ if (!SPECS[key]) { console.error(`unknown robot ${key}; have ${Object.keys(SPECS
 const pose = process.argv[3] && process.argv[3] !== '-' ? JSON.parse(process.argv[3]) : (SPECS[key].rest || {});
 const want = process.argv.slice(4);
 
-const char = build(key);
+(async () => {
+const char = await build(key);
 char.key = key;
 const world = fk(char, pose);
 
@@ -80,3 +81,4 @@ for (const n of names) {
   if (!p) { console.log(`  ${n}: MISSING`); continue; }
   console.log(`  ${n.padEnd(26)} (${p.x.toFixed(4)}, ${(p.y + drop).toFixed(4)}, ${p.z.toFixed(4)})`);
 }
+})().catch((e) => { console.error(e); process.exit(1); });

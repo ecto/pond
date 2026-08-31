@@ -171,7 +171,7 @@ async function buildStage(names) {
   W_ = await import('./anim/world.mjs');
   const cast = [];
   for (const key of (names || ORDER)) {
-    const char = build(key);
+    const char = await build(key);
     char.key = key;
     char.ground = W.GROUND[key] || [];
     char.mounted = !!(W.MOUNTED && W.MOUNTED[key]);
