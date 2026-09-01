@@ -4,10 +4,15 @@
   "description": "Documentation for Pond - Autonomous Robotics",
   "scripts": {
     "dev": "mintlify dev",
+    "dev:scene": "npm run watch --prefix ../tools/pond-scene",
+    "dev:all": "concurrently -k -n docs,scene -c blue,green \"mintlify dev --no-open\" \"npm run dev:scene\"",
     "build": "mintlify build",
     "start": "mintlify start"
   },
   "dependencies": {
-    "mintlify": "latest"
+    "mintlify": "4.2.818"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
