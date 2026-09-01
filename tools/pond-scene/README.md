@@ -26,6 +26,28 @@ npm run bundle
 Output goes to `docs/pond-scene.js` (esbuild, minified IIFE). Verify with
 `node --check docs/pond-scene.js`; the dev server picks the file up on its own.
 
+## Local docs + live scene iteration
+
+Mintlify needs its dependencies installed once under `docs/` (they are gitignored):
+
+```
+cd docs && npm install
+npm run dev          # http://localhost:3000/start/welcome
+```
+
+For scene/animation work, run the bundle watcher in a second terminal (or use
+`npm run dev:all` from `docs/` to start both):
+
+```
+cd docs && npm run dev:all
+# or: npm run dev:scene   # in one terminal
+#     npm run dev         # in another
+```
+
+`dev:scene` rebuilds `docs/pond-scene.js` on every save to `scene.js`, `studio.js`,
+or `anim/*.mjs`. Hard-refresh the welcome page after each rebuild. Mesh topology
+changes still need `npm run mesh && npm run bundle` in `tools/pond-scene/`.
+
 Edit:
 
 | what you want to change | file |

@@ -4,6 +4,7 @@
   "main": "index.js",
   "scripts": {
     "bundle": "esbuild scene.js --bundle --minify --format=iife --outfile=../../docs/pond-scene.js",
+    "watch": "esbuild scene.js --bundle --minify --format=iife --outfile=../../docs/pond-scene.js --watch",
     "mesh": "node export.js",
     "preview": "node preview.js",
     "selftest": "node selftest.js"

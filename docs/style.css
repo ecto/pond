@@ -63,6 +63,10 @@
   --font-sans: "Pond Sans", system-ui, -apple-system, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
   --ink: #111111;
+  /* Running text sits a step below --ink: full ink on paper is a 19:1 ratio,
+     which is more glare than sustained reading wants. Headings keep --ink so
+     the hierarchy still reads. */
+  --body: #2e2e2e;
   --muted: #555555;
   --stone: #333333;
   --rule: #e8e8e8;
@@ -72,7 +76,7 @@
   --mark-yellow: #f0ad00;
   --mark-red: #e13a26;
   --mark-green: #2aa13f;
-  --text: 16px;
+  --text: 15px;
   --leading: 1.6;
   --h1: 1.75rem;
   --h2: 1.375rem;
@@ -83,7 +87,12 @@
 
 html.dark {
   --ink: #ffffff;
-  --muted: #c8c8c8;
+  /* Pure white on pure black is 21:1, the highest ratio possible, and it
+     blooms. Backing off well clear of white keeps long passages comfortable. */
+  --body: #d4d4d4;
+  /* Has to stay a clear step below --body or secondary text stops reading as
+     secondary; still ~9:1 on black. */
+  --muted: #a3a3a3;
   --stone: #d6d6d6;
   --rule: #2a2a2a;
   --paper: #000000;
@@ -860,21 +869,29 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.65rem;
+  gap: 0.875rem;
 }
 
+/* min-width, not padding, is what makes the pair read as a pair: the labels
+   are different lengths, and at a full pill radius that difference turns the
+   shorter one into a lozenge. */
 .landing-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-height: 2.65rem;
-  padding: 0.6rem 1.35rem;
+  min-width: 6.5rem;
+  min-height: 2.875rem;
+  padding: 0.6rem 1.5rem;
   border-radius: 999px;
   font-family: var(--font-sans);
-  font-size: var(--ui);
+  font-size: 0.9375rem;
   font-weight: 500;
   line-height: 1;
+  letter-spacing: 0.01em;
   text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  transition: background-color 0.18s ease;
 }
 
 #content .landing-btn-primary,
@@ -883,9 +900,10 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
   color: #ffffff;
 }
 
+#content .landing-btn-primary:hover,
 .landing-btn-primary:hover {
   color: #ffffff;
-  filter: brightness(1.08);
+  background: #0000cc;
 }
 
 #content .landing-btn-ghost,
@@ -894,8 +912,23 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
   color: var(--ink);
 }
 
+#content .landing-btn-ghost:hover,
 .landing-btn-ghost:hover {
-  color: var(--plotter);
+  color: var(--ink);
+  background: #e8e8e8;
+}
+
+/* The #content prefix above carries an id, so the dark overrides have to
+   carry one too or they lose on specificity and never apply. --trough is
+   #1a1a1a in dark, which all but disappears against the black landing page. */
+html.dark #content .landing-btn-ghost,
+html.dark .landing-btn-ghost {
+  background: #1f1f1f;
+}
+
+html.dark #content .landing-btn-ghost:hover,
+html.dark .landing-btn-ghost:hover {
+  background: #2b2b2b;
 }
 
 @keyframes landing-rise {
@@ -1013,15 +1046,74 @@ body:has(a[href="/start/welcome"][aria-current="page"]) #content-container {
   font-family: var(--font-sans);
   font-size: var(--text);
   line-height: 1.65;
-  color: var(--ink) !important;
+  color: var(--body) !important;
 }
 
 #content th,
 #content td {
   font-family: var(--font-sans);
-  font-size: var(--meta);
+  font-size: var(--ui);
   line-height: 1.45;
-  color: var(--ink) !important;
+  color: var(--body) !important;
+}
+
+/* Mintlify ships tables with [&_td]:min-w-[150px], which forces any 4-column
+   table past the 65ch measure of #content and clips the last column. Let the
+   columns size to their content instead and the prose column takes the slack. */
+#content table td,
+#content table th {
+  min-width: 0;
+}
+
+/* Booktabs, the convention in a typeset paper: rules only above the header,
+   below the header, and below the last row, all one weight and one color. No
+   verticals and no per-row dividers. */
+#content table {
+  border-collapse: collapse;
+  width: 100%;
+  border-top: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+}
+
+/* Mintlify draws the row dividers on the tr, not the cells, so zeroing the
+   cell borders alone leaves them behind (and doubles up under the last row
+   against the table's own bottom rule). */
+#content table tr {
+  border: 0;
+}
+
+#content table th {
+  padding: 0.7rem 1rem 0.6rem 0;
+  font-weight: 500;
+  text-align: left;
+  vertical-align: bottom;
+  /* A label broken over two lines reads as data; keeping it on one line also
+     gives the column a sensible floor width under auto layout. */
+  white-space: nowrap;
+  border-bottom: 1px solid var(--rule);
+}
+
+#content table td {
+  padding: 0.75rem 1rem 0.75rem 0;
+  /* Rows are often one word next to three lines of prose; top alignment keeps
+     them reading as a row. */
+  vertical-align: top;
+  text-wrap: pretty;
+}
+
+/* Whitespace is the only thing separating rows now, so the rows that sit
+   against the enclosing rules need to be given a little more room. */
+#content table tbody tr:first-child td {
+  padding-top: 0.9rem;
+}
+
+#content table tbody tr:last-child td {
+  padding-bottom: 0.9rem;
+}
+
+#content table th:last-child,
+#content table td:last-child {
+  padding-right: 0;
 }
 
 #content p,
@@ -1056,14 +1148,36 @@ html.dark .dark\\:text-gray-500 {
   font-family: var(--font-mono);
 }
 
+/* Code sits on the page rather than in a panel. Mintlify paints three stacked
+   layers (the .code-block wrapper, an inner .code-block-background, and
+   Shiki's own inline background on the pre), so all three have to be cleared
+   or the panel shows through. The dark variants need the #content id to
+   outrank Mintlify's own `html.dark .code-block-background` !important rule. */
 .code-block,
 .code-block-background,
 #content pre,
-#content .code-block {
-  background: var(--trough) !important;
+#content .code-block,
+#content .code-block-background,
+html.dark #content .code-block,
+html.dark #content .code-block-background,
+html.dark #content pre {
+  background: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  border-radius: 6px !important;
+}
+
+/* The overlay fades long lines out under the floating copy button. It has to
+   fade to the page color now that there is no panel behind it, or it reads as
+   a stray patch. */
+#content .code-block .code-block-fade-overlay {
+  background-image: linear-gradient(to right, transparent, var(--paper)) !important;
+}
+
+/* The panel's own gutter used to frame the code; without a panel it just reads
+   as an accidental indent, so let the code sit on the prose margin. */
+#content .code-block .code-block-background > div {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 .card {
